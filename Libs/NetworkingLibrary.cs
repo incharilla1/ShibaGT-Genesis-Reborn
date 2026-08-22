@@ -6,6 +6,7 @@ using ExitGames.Client.Photon;
 using GorillaLocomotion;
 using Photon.Pun;
 using Photon.Realtime;
+using ShibaGTGenesisReborn.Mods;
 using ShibaGTGenesisReborn.Mods.Custom;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -29,13 +30,14 @@ namespace ShibaGTGenesisReborn.Libs
         private const string VisualizerEvent = "visualizer";
         private const string BoomboxAudioEvent = "boomboxaudio";
         
-        private Dictionary<string, NetworkedObject> trackedObjects = new Dictionary<string, NetworkedObject>();
-        private HashSet<string> pendingSync = new HashSet<string>();
+        private readonly Dictionary<string, NetworkedObject> trackedObjects = new Dictionary<string, NetworkedObject>();
+        private readonly HashSet<string> pendingSync = new HashSet<string>();
         private float lastSyncTime;
-        private float syncInterval = 0.05f;
-        private int eventCount = 0;
-        private int syncCount = 0;
-        private Dictionary<string, AudioClip> audioClipCache = new Dictionary<string, AudioClip>();
+        private const float syncInterval = 0.05f;
+        private int eventCount;
+        private int syncCount;
+        private readonly Dictionary<string, AudioClip> audioClipCache = new Dictionary<string, AudioClip>();
+        private bool isSubscribedToPhoton;
         
         private class NetworkedObject
         {
@@ -64,46 +66,46 @@ namespace ShibaGTGenesisReborn.Libs
             
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            
-            if (PhotonNetwork.NetworkingClient != null)
-                PhotonNetwork.NetworkingClient.EventReceived += OnEventReceived;
-            
-            if (NetworkSystem.Instance != null)
-            {
-                NetworkSystem.Instance.OnPlayerJoined += OnPlayerJoined;
-                NetworkSystem.Instance.OnPlayerLeft += OnPlayerLeft;
-            }
-            else
-            {
-                StartCoroutine(TrySubscribeToNetworkSystem());
-            }
+            StartCoroutine(InitNetworkSubscriptions());
         }
 
-        private IEnumerator TrySubscribeToNetworkSystem()
+        private IEnumerator InitNetworkSubscriptions()
         {
-            int attempts = 0;
-            while (NetworkSystem.Instance == null && attempts < 30)
+            while (!isSubscribedToPhoton)
             {
-                yield return new WaitForSeconds(1f);
-                attempts++;
+                if (PhotonNetwork.NetworkingClient != null)
+                {
+                    PhotonNetwork.NetworkingClient.EventReceived += OnEventReceived;
+                    isSubscribedToPhoton = true;
+                }
+                else
+                {
+                    yield return new WaitForSeconds(0.5f);
+                }
             }
-            
-            if (NetworkSystem.Instance != null)
-            {
-                NetworkSystem.Instance.OnPlayerJoined += OnPlayerJoined;
-                NetworkSystem.Instance.OnPlayerLeft += OnPlayerLeft;
-            }
+
+            while (NetworkSystem.Instance == null)
+                yield return new WaitForSeconds(0.5f);
+
+            NetworkSystem.Instance.OnPlayerJoined += OnPlayerJoined;
+            NetworkSystem.Instance.OnPlayerLeft += OnPlayerLeft;
         }
 
         void OnDestroy()
         {
-            if (PhotonNetwork.NetworkingClient != null)
+            if (isSubscribedToPhoton && PhotonNetwork.NetworkingClient != null)
                 PhotonNetwork.NetworkingClient.EventReceived -= OnEventReceived;
+
+            if (NetworkSystem.Instance != null)
+            {
+                NetworkSystem.Instance.OnPlayerJoined -= OnPlayerJoined;
+                NetworkSystem.Instance.OnPlayerLeft -= OnPlayerLeft;
+            }
         }
 
         void Update()
         {
-            if (!NetworkEnabled || !NetworkSystem.Instance.InRoom || trackedObjects.Count == 0) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true || trackedObjects.Count == 0) 
                 return;
             
             if (Time.time - lastSyncTime >= syncInterval)
@@ -128,10 +130,8 @@ namespace ShibaGTGenesisReborn.Libs
                         {
                             kvp.Value.audioPlaying = isPlaying;
                             kvp.Value.audioTime = aud.time;
-                            if (kvp.Value.ownerId == PhotonNetwork.LocalPlayer.UserId)
-                            {
+                            if (kvp.Value.ownerId == PhotonNetwork.LocalPlayer?.UserId)
                                 SendEvent(BoomboxAudioEvent, ReceiverGroup.Others, kvp.Key, isPlaying, aud.time, aud.volume, aud.pitch);
-                            }
                         }
                     }
                 }
@@ -142,10 +142,8 @@ namespace ShibaGTGenesisReborn.Libs
                     if (isSmoking != kvp.Value.isVapeSmoking)
                     {
                         kvp.Value.isVapeSmoking = isSmoking;
-                        if (kvp.Value.ownerId == PhotonNetwork.LocalPlayer.UserId)
-                        {
+                        if (kvp.Value.ownerId == PhotonNetwork.LocalPlayer?.UserId)
                             SendEvent(VapeSmokeEvent, ReceiverGroup.Others, kvp.Key, isSmoking);
-                        }
                     }
                 }
             }
@@ -158,14 +156,13 @@ namespace ShibaGTGenesisReborn.Libs
             
             try
             {
-                object[] args = data.CustomData as object[];
-                if (args == null || args.Length == 0) 
+                if (!(data.CustomData is object[] args) || args.Length == 0) 
                     return;
                 
                 string command = args[0] as string;
                 Player sender = PhotonNetwork.NetworkingClient.CurrentRoom?.GetPlayer(data.Sender);
                 
-                if (sender == null || sender.UserId == PhotonNetwork.LocalPlayer.UserId) 
+                if (sender == null || sender.UserId == PhotonNetwork.LocalPlayer?.UserId) 
                     return;
                 
                 eventCount++;
@@ -203,7 +200,7 @@ namespace ShibaGTGenesisReborn.Libs
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Networking] Event error: {e.Message}");
+                Debug.LogError($"Event error: {e.Message}");
             }
         }
 
@@ -216,6 +213,7 @@ namespace ShibaGTGenesisReborn.Libs
             Vector3 position = (Vector3)args[2];
             Quaternion rotation = (Quaternion)args[3];
             string ownerId = args[4] as string;
+            string propName = args.Length > 5 ? args[5] as string : "";
             
             GameObject obj = FindTrackedObject(objectId);
             if (obj != null)
@@ -232,7 +230,7 @@ namespace ShibaGTGenesisReborn.Libs
             }
             else
             {
-                TryCreateNetworkedObject(objectId, position, rotation, ownerId);
+                TryCreateNetworkedObject(objectId, position, rotation, ownerId, propName);
             }
         }
 
@@ -301,8 +299,8 @@ namespace ShibaGTGenesisReborn.Libs
                     }
                     else
                     {
-                        if (obj.GetComponent<MonoBehaviour>() != null)
-                            obj.GetComponent<MonoBehaviour>().StartCoroutine(LoadAudioClip(clipUrl, aud));
+                        MonoBehaviour mb = obj.GetComponent<MonoBehaviour>() ?? this;
+                        mb.StartCoroutine(LoadAudioClip(clipUrl, aud));
                     }
                 }
             }
@@ -310,17 +308,15 @@ namespace ShibaGTGenesisReborn.Libs
 
         private IEnumerator LoadAudioClip(string url, AudioSource aud)
         {
-            using (UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.WAV))
+            using UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.WAV);
+            yield return req.SendWebRequest();
+            if (req.result == UnityWebRequest.Result.Success)
             {
-                yield return req.SendWebRequest();
-                if (req.result == UnityWebRequest.Result.Success)
+                AudioClip clip = DownloadHandlerAudioClip.GetContent(req);
+                if (clip != null)
                 {
-                    AudioClip clip = DownloadHandlerAudioClip.GetContent(req);
-                    if (clip != null)
-                    {
-                        audioClipCache[url] = clip;
-                        aud.clip = clip;
-                    }
+                    audioClipCache[url] = clip;
+                    if (aud != null) aud.clip = clip;
                 }
             }
         }
@@ -334,13 +330,8 @@ namespace ShibaGTGenesisReborn.Libs
             bool isSmoking = (bool)args[2];
             
             GameObject obj = FindTrackedObject(objectId);
-            if (obj != null && obj.name.Contains("Vape"))
-            {
-                if (isSmoking)
-                {
-                    Vape.TriggerExhale();
-                }
-            }
+            if (obj != null && obj.name.Contains("Vape") && isSmoking)
+                Vape.TriggerExhale();
         }
 
         private void HandleVisualizer(object[] args)
@@ -348,19 +339,13 @@ namespace ShibaGTGenesisReborn.Libs
             if (args.Length < 3) 
                 return;
             
-            string objectId = args[1] as string;
             float intensity = (float)args[2];
-            
-            GameObject obj = FindTrackedObject(objectId);
-            if (obj != null && obj.name.Contains("Boombox"))
-            {
-                BoomboxManager.VisualizerIntensity = intensity;
-            }
+            BoomboxManager.VisualizerIntensity = intensity;
         }
 
         private void HandleBoomboxAudio(object[] args)
         {
-            if (args.Length < 5) 
+            if (args.Length < 6) 
                 return;
             
             string objectId = args[1] as string;
@@ -407,11 +392,13 @@ namespace ShibaGTGenesisReborn.Libs
             
             foreach (var kvp in trackedObjects)
             {
+                if (kvp.Value.gameObject == null) continue;
                 SendEvent(SyncEvent, sender.ActorNumber, 
                     kvp.Key, 
-                    kvp.Value.position, 
-                    kvp.Value.rotation,
-                    kvp.Value.ownerId);
+                    kvp.Value.gameObject.transform.position, 
+                    kvp.Value.gameObject.transform.rotation, 
+                    kvp.Value.ownerId,
+                    kvp.Value.gameObject.name);
                 
                 if (kvp.Value.scale != Vector3.one)
                     SendEvent(ScaleEvent, sender.ActorNumber, kvp.Key, kvp.Value.scale);
@@ -420,21 +407,17 @@ namespace ShibaGTGenesisReborn.Libs
                 {
                     AudioSource aud = kvp.Value.gameObject.GetComponent<AudioSource>();
                     if (aud != null)
-                    {
                         SendEvent(BoomboxAudioEvent, sender.ActorNumber, kvp.Key, aud.isPlaying, aud.time, aud.volume, aud.pitch);
-                    }
                 }
                 
                 if (kvp.Value.gameObject.name.Contains("Vape"))
-                {
                     SendEvent(VapeSmokeEvent, sender.ActorNumber, kvp.Key, Vape.isExhaling);
-                }
             }
         }
 
         private void OnPlayerJoined(NetPlayer player)
         {
-            if (!NetworkEnabled || !NetworkSystem.Instance.InRoom) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true) 
                 return;
             
             SendEvent(RequestEvent, player.ActorNumber);
@@ -444,11 +427,13 @@ namespace ShibaGTGenesisReborn.Libs
             
             foreach (var kvp in trackedObjects)
             {
+                if (kvp.Value.gameObject == null) continue;
                 SendEvent(SyncEvent, player.ActorNumber,
                     kvp.Key,
-                    kvp.Value.position,
-                    kvp.Value.rotation,
-                    kvp.Value.ownerId);
+                    kvp.Value.gameObject.transform.position,
+                    kvp.Value.gameObject.transform.rotation,
+                    kvp.Value.ownerId,
+                    kvp.Value.gameObject.name);
                 
                 if (kvp.Value.scale != Vector3.one)
                     SendEvent(ScaleEvent, player.ActorNumber, kvp.Key, kvp.Value.scale);
@@ -470,10 +455,12 @@ namespace ShibaGTGenesisReborn.Libs
 
         public void RegisterObject(GameObject obj)
         {
-            if (obj == null || !NetworkEnabled || !NetworkSystem.Instance.InRoom) 
+            if (obj == null || !NetworkEnabled || NetworkSystem.Instance?.InRoom != true) 
                 return;
             
-            string objectId = GenerateObjectId();
+            string objectId = FindObjectId(obj);
+            if (string.IsNullOrEmpty(objectId))
+                objectId = GenerateObjectId();
             
             NetworkedObject info = new NetworkedObject
             {
@@ -481,7 +468,7 @@ namespace ShibaGTGenesisReborn.Libs
                 position = obj.transform.position,
                 rotation = obj.transform.rotation,
                 scale = obj.transform.localScale,
-                ownerId = PhotonNetwork.LocalPlayer.UserId,
+                ownerId = PhotonNetwork.LocalPlayer?.UserId,
                 lastUpdate = Time.time,
                 isHeld = false,
                 audioPlaying = false,
@@ -497,7 +484,8 @@ namespace ShibaGTGenesisReborn.Libs
                 objectId,
                 info.position,
                 info.rotation,
-                info.ownerId);
+                info.ownerId,
+                obj.name);
             
             if (info.scale != Vector3.one)
                 SendEvent(ScaleEvent, ReceiverGroup.Others, objectId, info.scale);
@@ -585,7 +573,7 @@ namespace ShibaGTGenesisReborn.Libs
 
         public void SendEvent(string command, ReceiverGroup target, params object[] parameters)
         {
-            if (!NetworkSystem.Instance.InRoom) 
+            if (NetworkSystem.Instance?.InRoom != true) 
                 return;
             
             object[] data = new object[] { command }.Concat(parameters).ToArray();
@@ -596,7 +584,7 @@ namespace ShibaGTGenesisReborn.Libs
 
         public void SendEvent(string command, int targetActor, params object[] parameters)
         {
-            if (!NetworkSystem.Instance.InRoom) 
+            if (NetworkSystem.Instance?.InRoom != true) 
                 return;
             
             object[] data = new object[] { command }.Concat(parameters).ToArray();
@@ -619,34 +607,17 @@ namespace ShibaGTGenesisReborn.Libs
             return null;
         }
 
-        public bool IsObjectTracked(GameObject obj)
-        {
-            return !string.IsNullOrEmpty(FindObjectId(obj));
-        }
+        public bool IsObjectTracked(GameObject obj) =>
+            !string.IsNullOrEmpty(FindObjectId(obj));
 
-        public int GetTrackedCount()
-        {
-            return trackedObjects.Count;
-        }
-
-        public void PrintDebugInfo()
-        {
-            Debug.Log("=== NETWORKING STATUS ===");
-            Debug.Log($"NetworkEnabled: {NetworkEnabled}");
-            Debug.Log($"In Room: {NetworkSystem.Instance.InRoom}");
-            Debug.Log($"Tracked Objects: {trackedObjects.Count}");
-            Debug.Log($"Pending Syncs: {pendingSync.Count}");
-            Debug.Log($"Events Received: {eventCount}");
-            Debug.Log($"Syncs Sent: {syncCount}");
-            Debug.Log($"Audio Cache Size: {audioClipCache.Count}");
-            Debug.Log("==========================");
-        }
+        public int GetTrackedCount() =>
+            trackedObjects.Count;
 
         public void ToggleNetwork(bool enable)
         {
             NetworkEnabled = enable;
             
-            if (enable && NetworkSystem.Instance.InRoom)
+            if (enable && NetworkSystem.Instance?.InRoom == true)
             {
                 SendEvent(RequestEvent, ReceiverGroup.Others);
             }
@@ -674,7 +645,8 @@ namespace ShibaGTGenesisReborn.Libs
                         objectId,
                         info.gameObject.transform.position,
                         info.gameObject.transform.rotation,
-                        info.ownerId);
+                        info.ownerId,
+                        info.gameObject.name);
                     syncCount++;
                 }
             }
@@ -687,8 +659,10 @@ namespace ShibaGTGenesisReborn.Libs
             if (!trackedObjects.TryGetValue(objectId, out NetworkedObject info)) 
                 return;
             
-            if (info.ownerId == PhotonNetwork.LocalPlayer.UserId)
+            if (info.ownerId == PhotonNetwork.LocalPlayer?.UserId)
                 SendEvent(DestroyEvent, ReceiverGroup.Others, objectId);
+            else if (info.gameObject != null && info.gameObject.name.EndsWith("_Remote"))
+                Destroy(info.gameObject);
             
             trackedObjects.Remove(objectId);
             pendingSync.Remove(objectId);
@@ -708,23 +682,17 @@ namespace ShibaGTGenesisReborn.Libs
                 trackedObjects.Remove(id);
                 pendingSync.Remove(id);
                 
-                if (NetworkEnabled && NetworkSystem.Instance.InRoom)
+                if (NetworkEnabled && NetworkSystem.Instance?.InRoom == true)
                     SendEvent(DestroyEvent, ReceiverGroup.Others, id);
             }
         }
 
-        private GameObject FindTrackedObject(string objectId)
-        {
-            if (trackedObjects.TryGetValue(objectId, out NetworkedObject info))
-                return info.gameObject;
-            
-            return null;
-        }
+        private GameObject FindTrackedObject(string objectId) =>
+            trackedObjects.TryGetValue(objectId, out NetworkedObject info) ? info.gameObject : null;
 
-        private void TryCreateNetworkedObject(string objectId, Vector3 position, Quaternion rotation, string ownerId)
+        private void TryCreateNetworkedObject(string objectId, Vector3 position, Quaternion rotation, string ownerId, string propName = "")
         {
-            GameObject obj = FindObjectInMods(objectId);
-            
+            GameObject obj = CreateRemoteObject(propName, position, rotation);
             if (obj == null) 
                 return;
             
@@ -739,48 +707,74 @@ namespace ShibaGTGenesisReborn.Libs
             };
             
             trackedObjects[objectId] = info;
+        }
+
+        private GameObject CreateRemoteObject(string propName, Vector3 position, Quaternion rotation)
+        {
+            GameObject obj;
+            Mesh mesh = null;
+            Texture2D texture = null;
+
+            if (propName.Contains("Boombox"))
+            {
+                mesh = BoomboxManager.CM;
+                texture = BoomboxManager.CT;
+            }
+            else if (propName.Contains("Maxwell"))
+            {
+                mesh = MaxwellHolder.CM;
+                texture = MaxwellHolder.CT;
+            }
+            else if (propName.Contains("Grosh"))
+            {
+                mesh = GroshHolder.CM;
+                texture = GroshHolder.CT;
+            }
+            else if (propName.Contains("Tung"))
+            {
+                mesh = SusTung.CM;
+                texture = SusTung.CT;
+            }
+            else if (propName.Contains("Vape"))
+            {
+                mesh = Vape.CM;
+                texture = Vape.CT;
+            }
+            else if (propName.Contains("Seal"))
+            {
+                mesh = FatSealSpammer.CM;
+                texture = FatSealSpammer.CT;
+            }
+            else if (propName.Contains("Bomb"))
+            {
+                mesh = BombManager.bombMesh;
+                texture = BombManager.bombTexture;
+            }
+
+            if (mesh != null)
+            {
+                obj = new GameObject(propName + "_Remote");
+                MeshFilter mf = obj.AddComponent<MeshFilter>();
+                mf.mesh = mesh;
+                MeshRenderer mr = obj.AddComponent<MeshRenderer>();
+                Material mat = new Material(Shader.Find("Gorilla/UberShader") ?? Shader.Find("Standard") ?? Shader.Find("Universal Render Pipeline/Lit"));
+                if (texture != null) mat.mainTexture = texture;
+                mr.material = mat;
+            }
+            else
+            {
+                obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                obj.name = propName + "_Remote";
+                if (obj.TryGetComponent<Collider>(out var c)) Destroy(c);
+            }
+
             obj.transform.position = position;
             obj.transform.rotation = rotation;
+            return obj;
         }
 
-        private GameObject FindObjectInMods(string objectId)
-        {
-            if (BoomboxManager.Obj != null &&
-                BoomboxManager.Obj.GetInstanceID().ToString() == objectId)
-                return BoomboxManager.Obj;
-            
-            if (GroshHolder.Obj != null &&
-                GroshHolder.Obj.GetInstanceID().ToString() == objectId)
-                return GroshHolder.Obj;
-            
-            if (MaxwellHolder.Obj != null &&
-                MaxwellHolder.Obj.GetInstanceID().ToString() == objectId)
-                return MaxwellHolder.Obj;
-            
-            if (Vape.Obj != null && 
-                Vape.Obj.GetInstanceID().ToString() == objectId)
-                return Vape.Obj;
-            
-            if (SusTung.Obj != null &&
-                SusTung.Obj.GetInstanceID().ToString() == objectId)
-                return SusTung.Obj;
-            
-            if (FatSealSpammer.Seals != null)
-            {
-                foreach (GameObject seal in FatSealSpammer.Seals)
-                {
-                    if (seal != null && seal.GetInstanceID().ToString() == objectId)
-                        return seal;
-                }
-            }
-            
-            return null;
-        }
-
-        private string GenerateObjectId()
-        {
-            return Guid.NewGuid().ToString("N").Substring(0, 16);
-        }
+        private string GenerateObjectId() =>
+            Guid.NewGuid().ToString("N").Substring(0, 16);
     }
 
     public static class NetworkExtensions
@@ -821,10 +815,7 @@ namespace ShibaGTGenesisReborn.Libs
                 NetworkingLibrary.Instance.SyncVapeSmoke(obj, isSmoking);
         }
         
-        public static bool IsNetworked(this GameObject obj)
-        {
-            return NetworkingLibrary.Instance != null && 
-                   NetworkingLibrary.Instance.IsObjectTracked(obj);
-        }
+        public static bool IsNetworked(this GameObject obj) =>
+            NetworkingLibrary.Instance != null && NetworkingLibrary.Instance.IsObjectTracked(obj);
     }
 }

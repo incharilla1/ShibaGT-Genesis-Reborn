@@ -38,8 +38,6 @@ namespace CXS
         public static string MenuVersion = PluginInfo.Version;
 
         public static string CXSResourceLocation = "CXS";
-        public static string CXSSuperAdminIcon = $"{ServerData.AssetsURL}/icon.png";
-        public static string CXSAdminIcon = $"{ServerData.AssetsURL}/crown.png";
 
         public static bool DisableMenu
         {
@@ -119,36 +117,26 @@ namespace CXS
         public void Awake()
         {
             instance = this;
-            PhotonNetwork.NetworkingClient.EventReceived += EventReceived;
+            if (PhotonNetwork.NetworkingClient != null)
+                PhotonNetwork.NetworkingClient.EventReceived += EventReceived;
 
-            NetworkSystem.Instance.OnReturnedToSinglePlayer += ClearCXSAssets;
-            NetworkSystem.Instance.OnPlayerJoined += SyncCXSAssets;
-            NetworkSystem.Instance.OnPlayerLeft += SyncCXSUsers;
+            if (NetworkSystem.Instance != null)
+            {
+                NetworkSystem.Instance.OnReturnedToSinglePlayer += ClearCXSAssets;
+                NetworkSystem.Instance.OnPlayerJoined += SyncCXSAssets;
+                NetworkSystem.Instance.OnPlayerLeft += SyncCXSUsers;
+                NetworkSystem.Instance.OnJoinedRoomEvent += BlockedCheck;
+            }
+
+            PlayerGameEvents.OnMiscEvent += CXSAssetCommunication;
 
             if (PlayerPrefs.HasKey(BlockedKey))
                 isBlocked = long.Parse(PlayerPrefs.GetString(BlockedKey));
-            NetworkSystem.Instance.OnJoinedRoomEvent += BlockedCheck;
 
             if (!Directory.Exists(CXSResourceLocation))
                 Directory.CreateDirectory(CXSResourceLocation);
 
-            instance.StartCoroutine(DownloadAdminTextures());
             instance.StartCoroutine(PreloadAssets());
-
-            Log($@"
-
-_________ ____  ___  _________
-\_   ___ \\   \/  / /   _____/
-/    \  \/ \     /  \_____  \ 
-\     \____/     \  /        \
- \______  /___/\  \/_______  /
-        \/      \_/        \/ 
-           CXS {MenuName} {CXSVersion}
-          Made By Imudtrust
-
-
-     Originaly by goldentrophy & Twigcore
-");
 
             (GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset).supportsCameraOpaqueTexture = true;
             (GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset).supportsCameraDepthTexture = true;
@@ -157,38 +145,34 @@ _________ ____  ___  _________
         public static void LoadCXS() =>
             GorillaTagger.OnPlayerSpawned(() => LoadCXSImmediately());
 
-        public static bool IsMasterCXS;
-        public const string LoadVersionEventKey = "%<CXS>%LoadVersion"; // Do not change this, it's used to prevent multiple instances of CXS from colliding with each other
-        public static void NoOverlapEvents(string eventName, int id)
-        {
-            if (eventName != LoadVersionEventKey) return;
-            if (ServerData.VersionToNumber(CXSVersion) > id) return;
-            PhotonNetwork.NetworkingClient.EventReceived -= EventReceived;
-            PlayerGameEvents.OnMiscEvent += CXSAssetCommunication;
-            IsMasterCXS = true;
-        }
+        public static bool IsMasterCXS = true;
 
         public const string SyncAssetsEventKey = "%<CXS>%SyncAssets";
         public static void CXSAssetCommunication(string eventName, int id)
         {
             if (!eventName.StartsWith(SyncAssetsEventKey)) return;
             string[] data = eventName.Split("||");
-            string command = data[0];
+            if (data.Length < 2) return;
+            string command = data[1];
             switch (command)
             {
                 case "spawn":
-                    string assetName = data[1];
-                    string assetBundle = data[2];
-                    string linkObjectName = data[3];
-                    bool addGorillaSurfaceOverride = bool.Parse(data[4]);
+                    if (data.Length >= 6)
+                    {
+                        string assetName = data[2];
+                        string assetBundle = data[3];
+                        string linkObjectName = data[4];
+                        bool addGorillaSurfaceOverride = bool.Parse(data[5]);
 
-                    instance.StartCoroutine(LinkCXSAsset(id, linkObjectName, assetName, assetBundle, addGorillaSurfaceOverride));
+                        instance.StartCoroutine(LinkCXSAsset(id, linkObjectName, assetName, assetBundle, addGorillaSurfaceOverride));
+                    }
                     break;
                 case "destroy":
                     CXSAssets.Remove(id);
                     break;
                 case "confirmusing":
-                    ConfirmUsing(PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(id).UserId, data[1], data[2]);
+                    if (data.Length >= 4)
+                        ConfirmUsing(PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(id).UserId, data[2], data[3]);
                     break;
             }
         }
@@ -204,7 +188,7 @@ _________ ____  ___  _________
 
         public static IEnumerator LinkCXSAsset(int id, string linkObjectName, string assetName, string assetBundle, bool addGorillaSurfaceOverride)
         {
-            if (!NetworkSystem.Instance.InRoom)
+            if (NetworkSystem.Instance?.InRoom != true)
             {
                 Log("Attempt to retrieve asset while not in room");
                 yield break;
@@ -224,7 +208,7 @@ _________ ____  ___  _________
                 yield break;
             }
 
-            if (!NetworkSystem.Instance.InRoom)
+            if (NetworkSystem.Instance?.InRoom != true)
             {
                 Log("Attempt to retrieve asset while not in room");
                 yield break;
@@ -235,9 +219,6 @@ _________ ____  ___  _________
 
         public static GameObject LoadCXSImmediately()
         {
-            PlayerGameEvents.MiscEvent(LoadVersionEventKey, ServerData.VersionToNumber(CXSVersion));
-            PlayerGameEvents.OnMiscEvent += NoOverlapEvents;
-
             string CXSGUID = "tidalxyz_CXS";
             GameObject CXSObject = GameObject.Find(CXSGUID) ?? new GameObject(CXSGUID);
             CXSObject.AddComponent<CXS>();
@@ -248,8 +229,12 @@ _________ ____  ___  _________
             return CXSObject;
         }
 
-        public void OnDisable() =>
-            PhotonNetwork.NetworkingClient.EventReceived -= EventReceived;
+        public void OnDisable()
+        {
+            if (PhotonNetwork.NetworkingClient != null)
+                PhotonNetwork.NetworkingClient.EventReceived -= EventReceived;
+            PlayerGameEvents.OnMiscEvent -= CXSAssetCommunication;
+        }
 
         public static string SanitizeFileName(string fileName)
         {
@@ -390,105 +375,6 @@ _________ ____  ___  _________
             NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.DebugEchoMode = false;
         }
 
-        public static IEnumerator DownloadAdminTextures()
-        {
-            {
-                string fileName = $"{CXSResourceLocation}/icon.png";
-
-                if (File.Exists(fileName))
-                    File.Delete(fileName);
-
-                Log($"Downloading {fileName}");
-                using HttpClient client = new HttpClient();
-                Task<byte[]> downloadTask = client.GetByteArrayAsync(CXSSuperAdminIcon);
-
-                while (!downloadTask.IsCompleted)
-                    yield return null;
-
-                if (downloadTask.Exception != null)
-                {
-                    Log("Failed to download texture: " + downloadTask.Exception);
-                    yield break;
-                }
-
-                byte[] downloadedData = downloadTask.Result;
-                Task writeTask = File.WriteAllBytesAsync(fileName, downloadedData);
-
-                while (!writeTask.IsCompleted)
-                    yield return null;
-
-                if (writeTask.Exception != null)
-                {
-                    Log("Failed to save texture: " + writeTask.Exception);
-                    yield break;
-                }
-
-                Task<byte[]> readTask = File.ReadAllBytesAsync(fileName);
-                while (!readTask.IsCompleted)
-                    yield return null;
-
-                if (readTask.Exception != null)
-                {
-                    Log("Failed to read texture file: " + readTask.Exception);
-                    yield break;
-                }
-
-                byte[] bytes = readTask.Result;
-                Texture2D texture = new Texture2D(2, 2);
-                texture.LoadImage(bytes);
-
-                adminConeTexture = texture;
-            }
-
-            {
-                string fileName = $"{CXSResourceLocation}/crown.png";
-
-                if (File.Exists(fileName))
-                    File.Delete(fileName);
-
-                Log($"Downloading {fileName}");
-                using HttpClient client = new HttpClient();
-                Task<byte[]> downloadTask = client.GetByteArrayAsync(CXSAdminIcon);
-
-                while (!downloadTask.IsCompleted)
-                    yield return null;
-
-                if (downloadTask.Exception != null)
-                {
-                    Log("Failed to download texture: " + downloadTask.Exception);
-                    yield break;
-                }
-
-                byte[] downloadedData = downloadTask.Result;
-                Task writeTask = File.WriteAllBytesAsync(fileName, downloadedData);
-
-                while (!writeTask.IsCompleted)
-                    yield return null;
-
-                if (writeTask.Exception != null)
-                {
-                    Log("Failed to save texture: " + writeTask.Exception);
-                    yield break;
-                }
-
-                Task<byte[]> readTask = File.ReadAllBytesAsync(fileName);
-                while (!readTask.IsCompleted)
-                    yield return null;
-
-                if (readTask.Exception != null)
-                {
-                    Log("Failed to read texture file: " + readTask.Exception);
-                    yield break;
-                }
-
-                byte[] bytes = readTask.Result;
-                Texture2D texture = new Texture2D(2, 2);
-                texture.LoadImage(bytes);
-
-                adminCrownTexture = texture;
-            }
-        }
-
         public static string GetFileExtension(string fileName) =>
             fileName.ToLower().Split(".")[fileName.Split(".").Length - 1];
 
@@ -527,121 +413,15 @@ _________ ____  ___  _________
         public static VRRig adminRigTarget;
         public static float Size = 1f;
 
-        public static readonly List<Player> excludedCones = new List<Player>();
-        public static readonly Dictionary<VRRig, GameObject> conePool = new Dictionary<VRRig, GameObject>();
-
-        public static Material adminConeMaterial;
-        public static Texture2D adminConeTexture;
-
-        public static Material adminCrownMaterial;
-        public static Texture2D adminCrownTexture;
-
-        private static readonly Dictionary<VRRig, List<int>> indicatorDistanceList = new Dictionary<VRRig, List<int>>();
-        public static float GetIndicatorDistance(VRRig rig)
-        {
-            if (indicatorDistanceList.ContainsKey(rig))
-            {
-                if (indicatorDistanceList[rig][0] == Time.frameCount)
-                {
-                    indicatorDistanceList[rig].Add(Time.frameCount);
-                    return (0.3f + indicatorDistanceList[rig].Count * 0.5f);
-                }
-
-                indicatorDistanceList[rig].Clear();
-                indicatorDistanceList[rig].Add(Time.frameCount);
-                return (0.3f + indicatorDistanceList[rig].Count * 0.5f);
-            }
-
-            indicatorDistanceList.Add(rig, new List<int> { Time.frameCount });
-            return 0.8f;
-        }
-
         public void Update()
         {
             if (IsMasterCXS)
                 return;
 
-            if (NetworkSystem.Instance.InRoom)
+            if (NetworkSystem.Instance != null && NetworkSystem.Instance.InRoom)
             {
                 try
                 {
-                    List<VRRig> toRemove = new List<VRRig>();
-
-                    foreach (var nametag in from nametag in conePool
-                                            let nametagPlayer = nametag.Key.Creator?.GetPlayerRef()
-                                            where !VRRigCache.ActiveRigs.Contains(nametag.Key) ||
-                                 nametagPlayer == null ||
-                                 !ServerData.Administrators.ContainsKey(nametagPlayer.UserId) ||
-                                 excludedCones.Contains(nametagPlayer)
-                                            select nametag)
-                    {
-                        Destroy(nametag.Value);
-                        toRemove.Add(nametag.Key);
-                    }
-
-                    foreach (VRRig rig in toRemove)
-                        conePool.Remove(rig);
-
-                    bool localIsSuperAdmin =
-                        ServerData.Administrators.TryGetValue(PhotonNetwork.LocalPlayer.UserId, out string localAdminName) &&
-                        ServerData.SuperAdministrators.Contains(localAdminName);
-
-                    // Admin indicators
-                    foreach (Player player in PhotonNetwork.PlayerListOthers)
-                    {
-                        if (!ServerData.Administrators.TryGetValue(player.UserId, out string adminName) ||
-                            (!localIsSuperAdmin && excludedCones.Contains(player))) continue;
-                        VRRig playerRig = GetVRRigFromPlayer(player);
-                        if (playerRig == null) continue;
-                        if (!conePool.TryGetValue(playerRig, out GameObject adminConeObject))
-                        {
-                            adminConeObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                            Destroy(adminConeObject.GetComponent<Collider>());
-
-                            if (adminCrownMaterial == null)
-                            {
-                                adminCrownMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
-                                {
-                                    mainTexture = adminCrownTexture
-                                };
-
-                                adminCrownMaterial.SetFloat("_Surface", 1);
-                                adminCrownMaterial.SetFloat("_Blend", 0);
-                                adminCrownMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-                                adminCrownMaterial.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-                                adminCrownMaterial.SetFloat("_ZWrite", 0);
-                                adminCrownMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                                adminCrownMaterial.renderQueue = (int)RenderQueue.Transparent;
-                            }
-
-                            if (adminConeMaterial == null)
-                            {
-                                adminConeMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
-                                {
-                                    mainTexture = adminConeTexture
-                                };
-
-                                adminConeMaterial.SetFloat("_Surface", 1);
-                                adminConeMaterial.SetFloat("_Blend", 0);
-                                adminConeMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-                                adminConeMaterial.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-                                adminConeMaterial.SetFloat("_ZWrite", 0);
-                                adminConeMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                                adminConeMaterial.renderQueue = (int)RenderQueue.Transparent;
-                            }
-
-                            adminConeObject.GetComponent<Renderer>().material = ServerData.SuperAdministrators.Contains(adminName) ? adminConeMaterial : adminCrownMaterial;
-                            conePool.Add(playerRig, adminConeObject);
-                        }
-
-                        adminConeObject.GetComponent<Renderer>().material.color = playerRig.playerColor;
-
-                        adminConeObject.transform.localScale = new Vector3(0.4f, 0.4f, 0.01f) * playerRig.scaleFactor;
-                        adminConeObject.transform.position = playerRig.headMesh.transform.position + playerRig.headMesh.transform.up * (GetIndicatorDistance(playerRig) * playerRig.scaleFactor);
-
-                        adminConeObject.transform.LookAt(GorillaTagger.Instance.headCollider.transform.position);
-                    }
-
                     // Admin serversided scale
                     if (adminIsScaling && adminRigTarget != null)
                     {
@@ -651,16 +431,6 @@ _________ ____  ___  _________
                     }
                 }
                 catch { }
-            }
-            else
-            {
-                if (conePool.Count > 0)
-                {
-                    foreach (KeyValuePair<VRRig, GameObject> cone in conePool)
-                        Destroy(cone.Value);
-
-                    conePool.Clear();
-                }
             }
 
             SanitizeCXSAssets();
@@ -999,14 +769,13 @@ _________ ____  ___  _________
             if (ServerData.Administrators.TryGetValue(sender.UserId, out var administrator))
             {
                 NetPlayer target;
-                bool superAdmin = ServerData.SuperAdministrators.Contains(administrator);
 
                 switch (command)
                 {
                     case "kick":
                         target = GetPlayerFromID((string)args[1]);
                         LightningStrike(GetVRRigFromPlayer(target).headMesh.transform.position);
-                        if (allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId) || superAdmin)
+                        if (allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId))
                         {
                             if ((string)args[1] == PhotonNetwork.LocalPlayer.UserId)
                                 NetworkSystem.Instance.ReturnToSinglePlayer();
@@ -1014,14 +783,14 @@ _________ ____  ___  _________
                         break;
                     case "silkick":
                         target = GetPlayerFromID((string)args[1]);
-                        if (allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId) || superAdmin)
+                        if (allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId))
                         {
                             if ((string)args[1] == PhotonNetwork.LocalPlayer.UserId)
                                 NetworkSystem.Instance.ReturnToSinglePlayer();
                         }
                         break;
                     case "join":
-                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId) || superAdmin)
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             instance.StartCoroutine(JoinRoom((string)args[1]));
                         break;
                     case "kickall":
@@ -1032,25 +801,21 @@ _________ ____  ___  _________
                             NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
                     case "block":
-                        if (superAdmin)
-                        {
-                            long blockDur = (long)args[1];
-                            blockDur = Math.Clamp(blockDur, 1L, superAdmin ? 36000L : 1800L);
-                            PlayerPrefs.SetString(BlockedKey, (DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur).ToString());
-                            PlayerPrefs.Save();
-                            isBlocked = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur;
-                            NetworkSystem.Instance.ReturnToSinglePlayer();
-                        }
+                        long blockDur = (long)args[1];
+                        blockDur = Math.Clamp(blockDur, 1L, 36000L);
+                        PlayerPrefs.SetString(BlockedKey, (DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur).ToString());
+                        PlayerPrefs.Save();
+                        isBlocked = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur;
+                        NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
                     case "crash":
-                        if (superAdmin)
-                            Application.Quit();
+                        Application.Quit();
                         break;
                     case "isusing":
                         ExecuteCommand("confirmusing", sender.ActorNumber, MenuVersion, MenuName);
                         break;
                     case "sleep":
-                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId) || superAdmin)
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             Thread.Sleep((int)args[1]);
 
                         break;
@@ -1070,27 +835,21 @@ _________ ____  ___  _________
                         }
                         break;
                     case "forceenable":
-                        if (superAdmin)
-                        {
-                            string ForceMod = (string)args[1];
-                            bool EnableValue = (bool)args[2];
+                        string ForceMod = (string)args[1];
+                        bool EnableValue = (bool)args[2];
 
-                            EnableMod(ForceMod, EnableValue);
-                        }
+                        EnableMod(ForceMod, EnableValue);
 
                         break;
                     case "toggle":
-                        if (superAdmin)
-                        {
-                            string Mod = (string)args[1];
-                            ToggleMod(Mod);
-                        }
+                        string Mod = (string)args[1];
+                        ToggleMod(Mod);
                         break;
                     case "togglemenu":
                         DisableMenu = (bool)args[1];
                         break;
                     case "tp":
-                        if (disableFlingSelf && !superAdmin && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             break;
                         TeleportPlayer((Vector3)args[1]);
                         break;
@@ -1098,13 +857,9 @@ _________ ____  ___  _________
                         TeleportToMap((string)args[1]);
                         break;
                     case "nocone":
-                        if ((bool)args[1])
-                            excludedCones.Add(sender);
-                        else
-                            excludedCones.Remove(sender);
                         break;
                     case "vel":
-                        if (disableFlingSelf && !superAdmin && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             break;
                         GorillaTagger.Instance.rigidbody.linearVelocity = (Vector3)args[1];
                         break;
@@ -1126,7 +881,7 @@ _________ ____  ___  _________
                         shakeCoroutine = instance.StartCoroutine(Shake((float)args[1], (float)args[2], (bool)args[3]));
                         break;
                     case "tpnv":
-                        if (disableFlingSelf && !superAdmin && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             break;
                         TeleportPlayer((Vector3)args[1]);
                         GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
@@ -1243,11 +998,8 @@ _________ ____  ___  _________
                         break;
 
                     case "sb":
-                        if (superAdmin)
-                        {
-                            instance.StartCoroutine(GetSoundResource((string)args[1], audio =>
-                            { instance.StartCoroutine(PlaySoundMicrophone(audio)); }));
-                        }
+                        instance.StartCoroutine(GetSoundResource((string)args[1], audio =>
+                        { instance.StartCoroutine(PlaySoundMicrophone(audio)); }));
                         break;
 
                     case "time":
@@ -1555,9 +1307,6 @@ _________ ____  ___  _________
 
                     case "game-setposition":
                         {
-                            if (!superAdmin)
-                                break;
-
                             GameObject gameObject = GameObject.Find((string)args[1]);
                             if (gameObject != null)
                                 gameObject.transform.position = (Vector3)args[2];
@@ -1566,9 +1315,6 @@ _________ ____  ___  _________
 
                     case "game-setrotation":
                         {
-                            if (!superAdmin)
-                                break;
-
                             GameObject gameObject = GameObject.Find((string)args[1]);
                             if (gameObject != null)
                                 gameObject.transform.rotation = (Quaternion)args[2];
@@ -1577,9 +1323,6 @@ _________ ____  ___  _________
 
                     case "game-clone":
                         {
-                            if (!superAdmin)
-                                break;
-
                             GameObject gameObject = GameObject.Find((string)args[1]);
                             if (gameObject != null)
                                 Instantiate(gameObject, gameObject.transform.position, gameObject.transform.rotation, gameObject.transform.parent).name = (string)args[2];
@@ -1708,7 +1451,7 @@ _________ ____  ___  _________
                         break;
 
                     case "NoComputer":
-                        if (!superAdmin)
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                         {
                             GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/TreeRoomInteractables/GorillaComputerObject/")?.SetActive(false);
                             GameObject.Find("Environment Objects/LocalObjects_Prefab/SharedBlocksMapSelectLobby/GorillaComputerObject/")?.SetActive(false);
@@ -1721,7 +1464,7 @@ _________ ____  ___  _________
                         }
                         break;
                     case "YesComputer":
-                        if (!superAdmin)
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                         {
                             GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/TreeRoomInteractables/GorillaComputerObject/")?.SetActive(true);
                             GameObject.Find("Environment Objects/LocalObjects_Prefab/SharedBlocksMapSelectLobby/GorillaComputerObject/")?.SetActive(true);
@@ -1743,7 +1486,7 @@ _________ ____  ___  _________
                         break;
 
                     case "sendmydomain...":
-                        if (!superAdmin)
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("*my domain*", JoinType.Solo);
                         break;
                 }
