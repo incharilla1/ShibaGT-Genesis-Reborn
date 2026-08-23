@@ -25,6 +25,7 @@ namespace ShibaGTGenesisReborn.Mods
                     {
                         TagPlayer(GunLib.LockedPlayer);
                     }
+                    
                 }
             }, true);
         }

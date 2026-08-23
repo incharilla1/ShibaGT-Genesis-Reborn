@@ -186,6 +186,8 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Room [1]
+                new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), enabled = false, isTogglable = false, toolTip = "RPC Protection"},
+                new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), enabled = false, isTogglable = false, toolTip = "Experimental RPC Protection"},
                 new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room"},
                 new ButtonInfo { buttonText = "B Disconnect", method =() => mods.BDisconnect(), enabled = false, isTogglable = true, toolTip = "Press B to leave"},
                 new ButtonInfo { buttonText = "Join Genesis", method =() => mods.Joincodegenesis(), enabled = false, isTogglable = false, toolTip = "Join Genesis"},

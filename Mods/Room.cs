@@ -7,6 +7,7 @@ using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System;
 using System.Collections;
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -88,8 +89,6 @@ namespace ShibaGTGenesisReborn.Mods
                         PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 60000;
                         PhotonNetwork.NetworkingClient.LoadBalancingPeer.SentCountAllowance = int.MaxValue;
                     }
-
-                    while (GorillaTelemetry.telemetryEventsQueueMothership != null && GorillaTelemetry.telemetryEventsQueueMothership.TryDequeue(out _)) { }
                 }
             }
             catch { /* if it goes here its a skill issue */ }
