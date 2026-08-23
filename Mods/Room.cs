@@ -206,7 +206,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (NetworkSystem.Instance?.LocalRecorder != null) return NetworkSystem.Instance.LocalRecorder;
             if (NetworkSystem.Instance?.VoiceConnection?.PrimaryRecorder != null) return NetworkSystem.Instance.VoiceConnection.PrimaryRecorder;
             if (GorillaTagger.Instance?.myRecorder != null) return GorillaTagger.Instance.myRecorder;
-            return Object.FindFirstObjectByType<GTRecorder>() ?? (Recorder)Object.FindFirstObjectByType<Recorder>();
+            return Object.FindFirstObjectByType<GTRecorder>() ?? Object.FindFirstObjectByType<Recorder>();
         }
 
         private static GTRecorder GetActiveGTRecorder(Recorder recorder = null)
@@ -535,10 +535,12 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 config.MaxPlayers = joinTrigger.GetRoomSize(false);
                 PhotonNetworkController.Instance.currentJoinTrigger = joinTrigger;
-                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable();
-                props.Add("gameMode", joinTrigger.GetFullDesiredGameModeString());
-                props.Add("platform", PhotonNetworkController.Instance.platformTag);
-                props.Add("queueName", GorillaComputer.instance.currentQueue);
+                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
+                {
+                    { "gameMode", joinTrigger.GetFullDesiredGameModeString() },
+                    { "platform", PhotonNetworkController.Instance.platformTag },
+                    { "queueName", GorillaComputer.instance.currentQueue }
+                };
                 GorillaNetworking.ScheduledEvents.ScheduledEventMatchmaking.ApplyScheduledEventStateToHashes(props, out var searchFilter);
                 config.CustomProps = props;
                 config.SearchFilter = searchFilter;

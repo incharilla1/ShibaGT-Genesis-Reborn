@@ -22,7 +22,6 @@ namespace ShibaGTGenesisReborn
         public GameObject ComponentHolder { get; private set; }
 
         private Harmony harmony;
-        private bool versionOkay;
         private bool initialized;
         private bool isRunning = true;
         private Coroutine versionLoopCoroutine;
@@ -68,7 +67,6 @@ namespace ShibaGTGenesisReborn
         private void Start()
         {
             CXS.CXS.LoadCXS();
-
             harmony = new Harmony(PluginInfo.GUID);
 
             harmony.PatchAll();
@@ -79,8 +77,6 @@ namespace ShibaGTGenesisReborn
             ComponentHolder.AddComponent<NotificationLib>();
             ComponentHolder.AddComponent<TimedBehaviour>();
             ComponentHolder.AddComponent<NetworkingLibrary>();
-
-            StartCoroutine(StartVersionCheck());
         }
 
         private void OnPlayerSpawned()
@@ -92,8 +88,6 @@ namespace ShibaGTGenesisReborn
 
             if (ComponentHolder != null && ComponentHolder.GetComponent<InputHandler>() == null)
                 ComponentHolder.AddComponent<InputHandler>();
-
-            versionLoopCoroutine = StartCoroutine(WaitForVersionThenStartLoop());
         }
 
         private void OnDestroy()
@@ -119,120 +113,5 @@ namespace ShibaGTGenesisReborn
             Instance = null;
         }
 
-        private IEnumerator WaitForVersionThenStartLoop()
-        {
-            while (!versionOkay && isRunning)
-                yield return null;
-
-            if (isRunning)
-                versionLoopCoroutine = StartCoroutine(VersionLoop());
-        }
-
-        private IEnumerator StartVersionCheck()
-        {
-            yield return CheckVersion(true);
-        }
-
-        private IEnumerator VersionLoop()
-        {
-            while (isRunning)
-            {
-                yield return new WaitForSeconds(300f);
-
-                if (!isRunning)
-                    yield break;
-
-                yield return CheckVersion(false);
-            }
-        }
-
-        private IEnumerator CheckVersion(bool startup)
-        {
-            string rawUrl = "https://raw.githubusercontent.com/GreySausages/ShibaGT-Genesis-Reborn/main/PluginInfo.cs";
-
-            UnityWebRequest request = UnityWebRequest.Get(rawUrl);
-
-            try
-            {
-                yield return request.SendWebRequest();
-
-                if (request.result != UnityWebRequest.Result.Success)
-                {
-                    if (startup)
-                    {
-                        NotificationLib.SendNotification(
-                            NotificationLib.NotificationType.Error,
-                            "Unable to connect to update servers."
-                        );
-                    }
-
-                    versionOkay = true;
-                    yield break;
-                }
-
-                string content = request.downloadHandler.text;
-
-                Match versionMatch = Regex.Match(content, @"Version\s*=\s*""([^""]+)""");
-
-                if (!versionMatch.Success)
-                {
-                    if (startup)
-                    {
-                        NotificationLib.SendNotification(
-                            NotificationLib.NotificationType.Error,
-                            "Failed to parse version information."
-                        );
-                    }
-
-                    versionOkay = true;
-                    yield break;
-                }
-
-                string githubVersion = versionMatch.Groups[1].Value;
-                Version local = new Version(PluginInfo.Version);
-                Version remote = new Version(githubVersion);
-
-                if (remote > local)
-                {
-                    if (startup)
-                    {
-                        NotificationLib.SendNotification(
-                            NotificationLib.NotificationType.Alert,
-                            $"Update available!\nLatest: {remote}\nCurrent: {local}\nDownload: github.com/GreySausages/ShibaGT-Genesis-Reborn"
-                        );
-                    }
-
-                    versionOkay = true;
-                }
-                else if (remote == local)
-                {
-                    if (startup)
-                    {
-                        NotificationLib.SendNotification(
-                            NotificationLib.NotificationType.Info,
-                            $"{PluginInfo.Name} is up to date! (v{local})"
-                        );
-                    }
-
-                    versionOkay = true;
-                }
-                else
-                {
-                    if (startup)
-                    {
-                        NotificationLib.SendNotification(
-                            NotificationLib.NotificationType.Error,
-                            $"Modified or invalid {PluginInfo.Name} detected. Please download the official version."
-                        );
-                    }
-
-                    versionOkay = false;
-                }
-            }
-            finally
-            {
-                request.Dispose();
-            }
-        }
     }
 }

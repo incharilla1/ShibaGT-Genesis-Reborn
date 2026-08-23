@@ -1,8 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
 
@@ -20,8 +18,8 @@ namespace ShibaGTGenesisReborn.Libs
 
         public static readonly string[] bypassLayers =
         {
-            "Gorilla Trigger",
-            "Gorilla Boundary",
+            "GorillaTrigger",
+            "GorillaBoundary",
             "GorillaHand",
             "GorillaObject",
             "Zone",
@@ -30,7 +28,7 @@ namespace ShibaGTGenesisReborn.Libs
             "GorillaParticle",
         };
 
-        public static readonly LayerMask BypassLayers = ~LayerMask.GetMask(bypassLayers);
+        public static LayerMask BypassLayers => ~LayerMask.GetMask(bypassLayers);
 
         public static Color GunColor =>
             Settings.backgroundColor.colors[0].color;
@@ -46,21 +44,40 @@ namespace ShibaGTGenesisReborn.Libs
                 StartPcGun(action, lockOn);
         }
 
+        public static Camera GetPcCamera()
+        {
+            if (GorillaTagger.Instance?.thirdPersonCamera != null)
+            {
+                Camera cam = GorillaTagger.Instance.thirdPersonCamera.GetComponentInChildren<Camera>();
+                if (cam != null)
+                    return cam;
+            }
+
+            return Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+        }
+
         public static void StartPcGun(Action action, bool lockOn)
         {
-            if (!Mouse.current.rightButton.isPressed)
+            if (Mouse.current == null || !Mouse.current.rightButton.isPressed)
             {
                 CleanupPointer();
                 return;
             }
 
-            Camera cam = GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
-            Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
-
-            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers))
+            Camera cam = GetPcCamera();
+            if (cam == null)
                 return;
 
-            UpdateGun(hit, action, lockOn, cam.transform.position);
+            Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
+
+            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Ignore))
+                return;
+
+            Vector3 start = GorillaTagger.Instance?.rightHandTransform != null
+                ? GorillaTagger.Instance.rightHandTransform.position
+                : cam.transform.position;
+
+            UpdateGun(hit, action, lockOn, start);
         }
 
         public static void StartVrGun(Action action, bool lockOn)
@@ -71,15 +88,12 @@ namespace ShibaGTGenesisReborn.Libs
                 return;
             }
 
-            if (!Physics.Raycast(
-                GorillaTagger.Instance.rightHandTransform.position,
-                -GorillaTagger.Instance.rightHandTransform.up,
-                out RaycastHit hit,
-                1000f,
-                BypassLayers))
+            Transform hand = GorillaTagger.Instance.rightHandTransform;
+
+            if (!Physics.Raycast(hand.position, -hand.up, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Ignore))
                 return;
 
-            UpdateGun(hit, action, lockOn, GorillaTagger.Instance.rightHandTransform.position);
+            UpdateGun(hit, action, lockOn, hand.position);
         }
 
         private static void UpdateGun(RaycastHit hit, Action action, bool lockOn, Vector3 start)
@@ -90,7 +104,6 @@ namespace ShibaGTGenesisReborn.Libs
             if (lockOn && LockedPlayer == null)
             {
                 VRRig rig = hit.collider.GetComponentInParent<VRRig>();
-
                 if (rig != null && rig != GorillaTagger.Instance.offlineVRRig)
                     LockedPlayer = rig;
             }
@@ -106,7 +119,7 @@ namespace ShibaGTGenesisReborn.Libs
 
             bool pressed = IsXRDeviceActive()
                 ? InputHandler.Instance.RightTrigger.IsPressed
-                : Mouse.current.leftButton.isPressed;
+                : Mouse.current != null && Mouse.current.leftButton.isPressed;
 
             if (pressed)
             {
@@ -122,34 +135,20 @@ namespace ShibaGTGenesisReborn.Libs
         private static void CreatePointer()
         {
             spherepointer = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-
-            UnityEngine.Object.Destroy(
-                spherepointer.GetComponent<Collider>()
-            );
-
-            spherepointer.transform.localScale =
-                Vector3.one * SphereSize;
-
-            spherepointer.GetComponent<Renderer>().material.shader =
-                Shader.Find("GUI/Text Shader");
-
+            UnityEngine.Object.Destroy(spherepointer.GetComponent<Collider>());
+            spherepointer.transform.localScale = Vector3.one * SphereSize;
+            spherepointer.GetComponent<Renderer>().material.shader = Shader.Find("GUI/Text Shader");
             CreateLine();
         }
 
         private static void CreateLine()
         {
             GameObject obj = new GameObject("GunLine");
-
             gunLine = obj.AddComponent<LineRenderer>();
-
             gunLine.positionCount = 2;
             gunLine.startWidth = GunLineWidth;
             gunLine.endWidth = GunLineWidth;
-
-            gunLine.material = new Material(
-                Shader.Find("Sprites/Default")
-            );
-
+            gunLine.material = new Material(Shader.Find("GUI/Text Shader"));
             gunLine.numCapVertices = 5;
             gunLine.numCornerVertices = 5;
         }
@@ -161,62 +160,39 @@ namespace ShibaGTGenesisReborn.Libs
 
             gunLine.SetPosition(0, start);
             gunLine.SetPosition(1, end);
-
             gunLine.startWidth = GunLineWidth;
             gunLine.endWidth = GunLineWidth;
-
             gunLine.startColor = GunColor;
             gunLine.endColor = GunColor;
         }
 
-        public static Vector3 GetPointerPos()
-        {
-            return spherepointer != null
-                ? spherepointer.transform.position
-                : Vector3.zero;
-        }
+        public static Vector3 GetPointerPos() =>
+            spherepointer != null ? spherepointer.transform.position : Vector3.zero;
 
         public static void ChangeGunLineSize(bool increase)
         {
-            GunLineWidth += increase ? 0.002f : -0.002f;
-
-            GunLineWidth = Mathf.Clamp(
-                GunLineWidth,
-                0.001f,
-                0.05f
-            );
+            GunLineWidth = Mathf.Clamp(GunLineWidth + (increase ? 0.002f : -0.002f), 0.001f, 0.05f);
         }
 
         public static void ChangeGunSphereScale(bool increase)
         {
-            SphereSize += increase ? 0.02f : -0.02f;
-
-            SphereSize = Mathf.Clamp(
-                SphereSize,
-                0.05f,
-                0.5f
-            );
-
+            SphereSize = Mathf.Clamp(SphereSize + (increase ? 0.02f : -0.02f), 0.05f, 0.5f);
             if (spherepointer != null)
-                spherepointer.transform.localScale =
-                    Vector3.one * SphereSize;
+                spherepointer.transform.localScale = Vector3.one * SphereSize;
         }
 
         public static void ResetGunDefaults()
         {
             GunLineWidth = 0.012f;
             SphereSize = 0.15f;
-
             if (spherepointer != null)
-                spherepointer.transform.localScale =
-                    Vector3.one * SphereSize;
+                spherepointer.transform.localScale = Vector3.one * SphereSize;
         }
 
         public static void CleanupPointer()
         {
             if (spherepointer != null)
                 UnityEngine.Object.Destroy(spherepointer);
-
             if (gunLine != null)
                 UnityEngine.Object.Destroy(gunLine.gameObject);
 
@@ -228,15 +204,12 @@ namespace ShibaGTGenesisReborn.Libs
         public static bool IsXRDeviceActive()
         {
             List<XRDisplaySubsystem> list = new List<XRDisplaySubsystem>();
-
             SubsystemManager.GetInstances(list);
-
             foreach (XRDisplaySubsystem xr in list)
             {
                 if (xr.running)
                     return true;
             }
-
             return false;
         }
     }

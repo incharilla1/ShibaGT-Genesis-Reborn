@@ -91,6 +91,7 @@ namespace ShibaGTGenesisReborn.Menu
             new ButtonInfo[]
             { // visuals [6]
                 new ButtonInfo { buttonText = "Tracers", method =() => mods.Tracers(), isTogglable = true, toolTip = "Draw lines to players"},
+                new ButtonInfo { buttonText = "Beacon ESP", method =() => mods.BeaconESP(), isTogglable = true, toolTip = "Draw vertical beacon beams from players"},
                 new ButtonInfo { buttonText = "Infection Chams", method =() => mods.FullBodyESP(), disableMethod =() => mods.DisableFullBodyESP(), isTogglable = true, toolTip = "Highlight infected players"},
                 new ButtonInfo { buttonText = "RGB Monke (stump)", method =() => mods.RGB(), isTogglable = true, toolTip = "Cycle player colors in stump"},
                 new ButtonInfo { buttonText = "Strobe Monke (stump)", method =() => mods.RGB(true), isTogglable = true, toolTip = "Rapidly strobe player colors in stump"},

@@ -36,6 +36,28 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        public static void BeaconESP()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isOfflineVRRig)
+                    continue;
+
+                GameObject obj = new GameObject("BeaconESP");
+                LineRenderer line = obj.AddComponent<LineRenderer>();
+                line.startWidth = 0.1f;
+                line.endWidth = 0.1f;
+                line.positionCount = 2;
+                line.useWorldSpace = true;
+                line.SetPosition(0, rig.transform.position);
+                line.SetPosition(1, rig.transform.position + Vector3.up * 500f);
+                line.material.shader = Shader.Find("GUI/Text Shader");
+                line.startColor = rig.playerColor;
+                line.endColor = rig.playerColor;
+                Object.Destroy(obj, Time.deltaTime);
+            }
+        }
+
         public static void FullBodyESP()
         {
             foreach (VRRig vrrig in VRRigCache.ActiveRigs)

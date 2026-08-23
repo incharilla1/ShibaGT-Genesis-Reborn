@@ -2,8 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using ExitGames.Client.Photon;
-using GorillaLocomotion;
 using Photon.Pun;
 using Photon.Realtime;
 using ShibaGTGenesisReborn.Mods;
@@ -37,23 +35,24 @@ namespace ShibaGTGenesisReborn.Libs
         private int eventCount;
         private int syncCount;
         private readonly Dictionary<string, AudioClip> audioClipCache = new Dictionary<string, AudioClip>();
-        private bool isSubscribedToPhoton;
+        private bool isSubscribed;
         
         private class NetworkedObject
         {
             public GameObject gameObject;
             public Vector3 position;
             public Quaternion rotation;
+            public Vector3 targetPosition;
+            public Quaternion targetRotation;
             public Vector3 scale;
-            public string ownerId;
+            public int ownerActorNumber;
+            public string propName;
             public float lastUpdate;
             public bool isHeld;
             public bool audioPlaying;
             public float audioTime;
-            public string audioClipUrl;
             public bool isVapeSmoking;
             public float visualizerIntensity;
-            public bool audioSynced;
         }
 
         void Awake()
@@ -71,35 +70,28 @@ namespace ShibaGTGenesisReborn.Libs
 
         private IEnumerator InitNetworkSubscriptions()
         {
-            while (!isSubscribedToPhoton)
-            {
-                if (PhotonNetwork.NetworkingClient != null)
-                {
-                    PhotonNetwork.NetworkingClient.EventReceived += OnEventReceived;
-                    isSubscribedToPhoton = true;
-                }
-                else
-                {
-                    yield return new WaitForSeconds(0.5f);
-                }
-            }
-
             while (NetworkSystem.Instance == null)
                 yield return new WaitForSeconds(0.5f);
 
-            NetworkSystem.Instance.OnPlayerJoined += OnPlayerJoined;
-            NetworkSystem.Instance.OnPlayerLeft += OnPlayerLeft;
+            if (!isSubscribed)
+            {
+                NetworkSystem.Instance.OnRaiseEvent += OnEventRaised;
+                NetworkSystem.Instance.OnPlayerJoined += OnPlayerJoined;
+                NetworkSystem.Instance.OnPlayerLeft += OnPlayerLeft;
+                NetworkSystem.Instance.OnJoinedRoomEvent += OnLocalJoinedRoom;
+                isSubscribed = true;
+            }
         }
 
         void OnDestroy()
         {
-            if (isSubscribedToPhoton && PhotonNetwork.NetworkingClient != null)
-                PhotonNetwork.NetworkingClient.EventReceived -= OnEventReceived;
-
-            if (NetworkSystem.Instance != null)
+            if (isSubscribed && NetworkSystem.Instance != null)
             {
+                NetworkSystem.Instance.OnRaiseEvent -= OnEventRaised;
                 NetworkSystem.Instance.OnPlayerJoined -= OnPlayerJoined;
                 NetworkSystem.Instance.OnPlayerLeft -= OnPlayerLeft;
+                NetworkSystem.Instance.OnJoinedRoomEvent -= OnLocalJoinedRoom;
+                isSubscribed = false;
             }
         }
 
@@ -115,68 +107,82 @@ namespace ShibaGTGenesisReborn.Libs
             }
             
             CleanupDestroyedObjects();
+            int localId = GetLocalPlayerId();
             
             foreach (var kvp in trackedObjects)
             {
-                if (kvp.Value.gameObject == null) continue;
+                var info = kvp.Value;
+                if (info.gameObject == null) continue;
                 
-                if (kvp.Value.gameObject.name.Contains("Boombox"))
+                if (info.ownerActorNumber != localId)
                 {
-                    AudioSource aud = kvp.Value.gameObject.GetComponent<AudioSource>();
+                    float dist = Vector3.Distance(info.gameObject.transform.position, info.targetPosition);
+                    if (dist > 5f)
+                    {
+                        info.gameObject.transform.position = info.targetPosition;
+                        info.gameObject.transform.rotation = info.targetRotation;
+                    }
+                    else
+                    {
+                        info.gameObject.transform.position = Vector3.Lerp(info.gameObject.transform.position, info.targetPosition, Time.deltaTime * 20f);
+                        info.gameObject.transform.rotation = Quaternion.Slerp(info.gameObject.transform.rotation, info.targetRotation, Time.deltaTime * 20f);
+                    }
+                    continue;
+                }
+                
+                if (info.gameObject.name.Contains("Boombox"))
+                {
+                    AudioSource aud = info.gameObject.GetComponent<AudioSource>();
                     if (aud != null)
                     {
                         bool isPlaying = aud.isPlaying;
-                        if (isPlaying != kvp.Value.audioPlaying || Mathf.Abs(aud.time - kvp.Value.audioTime) > 0.1f)
+                        if (isPlaying != info.audioPlaying || Mathf.Abs(aud.time - info.audioTime) > 0.1f)
                         {
-                            kvp.Value.audioPlaying = isPlaying;
-                            kvp.Value.audioTime = aud.time;
-                            if (kvp.Value.ownerId == PhotonNetwork.LocalPlayer?.UserId)
-                                SendEvent(BoomboxAudioEvent, ReceiverGroup.Others, kvp.Key, isPlaying, aud.time, aud.volume, aud.pitch);
+                            info.audioPlaying = isPlaying;
+                            info.audioTime = aud.time;
+                            SendEvent(BoomboxAudioEvent, ReceiverGroup.Others, kvp.Key, isPlaying, aud.time, aud.volume, aud.pitch);
                         }
                     }
                 }
                 
-                if (kvp.Value.gameObject.name.Contains("Vape"))
+                if (info.gameObject.name.Contains("Vape"))
                 {
                     bool isSmoking = Vape.isExhaling;
-                    if (isSmoking != kvp.Value.isVapeSmoking)
+                    if (isSmoking != info.isVapeSmoking)
                     {
-                        kvp.Value.isVapeSmoking = isSmoking;
-                        if (kvp.Value.ownerId == PhotonNetwork.LocalPlayer?.UserId)
-                            SendEvent(VapeSmokeEvent, ReceiverGroup.Others, kvp.Key, isSmoking);
+                        info.isVapeSmoking = isSmoking;
+                        SendEvent(VapeSmokeEvent, ReceiverGroup.Others, kvp.Key, isSmoking);
                     }
                 }
             }
         }
 
-        private void OnEventReceived(EventData data)
+        private void OnEventRaised(byte eventCode, object customData, int senderActorNumber)
         {
-            if (data.Code != NetworkByte || !NetworkEnabled) 
+            if (eventCode != NetworkByte || !NetworkEnabled) 
+                return;
+            
+            if (senderActorNumber == GetLocalPlayerId()) 
                 return;
             
             try
             {
-                if (!(data.CustomData is object[] args) || args.Length == 0) 
+                if (!(customData is object[] args) || args.Length == 0) 
                     return;
                 
                 string command = args[0] as string;
-                Player sender = PhotonNetwork.NetworkingClient.CurrentRoom?.GetPlayer(data.Sender);
-                
-                if (sender == null || sender.UserId == PhotonNetwork.LocalPlayer?.UserId) 
-                    return;
-                
                 eventCount++;
                 
                 switch (command)
                 {
                     case SyncEvent:
-                        HandleSync(args);
+                        HandleSync(args, senderActorNumber);
                         break;
                     case DestroyEvent:
                         HandleDestroy(args);
                         break;
                     case RequestEvent:
-                        HandleRequest(sender);
+                        HandleRequest(senderActorNumber);
                         break;
                     case ScaleEvent:
                         HandleScale(args);
@@ -200,11 +206,12 @@ namespace ShibaGTGenesisReborn.Libs
             }
             catch (Exception e)
             {
-                Debug.LogError($"Event error: {e.Message}");
+                if (DebugMode)
+                    Debug.LogError($"[NetworkingLibrary] Event error: {e.Message}");
             }
         }
 
-        private void HandleSync(object[] args)
+        private void HandleSync(object[] args, int senderActorNumber)
         {
             if (args.Length < 5) 
                 return;
@@ -212,25 +219,23 @@ namespace ShibaGTGenesisReborn.Libs
             string objectId = args[1] as string;
             Vector3 position = (Vector3)args[2];
             Quaternion rotation = (Quaternion)args[3];
-            string ownerId = args[4] as string;
+            int ownerActor = args[4] is int actor ? actor : senderActorNumber;
             string propName = args.Length > 5 ? args[5] as string : "";
             
             GameObject obj = FindTrackedObject(objectId);
             if (obj != null)
             {
-                obj.transform.position = Vector3.Lerp(obj.transform.position, position, 0.5f);
-                obj.transform.rotation = Quaternion.Slerp(obj.transform.rotation, rotation, 0.5f);
-                
                 if (trackedObjects.TryGetValue(objectId, out NetworkedObject info))
                 {
-                    info.position = position;
-                    info.rotation = rotation;
+                    info.targetPosition = position;
+                    info.targetRotation = rotation;
                     info.lastUpdate = Time.time;
+                    info.ownerActorNumber = ownerActor;
                 }
             }
             else
             {
-                TryCreateNetworkedObject(objectId, position, rotation, ownerId, propName);
+                TryCreateNetworkedObject(objectId, position, rotation, ownerActor, propName);
             }
         }
 
@@ -308,7 +313,16 @@ namespace ShibaGTGenesisReborn.Libs
 
         private IEnumerator LoadAudioClip(string url, AudioSource aud)
         {
-            using UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.WAV);
+            if (string.IsNullOrEmpty(url)) 
+                yield break;
+
+            AudioType type = AudioType.UNKNOWN;
+            if (url.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)) type = AudioType.MPEG;
+            else if (url.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)) type = AudioType.OGGVORBIS;
+            else if (url.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)) type = AudioType.WAV;
+
+            string fullUrl = url.Contains("://") ? url : "file://" + url;
+            using UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(fullUrl, type);
             yield return req.SendWebRequest();
             if (req.result == UnityWebRequest.Result.Success)
             {
@@ -385,67 +399,85 @@ namespace ShibaGTGenesisReborn.Libs
             DestroyTrackedObject(objectId);
         }
 
-        private void HandleRequest(Player sender)
+        private void OnLocalJoinedRoom()
         {
-            if (trackedObjects.Count == 0) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true)
                 return;
-            
+
+            SendEvent(RequestEvent, ReceiverGroup.Others);
+        }
+
+        private void HandleRequest(int senderActorNumber)
+        {
+            int localId = GetLocalPlayerId();
             foreach (var kvp in trackedObjects)
             {
-                if (kvp.Value.gameObject == null) continue;
-                SendEvent(SyncEvent, sender.ActorNumber, 
+                if (kvp.Value.gameObject == null || kvp.Value.ownerActorNumber != localId) 
+                    continue;
+
+                SendEventToActor(SyncEvent, senderActorNumber, 
                     kvp.Key, 
                     kvp.Value.gameObject.transform.position, 
                     kvp.Value.gameObject.transform.rotation, 
-                    kvp.Value.ownerId,
-                    kvp.Value.gameObject.name);
+                    kvp.Value.ownerActorNumber,
+                    kvp.Value.propName ?? kvp.Value.gameObject.name);
                 
                 if (kvp.Value.scale != Vector3.one)
-                    SendEvent(ScaleEvent, sender.ActorNumber, kvp.Key, kvp.Value.scale);
+                    SendEventToActor(ScaleEvent, senderActorNumber, kvp.Key, kvp.Value.scale);
                 
                 if (kvp.Value.gameObject.name.Contains("Boombox"))
                 {
                     AudioSource aud = kvp.Value.gameObject.GetComponent<AudioSource>();
-                    if (aud != null)
-                        SendEvent(BoomboxAudioEvent, sender.ActorNumber, kvp.Key, aud.isPlaying, aud.time, aud.volume, aud.pitch);
+                    if (aud != null && aud.isPlaying)
+                        SendEventToActor(BoomboxAudioEvent, senderActorNumber, kvp.Key, aud.isPlaying, aud.time, aud.volume, aud.pitch);
                 }
                 
                 if (kvp.Value.gameObject.name.Contains("Vape"))
-                    SendEvent(VapeSmokeEvent, sender.ActorNumber, kvp.Key, Vape.isExhaling);
+                    SendEventToActor(VapeSmokeEvent, senderActorNumber, kvp.Key, Vape.isExhaling);
             }
         }
 
         private void OnPlayerJoined(NetPlayer player)
         {
-            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true || player == null || player.IsLocal) 
                 return;
-            
-            SendEvent(RequestEvent, player.ActorNumber);
-            
-            if (trackedObjects.Count == 0) 
-                return;
-            
+
+            int localId = GetLocalPlayerId();
             foreach (var kvp in trackedObjects)
             {
-                if (kvp.Value.gameObject == null) continue;
-                SendEvent(SyncEvent, player.ActorNumber,
+                if (kvp.Value.gameObject == null || kvp.Value.ownerActorNumber != localId) 
+                    continue;
+
+                SendEventToActor(SyncEvent, player.ActorNumber,
                     kvp.Key,
                     kvp.Value.gameObject.transform.position,
                     kvp.Value.gameObject.transform.rotation,
-                    kvp.Value.ownerId,
-                    kvp.Value.gameObject.name);
+                    kvp.Value.ownerActorNumber,
+                    kvp.Value.propName ?? kvp.Value.gameObject.name);
                 
                 if (kvp.Value.scale != Vector3.one)
-                    SendEvent(ScaleEvent, player.ActorNumber, kvp.Key, kvp.Value.scale);
+                    SendEventToActor(ScaleEvent, player.ActorNumber, kvp.Key, kvp.Value.scale);
+
+                if (kvp.Value.gameObject.name.Contains("Boombox"))
+                {
+                    AudioSource aud = kvp.Value.gameObject.GetComponent<AudioSource>();
+                    if (aud != null && aud.isPlaying)
+                        SendEventToActor(BoomboxAudioEvent, player.ActorNumber, kvp.Key, aud.isPlaying, aud.time, aud.volume, aud.pitch);
+                }
+
+                if (kvp.Value.gameObject.name.Contains("Vape"))
+                    SendEventToActor(VapeSmokeEvent, player.ActorNumber, kvp.Key, Vape.isExhaling);
             }
         }
 
         private void OnPlayerLeft(NetPlayer player)
         {
+            if (player == null) return;
+            int leftActor = player.ActorNumber;
             List<string> toRemove = new List<string>();
             foreach (var kvp in trackedObjects)
             {
-                if (kvp.Value.ownerId == player.UserId)
+                if (kvp.Value.ownerActorNumber == leftActor)
                     toRemove.Add(kvp.Key);
             }
             
@@ -467,8 +499,11 @@ namespace ShibaGTGenesisReborn.Libs
                 gameObject = obj,
                 position = obj.transform.position,
                 rotation = obj.transform.rotation,
+                targetPosition = obj.transform.position,
+                targetRotation = obj.transform.rotation,
                 scale = obj.transform.localScale,
-                ownerId = PhotonNetwork.LocalPlayer?.UserId,
+                ownerActorNumber = GetLocalPlayerId(),
+                propName = obj.name,
                 lastUpdate = Time.time,
                 isHeld = false,
                 audioPlaying = false,
@@ -484,7 +519,7 @@ namespace ShibaGTGenesisReborn.Libs
                 objectId,
                 info.position,
                 info.rotation,
-                info.ownerId,
+                info.ownerActorNumber,
                 obj.name);
             
             if (info.scale != Vector3.one)
@@ -522,6 +557,8 @@ namespace ShibaGTGenesisReborn.Libs
             {
                 info.position = obj.transform.position;
                 info.rotation = obj.transform.rotation;
+                info.targetPosition = obj.transform.position;
+                info.targetRotation = obj.transform.rotation;
                 info.lastUpdate = Time.time;
                 pendingSync.Add(objectId);
             }
@@ -577,20 +614,24 @@ namespace ShibaGTGenesisReborn.Libs
                 return;
             
             object[] data = new object[] { command }.Concat(parameters).ToArray();
-            PhotonNetwork.RaiseEvent(NetworkByte, data, 
-                new RaiseEventOptions { Receivers = target }, 
-                SendOptions.SendReliable);
+            NetEventOptions options = new NetEventOptions
+            {
+                Reciever = (NetEventOptions.RecieverTarget)(byte)target
+            };
+            NetworkSystemRaiseEvent.RaiseEvent(NetworkByte, data, options, reliable: true);
         }
 
-        public void SendEvent(string command, int targetActor, params object[] parameters)
+        public void SendEventToActor(string command, int targetActor, params object[] parameters)
         {
             if (NetworkSystem.Instance?.InRoom != true) 
                 return;
             
             object[] data = new object[] { command }.Concat(parameters).ToArray();
-            PhotonNetwork.RaiseEvent(NetworkByte, data,
-                new RaiseEventOptions { TargetActors = new[] { targetActor } },
-                SendOptions.SendReliable);
+            NetEventOptions options = new NetEventOptions
+            {
+                TargetActors = new[] { targetActor }
+            };
+            NetworkSystemRaiseEvent.RaiseEvent(NetworkByte, data, options, reliable: true);
         }
 
         public string FindObjectId(GameObject obj)
@@ -637,16 +678,17 @@ namespace ShibaGTGenesisReborn.Libs
             if (pendingSync.Count == 0) 
                 return;
             
+            int localId = GetLocalPlayerId();
             foreach (string objectId in pendingSync.ToList())
             {
-                if (trackedObjects.TryGetValue(objectId, out NetworkedObject info) && info.gameObject != null)
+                if (trackedObjects.TryGetValue(objectId, out NetworkedObject info) && info.gameObject != null && info.ownerActorNumber == localId)
                 {
                     SendEvent(SyncEvent, ReceiverGroup.Others,
                         objectId,
                         info.gameObject.transform.position,
                         info.gameObject.transform.rotation,
-                        info.ownerId,
-                        info.gameObject.name);
+                        info.ownerActorNumber,
+                        info.propName ?? info.gameObject.name);
                     syncCount++;
                 }
             }
@@ -659,9 +701,11 @@ namespace ShibaGTGenesisReborn.Libs
             if (!trackedObjects.TryGetValue(objectId, out NetworkedObject info)) 
                 return;
             
-            if (info.ownerId == PhotonNetwork.LocalPlayer?.UserId)
+            int localId = GetLocalPlayerId();
+            if (info.ownerActorNumber == localId)
                 SendEvent(DestroyEvent, ReceiverGroup.Others, objectId);
-            else if (info.gameObject != null && info.gameObject.name.EndsWith("_Remote"))
+
+            if (info.gameObject != null && info.ownerActorNumber != localId)
                 Destroy(info.gameObject);
             
             trackedObjects.Remove(objectId);
@@ -677,20 +721,24 @@ namespace ShibaGTGenesisReborn.Libs
                     toRemove.Add(kvp.Key);
             }
             
+            int localId = GetLocalPlayerId();
             foreach (string id in toRemove)
             {
+                if (trackedObjects.TryGetValue(id, out NetworkedObject info))
+                {
+                    if (info.ownerActorNumber == localId && NetworkEnabled && NetworkSystem.Instance?.InRoom == true)
+                        SendEvent(DestroyEvent, ReceiverGroup.Others, id);
+                }
+                
                 trackedObjects.Remove(id);
                 pendingSync.Remove(id);
-                
-                if (NetworkEnabled && NetworkSystem.Instance?.InRoom == true)
-                    SendEvent(DestroyEvent, ReceiverGroup.Others, id);
             }
         }
 
         private GameObject FindTrackedObject(string objectId) =>
             trackedObjects.TryGetValue(objectId, out NetworkedObject info) ? info.gameObject : null;
 
-        private void TryCreateNetworkedObject(string objectId, Vector3 position, Quaternion rotation, string ownerId, string propName = "")
+        private void TryCreateNetworkedObject(string objectId, Vector3 position, Quaternion rotation, int ownerActor, string propName = "")
         {
             GameObject obj = CreateRemoteObject(propName, position, rotation);
             if (obj == null) 
@@ -701,8 +749,11 @@ namespace ShibaGTGenesisReborn.Libs
                 gameObject = obj,
                 position = position,
                 rotation = rotation,
+                targetPosition = position,
+                targetRotation = rotation,
                 scale = obj.transform.localScale,
-                ownerId = ownerId,
+                ownerActorNumber = ownerActor,
+                propName = propName,
                 lastUpdate = Time.time
             };
             
@@ -724,6 +775,8 @@ namespace ShibaGTGenesisReborn.Libs
             {
                 mesh = MaxwellHolder.CM;
                 texture = MaxwellHolder.CT;
+                if (mesh == null)
+                    MaxwellHolder.DownloadAssets();
             }
             else if (propName.Contains("Grosh"))
             {
@@ -757,8 +810,15 @@ namespace ShibaGTGenesisReborn.Libs
                 MeshFilter mf = obj.AddComponent<MeshFilter>();
                 mf.mesh = mesh;
                 MeshRenderer mr = obj.AddComponent<MeshRenderer>();
-                Material mat = new Material(Shader.Find("Gorilla/UberShader") ?? Shader.Find("Standard") ?? Shader.Find("Universal Render Pipeline/Lit"));
-                if (texture != null) mat.mainTexture = texture;
+                Shader shader = Shader.Find("GorillaTag/UberShader")
+                    ?? Shader.Find("Universal Render Pipeline/Lit")
+                    ?? Shader.Find("Standard");
+                Material mat = new Material(shader);
+                if (texture != null)
+                {
+                    mat.mainTexture = texture;
+                    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", texture);
+                }
                 mr.material = mat;
             }
             else
@@ -771,6 +831,17 @@ namespace ShibaGTGenesisReborn.Libs
             obj.transform.position = position;
             obj.transform.rotation = rotation;
             return obj;
+        }
+
+        private int GetLocalPlayerId()
+        {
+            if (NetworkSystem.Instance != null)
+                return NetworkSystem.Instance.LocalPlayerID;
+
+            if (PhotonNetwork.LocalPlayer != null)
+                return PhotonNetwork.LocalPlayer.ActorNumber;
+
+            return -1;
         }
 
         private string GenerateObjectId() =>
