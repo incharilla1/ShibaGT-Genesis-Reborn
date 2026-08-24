@@ -189,14 +189,13 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (tprig)
             {
-                VRRig rig = VRRig.LocalRig;
-                if (rig != null)
+                if (VRRig.LocalRig != null)
                 {
-                    rig.enabled = false;
-                    rig.transform.position = position;
-                    if (rig.rightHandTransform != null) rig.rightHandTransform.position = position;
-                    if (rig.leftHandTransform != null) rig.leftHandTransform.position = position;
-                    if (rig.headConstraint != null) rig.headConstraint.position = position;
+                    VRRig.LocalRig.enabled = false;
+                    VRRig.LocalRig.transform.position = position;
+                    if (VRRig.LocalRig.rightHandTransform != null) VRRig.LocalRig.rightHandTransform.position = position;
+                    if (VRRig.LocalRig.leftHandTransform != null) VRRig.LocalRig.leftHandTransform.position = position;
+                    if (VRRig.LocalRig.headConstraint != null) VRRig.LocalRig.headConstraint.position = position;
                 }
                 return;
             }
@@ -219,12 +218,11 @@ namespace ShibaGTGenesisReborn.Mods
                 GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
             }
 
-            VRRig localRig = VRRig.LocalRig;
-            if (localRig != null)
+            if (VRRig.LocalRig != null)
             {
-                localRig.transform.position = targetPlayerPos;
-                localRig.leftHandLink?.BreakLink();
-                localRig.rightHandLink?.BreakLink();
+                VRRig.LocalRig.transform.position = targetPlayerPos;
+                VRRig.LocalRig.leftHandLink?.BreakLink();
+                VRRig.LocalRig.rightHandLink?.BreakLink();
             }
 
             Physics.SyncTransforms();

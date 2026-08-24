@@ -39,7 +39,7 @@ namespace CXS
                 mainButtons.Add(new ButtonInfo
                 {
                     buttonText = "Admin",
-                    method = () => Main.buttonsType = 16,
+                    method = () => SettingsMods.adminmods(),
                     isTogglable = false,
                     toolTip = "Admin mods"
                 });
@@ -49,7 +49,7 @@ namespace CXS
 
             NotificationLib.SendNotification(
                 NotificationLib.NotificationType.Info,
-                "<color=purple>Console</color>\n" +
+                "<color=purple>CXS</color>\n" +
                 $"Hello {playerName}! Admin category has been added.",
                 5f
             );

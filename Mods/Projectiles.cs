@@ -1,11 +1,13 @@
 using ExitGames.Client.Photon;
+using GorillaLocomotion;
 using GorillaNetworking;
 using Photon.Pun;
 using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
+using ShibaGTGenesisReborn.Menu;
 using System;
-using System.Reflection;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Object = UnityEngine.Object;
@@ -19,7 +21,7 @@ namespace ShibaGTGenesisReborn.Mods
             public string Name;
             public SnowballThrowable ThrowableLeft;
             public SnowballThrowable ThrowableRight;
-            public SnowballThrowable Throwable => ThrowableRight;
+            public SnowballThrowable Throwable => ThrowableRight ?? ThrowableLeft;
             public int ThrowableIndex => Throwable != null ? Throwable.throwableMakerIndex : -1;
         }
 
@@ -32,20 +34,33 @@ namespace ShibaGTGenesisReborn.Mods
         }
 
         public static bool biig;
+        public static bool rainbowProjectiles;
+        public static int projectileSpeedIndex;
+        private static readonly float[] projectileDelays = { 0.60f, 0.30f, 0.20f, 0.10f };
+        private static readonly string[] projectileSpeedNames = { "Normal", "Fast", "Quick", "Insane" };
+
         private static ProjectileEntry _snowballEntry;
         private static bool _isInitializing;
-        private static float spamDihlay;
+        private static float projectileDelay;
+        private static float orbitAngle;
+
+        private static int _lastSentSize = -1;
+        private static int _lastSentIndex = -1;
+
+        public static float GetProjectileDelay() => projectileDelays[projectileSpeedIndex % projectileDelays.Length];
+
+        public static void CycleProjectileSpeed()
+        {
+            projectileSpeedIndex = (projectileSpeedIndex + 1) % projectileDelays.Length;
+            Main.GetIndex("Projectile Speed").overlapText = "Speed: " + projectileSpeedNames[projectileSpeedIndex];
+        }
 
         public static void InitializeSnowball()
         {
-            if (_snowballEntry != null || _isInitializing)
-                return;
-
-            if (CosmeticsController.instance == null || CosmeticsController.instance.v2_allCosmetics == null)
-                return;
+            if (_snowballEntry != null || _isInitializing) return;
+            if (CosmeticsController.instance == null || CosmeticsController.instance.v2_allCosmetics == null) return;
 
             _isInitializing = true;
-
             try
             {
                 foreach (var info in CosmeticsController.instance.v2_allCosmetics)
@@ -103,84 +118,79 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void UpdateNetworkedProjectile(int index, ThrowableHand hand)
         {
+            if (VRRig.LocalRig == null) return;
             if (hand == ThrowableHand.Left || hand == ThrowableHand.Both)
                 VRRig.LocalRig.LeftThrowableProjectileIndex = index;
             if (hand == ThrowableHand.Right || hand == ThrowableHand.Both)
                 VRRig.LocalRig.RightThrowableProjectileIndex = index;
-            VRRig.LocalRig.myBodyDockPositions.RefreshTransferrableItems();
+            VRRig.LocalRig.myBodyDockPositions?.RefreshTransferrableItems();
         }
 
-        public static void SendSnowball(Vector3 position, Vector3 velocity, Color? color = null, ThrowableHand hand = ThrowableHand.Dynamic)
+        public static void SendSnowball(Vector3 position, Vector3 velocity, Color? color = null, ThrowableHand hand = ThrowableHand.Dynamic, int forcedScale = -1)
         {
+            if (Time.time < projectileDelay) return;
+            projectileDelay = Time.time + GetProjectileDelay();
+
             try
             {
                 if (_snowballEntry == null)
                 {
                     InitializeSnowball();
-                    if (_snowballEntry == null)
-                        return;
+                    if (_snowballEntry == null) return;
                 }
 
-                Color32 finalColor = color ?? Color.white;
+                Color32 finalColor = color ?? (rainbowProjectiles ? Color.HSVToRGB(Mathf.Repeat(Time.time * 2f, 1f), 1f, 1f) : Color.white);
                 GrowingSnowballThrowable throwable = (hand == ThrowableHand.Left ? _snowballEntry.ThrowableLeft : _snowballEntry.ThrowableRight) as GrowingSnowballThrowable;
-                if (throwable == null)
-                    throwable = _snowballEntry.Throwable as GrowingSnowballThrowable;
-                if (throwable == null)
-                    return;
+                if (throwable == null) throwable = _snowballEntry.Throwable as GrowingSnowballThrowable;
+                if (throwable == null) return;
 
-                UpdateNetworkedProjectile(_snowballEntry.ThrowableIndex, hand);
-                VRRig.LocalRig.SetThrowableProjectileColor(true, finalColor);
-
-                int index = GetProjectileIncrement(position, velocity, throwable.transform.lossyScale.x);
-                int scale = biig ? 5 : 0;
-                if (NetworkSystem.Instance.InRoom)
+                if (_lastSentIndex != _snowballEntry.ThrowableIndex)
                 {
-                    var changeSizeField = typeof(GrowingSnowballThrowable).GetField("changeSizeEvent", BindingFlags.NonPublic | BindingFlags.Instance);
-                    var snowballThrowField = typeof(GrowingSnowballThrowable).GetField("snowballThrowEvent", BindingFlags.NonPublic | BindingFlags.Instance);
-
-                    PhotonEvent changeSizeEvent = changeSizeField != null ? (PhotonEvent)changeSizeField.GetValue(throwable) : null;
-                    PhotonEvent snowballThrowEvent = snowballThrowField != null ? (PhotonEvent)snowballThrowField.GetValue(throwable) : null;
-
-                    if (changeSizeEvent == null || snowballThrowEvent == null)
-                        return;
-
-                    var eventIdField = typeof(PhotonEvent).GetField("_eventId", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (eventIdField == null)
-                        return;
-
-                    int changeSizeId = (int)eventIdField.GetValue(changeSizeEvent);
-                    int snowballThrowId = (int)eventIdField.GetValue(snowballThrowEvent);
-
-                    PhotonNetwork.RaiseEvent(PhotonEvent.PHOTON_EVENT_CODE, new object[]
-                    {
-                        changeSizeId,
-                        scale
-                    }, new RaiseEventOptions { Receivers = ReceiverGroup.All }, SendOptions.SendReliable);
-
-                    PhotonNetwork.RaiseEvent(PhotonEvent.PHOTON_EVENT_CODE, new object[]
-                    {
-                        snowballThrowId,
-                        position,
-                        velocity,
-                        index
-                    }, new RaiseEventOptions { Receivers = ReceiverGroup.All }, SendOptions.SendReliable);
-
-                    mods.RPCProt();
+                    _lastSentIndex = _snowballEntry.ThrowableIndex;
+                    UpdateNetworkedProjectile(_snowballEntry.ThrowableIndex, hand);
                 }
-                else
+
+                if (VRRig.LocalRig != null)
                 {
-                    var spawnMethod = typeof(GrowingSnowballThrowable).GetMethod("SpawnGrowingSnowball", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (spawnMethod == null)
-                        return;
+                    VRRig.LocalRig.LeftThrowableProjectileColor = finalColor;
+                    VRRig.LocalRig.RightThrowableProjectileColor = finalColor;
+                    VRRig.LocalRig.reliableState?.SetIsDirty();
+                }
 
-                    object[] spawnArgs = new object[] { velocity, throwable.snowballSizeLevels[scale].snowballScale };
-                    SlingshotProjectile proj = (SlingshotProjectile)spawnMethod.Invoke(throwable, spawnArgs);
-                    if (proj == null)
-                        return;
+                int scale = forcedScale >= 0 ? forcedScale : (biig ? 5 : 0);
+                float scaleValue = (throwable.snowballSizeLevels != null && scale < throwable.snowballSizeLevels.Count) ? throwable.snowballSizeLevels[scale].snowballScale : 1f;
 
-                    Vector3 spawnedVel = (Vector3)spawnArgs[0];
+                Vector3 validOrigin = position;
+                if (VRRig.LocalRig != null && Vector3.Distance(VRRig.LocalRig.transform.position, position) > 3.5f)
+                {
+                    Vector3 handPos = hand == ThrowableHand.Left
+                        ? GTPlayer.Instance.LeftHand.controllerTransform.position
+                        : GTPlayer.Instance.RightHand.controllerTransform.position;
+                    validOrigin = handPos;
+                }
 
-                    proj.Launch(position, spawnedVel, VRRig.LocalRig.Creator, false, false, index, throwable.snowballSizeLevels[scale].snowballScale, true, finalColor);
+                Vector3 safeVelocity = Vector3.ClampMagnitude(velocity, 48f);
+
+                SlingshotProjectile proj = throwable.SpawnGrowingSnowball(ref safeVelocity, scaleValue);
+                if (proj != null)
+                {
+                    int index = ProjectileTracker.AddAndIncrementLocalProjectile(proj, safeVelocity, position, scaleValue);
+                    index = ((index % 50) + 50) % 50;
+
+                    proj.Launch(position, safeVelocity, VRRig.LocalRig?.Creator ?? NetworkSystem.Instance.LocalPlayer, false, false, index, scaleValue, true, finalColor);
+                    proj.OnImpact += throwable.OnProjectileImpact;
+
+                    if (NetworkSystem.Instance.InRoom)
+                    {
+                        if (_lastSentSize != scale)
+                        {
+                            _lastSentSize = scale;
+                            throwable.changeSizeEvent?.RaiseOthers(scale);
+                        }
+
+                        throwable.snowballThrowEvent?.RaiseOthers(validOrigin, safeVelocity, index);
+                        RPCProt();
+                    }
                 }
             }
             catch (Exception e)
@@ -189,73 +199,83 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static int GetProjectileIncrement(Vector3 Position, Vector3 Velocity, float Scale)
+        public static void SnowballSpam(Vector3 velocity, Vector3 origin)
         {
-            try
+            bool fire = InputHandler.Instance.RightSecondary.IsPressed || (Mouse.current != null && Mouse.current.rightButton.isPressed);
+            if (fire)
+                SendSnowball(origin, velocity, null, ThrowableHand.Right);
+        }
+
+        public static void ProjectileGun()
+        {
+            GunLib.StartGun(() =>
             {
-                GameObject container = new GameObject("SlingshotProjectileHolder");
-                SlingshotProjectile projectile = container.AddComponent<SlingshotProjectile>();
+                Vector3 targetPos = GunLib.GetPointerPos();
+                Vector3 origin = GTPlayer.Instance.RightHand.controllerTransform.position;
+                Vector3 direction = (targetPos - origin).normalized;
+                SendSnowball(origin, direction * 35f, null, ThrowableHand.Right);
+            }, false);
+        }
 
-                int index = Time.frameCount;
-                var trackerType = typeof(GrowingSnowballThrowable).Assembly.GetType("ProjectileTracker");
-                if (trackerType == null)
+        public static void SnowballAimbot()
+        {
+            VRRig closestRig = null;
+            float closestDist = float.MaxValue;
+            Vector3 myPos = GorillaTagger.Instance.headCollider.transform.position;
+
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+                Vector3 rigPos = rig.transform.position;
+                float d = Vector3.Distance(myPos, rigPos);
+                if (d < closestDist)
                 {
-                    foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-                    {
-                        trackerType = asm.GetType("ProjectileTracker");
-                        if (trackerType != null)
-                            break;
-                    }
+                    closestDist = d;
+                    closestRig = rig;
                 }
-
-                if (trackerType != null)
-                {
-                    var addMethod = trackerType.GetMethod("AddAndIncrementLocalProjectile", BindingFlags.Public | BindingFlags.Static);
-                    if (addMethod != null)
-                    {
-                        index = (int)addMethod.Invoke(null, new object[] { projectile, Velocity, Position, Scale });
-                    }
-                }
-
-                Object.Destroy(container);
-                return index;
             }
-            catch
+
+            if (closestRig != null)
             {
-                return Time.frameCount;
+                bool trigger = InputHandler.Instance.RightTrigger.IsPressed || (Mouse.current != null && Mouse.current.leftButton.isPressed);
+                if (trigger)
+                {
+                    Vector3 targetHead = closestRig.headConstraint != null ? closestRig.headConstraint.position : closestRig.transform.position + Vector3.up * 0.3f;
+                    Vector3 origin = GTPlayer.Instance.RightHand.controllerTransform.position;
+                    Vector3 velocity = (targetHead - origin).normalized * 40f;
+                    SendSnowball(origin, velocity, null, ThrowableHand.Right);
+                }
             }
         }
 
-        public static void SnowballSpam(Vector3 velocity, Vector3 woah)
+        public static void SnowballOrbit()
         {
-            if (!(Time.time > spamDihlay)) return;
+            Vector3 center = GorillaTagger.Instance.headCollider.transform.position;
+            orbitAngle += Time.deltaTime * 360f;
+            float rad = orbitAngle * Mathf.Deg2Rad;
+            float radius = 1.25f;
 
-            bool fireRight = InputHandler.Instance.RightSecondary.IsPressed || Mouse.current.rightButton.isPressed;
+            Vector3 orbitPos = center + new Vector3(Mathf.Cos(rad) * radius, Mathf.Sin(Time.time * 4f) * 0.3f, Mathf.Sin(rad) * radius);
+            Vector3 tangentVel = new Vector3(-Mathf.Sin(rad), 0f, Mathf.Cos(rad)) * 15f;
 
-            if (fireRight)
-            {
-                for (int i = 0; i < 2; i++)
-                {
-                    SendSnowball(woah, velocity, Color.white, ThrowableHand.Right);
-                }
-                spamDihlay = Time.time + 0.5f;
-            }
+            SendSnowball(orbitPos, tangentVel, null, ThrowableHand.Dynamic);
         }
 
-        public static void SnowballSpam1(Vector3 velocity, Vector3 woah)
+        public static void SnowballRain()
         {
-            if (!(Time.time > spamDihlay)) return;
+            Vector3 center = GorillaTagger.Instance.headCollider.transform.position;
+            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * 8f;
+            Vector3 spawnPos = center + new Vector3(randomCircle.x, 9f, randomCircle.y);
+            Vector3 downVel = new Vector3(0f, -25f, 0f);
 
-            bool fireRight = InputHandler.Instance.RightGrip.IsPressed || Mouse.current.rightButton.isPressed;
+            SendSnowball(spawnPos, downVel, null, ThrowableHand.Dynamic);
+        }
 
-            if (fireRight)
-            {
-                for (int i = 0; i < 2; i++)
-                {
-                    SendSnowball(woah, velocity, Color.white, ThrowableHand.Right);
-                }
-                spamDihlay = Time.time + 0.5f;
-            }
+        public static void SnowballExplosion()
+        {
+            Vector3 origin = GTPlayer.Instance.RightHand.controllerTransform.position;
+            Vector3 dir = (GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.forward + UnityEngine.Random.insideUnitSphere * 0.2f).normalized;
+            SendSnowball(origin, dir * 28f, null, ThrowableHand.Dynamic);
         }
 
         public static void FlingGun()
@@ -264,10 +284,17 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null)
                 {
-                    VRRig.LocalRig.enabled = false;
-                    GorillaTagger.Instance.offlineVRRig.enabled = false;
-                    VRRig.LocalRig.transform.position = GunLib.LockedPlayer.transform.position;
-                    SnowballSpam1(-GunLib.LockedPlayer.transform.up * 20f, GunLib.LockedPlayer.transform.position - new Vector3(0f, -0.3f, 0f));
+                    if (VRRig.LocalRig != null)
+                    {
+                        VRRig.LocalRig.enabled = false;
+                        VRRig.LocalRig.transform.position = GunLib.LockedPlayer.transform.position;
+                    }
+                    if (GorillaTagger.Instance.offlineVRRig != null)
+                        GorillaTagger.Instance.offlineVRRig.enabled = false;
+
+                    Vector3 launchPos = GunLib.LockedPlayer.transform.position - new Vector3(0f, 0.4f, 0f);
+                    Vector3 upVel = Vector3.up * 45f;
+                    SendSnowball(launchPos, upVel, Color.red, ThrowableHand.Right, 5);
                 }
             }, true);
         }

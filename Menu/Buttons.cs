@@ -32,11 +32,35 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Settings [0]
-                new ButtonInfo { buttonText = "Gun Settings", method =() => SettingsMods.guardian(), toolTip = "Gun settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Menu", method =() => SettingsMods.safety(), toolTip = "Menu settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Movement", method =() => SettingsMods.moveset(), toolTip = "Move settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Projectiles", method =() => SettingsMods.projset(), toolTip = "Proj settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Anti Report", method =() => mods.AntiReport(), toolTip = "Block reports", isTogglable = true, enabled = true},
+                new ButtonInfo { buttonText = "Filled ESP", enableMethod =() => mods.filledESP = true, disableMethod =() => mods.filledESP = false, isTogglable = true, enabled = false, toolTip = "Toggle filled 2D and 3D box ESP"},
+            },
+
+            new ButtonInfo[]
+            { // Room [1]
+                new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), enabled = false, isTogglable = false, toolTip = "RPC Protection"},
+                new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), enabled = false, isTogglable = false, toolTip = "Experimental RPC Protection"},
+                new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room"},
+                new ButtonInfo { buttonText = "B Disconnect", method =() => mods.BDisconnect(), enabled = false, isTogglable = true, toolTip = "Press B to leave"},
+                new ButtonInfo { buttonText = "Join Genesis", method =() => mods.Joincodegenesis(), enabled = false, isTogglable = false, toolTip = "Join Genesis"},
+                new ButtonInfo { buttonText = "Join Random Room", method =() => mods.JoinRandom(), enabled = false, isTogglable = false, toolTip = "Join random"},
+                new ButtonInfo { buttonText = "Create Room", method =() => mods.CreateRoom(), enabled = false, isTogglable = false, toolTip = "Create a public room"},
+                new ButtonInfo { buttonText = "Connect to Fastest Region", method =() => PhotonNetwork.ConnectToBestCloudServer(), enabled = false, isTogglable = false, toolTip = "Join US Central server"},
+                new ButtonInfo { buttonText = "Connect to US Central", method =() => mods.ConnectToRegion("us"), enabled = false, isTogglable = false, toolTip = "Join US Central server"},
+                new ButtonInfo { buttonText = "Connect to US West", method =() => mods.ConnectToRegion("usw"), enabled = false, isTogglable = false, toolTip = "Join US West server"},
+                new ButtonInfo { buttonText = "Connect to EU", method =() => mods.ConnectToRegion("eu"), enabled = false, isTogglable = false, toolTip = "Join EU server"},
+                new ButtonInfo { buttonText = "Mute Gun (CS)", method =() => mods.MuteGun(), isTogglable = true, toolTip = "Shoot to mute player"},
+                new ButtonInfo { buttonText = "Mute All (CS)", method =() => mods.MuteAll(), enabled = false, isTogglable = false, toolTip = "Mute all players"},
+                new ButtonInfo { buttonText = "Unmute Gun", method =() => mods.UnmuteGun(), isTogglable = true, toolTip = "Shoot to unmute player"},
+                new ButtonInfo { buttonText = "Unmute All", method =() => mods.UnmuteAll(), enabled = false, isTogglable = false, toolTip = "Unmute all players"},
+                new ButtonInfo { buttonText = "Report Gun", method =() => mods.ReportGun(), isTogglable = true, toolTip = "Shoot to report player"},
+                new ButtonInfo { buttonText = "Report All", method =() => mods.ReportAll(), enabled = false, isTogglable = false, toolTip = "Report all players"},
+                new ButtonInfo { buttonText = "Copy Identity", method =() => mods.CopyPlayerIdentity(), isTogglable = true, toolTip = "Shoot player to copy name and color"},
+                new ButtonInfo { buttonText = "Lobby Hop", method =() => mods.LobbyHop(), isTogglable = false, toolTip = "Disconnect and join new random room"},
+                new ButtonInfo { buttonText = "Rejoin Room", method =() => mods.RejoinRoom(), isTogglable = false, toolTip = "Reconnect to current room"},
             },
 
             new ButtonInfo[]
@@ -89,43 +113,19 @@ namespace ShibaGTGenesisReborn.Menu
             },
 
             new ButtonInfo[]
-            { // visuals [6]
-                new ButtonInfo { buttonText = "Tracers", method =() => mods.Tracers(), isTogglable = true, toolTip = "Draw lines to players"},
-                new ButtonInfo { buttonText = "Beacon ESP", method =() => mods.BeaconESP(), isTogglable = true, toolTip = "Draw vertical beacon beams from players"},
-                new ButtonInfo { buttonText = "Infection Chams", method =() => mods.FullBodyESP(), disableMethod =() => mods.DisableFullBodyESP(), isTogglable = true, toolTip = "Highlight infected players"},
-                new ButtonInfo { buttonText = "RGB Monke (stump)", method =() => mods.RGB(), isTogglable = true, toolTip = "Cycle player colors in stump"},
-                new ButtonInfo { buttonText = "Strobe Monke (stump)", method =() => mods.RGB(true), isTogglable = true, toolTip = "Rapidly strobe player colors in stump"},
-                new ButtonInfo { buttonText = "Casual Chams", method =() => mods.CasualFullBodyESP(), disableMethod =() => mods.DisableFullBodyESP(), isTogglable = true, toolTip = "Highlight all players"},
-                new ButtonInfo { buttonText = "Skeleton ESP", method =() => mods.SkeletonESP(), isTogglable = true, toolTip = "Draw bone skeletons on players"},
-                new ButtonInfo { buttonText = "2D Box ESP", method =() => mods.TwoDBoxESP(), isTogglable = true, toolTip = "Draw filled 2D player boxes"},
-                new ButtonInfo { buttonText = "3D Box ESP", method =() => mods.BoxESP(), isTogglable = true, toolTip = "Draw 3D wireframe boxes"},
-                new ButtonInfo { buttonText = "Name Tags", method =() => mods.NameAndDistanceTags(), isTogglable = true, toolTip = "Show player name and distance"},
-                new ButtonInfo { buttonText = "cursedgtag", overlapText = "Cursed Mode: Off", method =() => mods.CursedGTAG(), isTogglable = false, toolTip = "Change cursed time override"},
-                new ButtonInfo { buttonText = "Time Switcher", overlapText = "Time: Default", method =() => mods.TimeSwitcher(), isTogglable = false, toolTip = "Change time of day"},
-                new ButtonInfo { buttonText = "Weather Switcher", overlapText = "Weather: Default", method =() => mods.CycleWeather(), isTogglable = false, toolTip = "Change weather mode (Rain/Clear)"},
-            },
-
-            new ButtonInfo[]
-            { // overpowered [8]
-                new ButtonInfo { buttonText = "lagpwr", overlapText = "Lag Power: Weak", method =() => mods.lagchange(), isTogglable = false, toolTip = "Lag target player with events"},
-                new ButtonInfo { buttonText = "Lag Gun", method =() => mods.LagGun(), isTogglable = true, toolTip = "Lag target player with events"},
-                new ButtonInfo { buttonText = "Lag All", method =() => mods.LagAll(), isTogglable = true, toolTip = "Lag all players in room"},
-            },
-
-            new ButtonInfo[]
-            { // Menu Settings
-                new ButtonInfo { buttonText = "Left Hand", enableMethod =() => SettingsMods.LeftHand(), disableMethod =() => SettingsMods.RightHand(), toolTip = "Toggle menu hand", enabled = !rightHanded},
-                new ButtonInfo { buttonText = "FPS Counter", enableMethod =() => SettingsMods.EnableFPSCounter(), disableMethod =() => SettingsMods.DisableFPSCounter(), enabled = fpsCounter, toolTip = "Show FPS counter"},
-                new ButtonInfo { buttonText = "Setting Button", enableMethod =() => SettingsButton = true, disableMethod =() => SettingsButton = false, enabled = SettingsButton, toolTip = "Show settings button"},
-                new ButtonInfo { buttonText = "Folder Button", enableMethod =() => FolderButton = true, disableMethod =() => FolderButton = false, enabled = FolderButton, toolTip = "Show folder button"},
-                new ButtonInfo { buttonText = "Leave Button", enableMethod =() => SettingsMods.EnableDisconnectButton(), disableMethod =() => SettingsMods.DisableDisconnectButton(), enabled = disconnectButton, toolTip = "Show disconnect button"},
-                new ButtonInfo { buttonText = "Remove All Prefs", method =() => mods.Removeprefs(), isTogglable = false, enabled = false, toolTip = "Reset saved preferences"},
-                new ButtonInfo { buttonText = "PPos", overlapText = "Menu Layout: ShibaGT", isTogglable = false, method =() => mods.SwitchPagePos(), enabled = false, toolTip = "Switch menu layout"},
-                new ButtonInfo { buttonText = "OutlineMenu", isTogglable = true, enableMethod =() => Main.what3 = true, disableMethod =() => Main.what3 = false, enabled = Main.what3, toolTip = "Toggle menu outline"},
-                new ButtonInfo { buttonText = "Custom Button Audio", isTogglable = true, enableMethod =() => Button.customAudio = true, disableMethod =() => Button.customAudio = false, enabled = Button.customAudio, toolTip = "Use our custom button click audios"},
-                new ButtonInfo { buttonText = "Cycle Button Audio", overlapText = "Click Audio: Sound 1", isTogglable = false, method = () => MenuAudio.CycleClickSound(), toolTip = "Cycle through 8 custom button click sounds"},
-                new ButtonInfo { buttonText = "COC", overlapText = "Outline: Blue", isTogglable = false, method =() => mods.ChangeOutlineColor(), enabled = false, toolTip = "Cycle outline color"},
-                new ButtonInfo { buttonText = "Panic Button", enableMethod =() => mods.EnablePanic(), disableMethod =() => mods.DisablePanic(), isTogglable = true, toolTip = "Disable all mods and disconnect safely"},
+            { // Rig [4]
+                new ButtonInfo { buttonText = "CosmetX", enableMethod =() => mods.EnableCosmetX(), disableMethod =() => mods.DisableCosmetX(), isTogglable = true, toolTip = "Unlock all cosmetics and network to other users" },
+                new ButtonInfo { buttonText = "Networked Body Tracking", enableMethod =() => mods.IsNetworkedBodyTrackingActive = true, disableMethod =() => mods.IsNetworkedBodyTrackingActive = false, isTogglable = true, toolTip = "Networked body tracking" },
+                new ButtonInfo { buttonText = "bodytrack", overlapText = "Body Tracking (CS)", enableMethod =() => mods.EnableBodyTracking(), disableMethod =() => mods.DisableBodyTracking(), isTogglable = true, toolTip = "Client-side body tracking" },
+                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Freeze your rig"},
+                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey"},
+                new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), disableMethod =() => mods.NormalArms(), isTogglable = true, toolTip = "Long arms"},
+                new ButtonInfo { buttonText = "No Fingers", method =() => mods.NoFinger(), isTogglable = true, toolTip = "No fingers"},
+                new ButtonInfo { buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey"},
+                new ButtonInfo { buttonText = "Upside Down Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "neck upsidedown"},
+                new ButtonInfo { buttonText = "Broken Neck", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 90f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "broken neck"},
+                new ButtonInfo { buttonText = "Backwards Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.y = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "backwards head"},
+                new ButtonInfo { buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously"},
             },
 
             new ButtonInfo[]
@@ -154,7 +154,9 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Party With Room", method =() => mods.PartyWithRoom(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Display friendship beads matching every player in the lobby"},
                 new ButtonInfo { buttonText = "Networking Library", enableMethod = () => { if (NetworkingLibrary.Instance != null) NetworkingLibrary.Instance.NetworkEnabled = true; }, disableMethod = () => { if (NetworkingLibrary.Instance != null) NetworkingLibrary.Instance.NetworkEnabled = false; }, isTogglable = true, toolTip = "Toggle custom networking", enabled = NetworkingLibrary.Instance?.NetworkEnabled ?? true },
                 new ButtonInfo { buttonText = "Boombox", method = () => BoomboxManager.BoomboxLoop("https://raw.githubusercontent.com/GreySausages/ShibaGT-Genesis-Reborn/main/Menu/Custom/files/212302951.obj", "https://raw.githubusercontent.com/GreySausages/ShibaGT-Genesis-Reborn/main/Menu/Custom/files/boomboxmesh.png"), disableMethod = () => BoomboxManager.Kill(), isTogglable = true, toolTip = "Spawn boombox"},
-                new ButtonInfo { buttonText = "Change Boombox Audio", method = () => BoomboxManager.OpenNativePicker(), isTogglable = false, toolTip = "Change song"},
+                new ButtonInfo { buttonText = "Boombox Audios", method = () => SettingsMods.boomboxAudios(), isTogglable = false, toolTip = "Choose audio from Genesis/boombox folder"},
+                new ButtonInfo { buttonText = "Soundboard", method = () => SettingsMods.soundboardAudios(), isTogglable = false, toolTip = "Play sounds through in-game microphone"},
+                new ButtonInfo { buttonText = "Stop Soundboard", method = () => SoundboardManager.Stop(), isTogglable = false, toolTip = "Stop playing soundboard audio"},
                 new ButtonInfo { buttonText = "Boombox Volume +", method = () => BoomboxManager.AdjustVolume(0.1f), isTogglable = false, toolTip = "Volume up"},
                 new ButtonInfo { buttonText = "Boombox Volume -", method = () => BoomboxManager.AdjustVolume(-0.1f), isTogglable = false, toolTip = "Volume down"},
                 new ButtonInfo { buttonText = "Boombox Speed +", method = () => BoomboxManager.AdjustPitchSpeed(0.1f), isTogglable = false, toolTip = "Faster song"},
@@ -174,38 +176,82 @@ namespace ShibaGTGenesisReborn.Menu
             },
 
             new ButtonInfo[]
-            { // Gun Settings
-                //new ButtonInfo { buttonText = "Equip Gun", method =() => mods.EquipGun(), isTogglable = true, toolTip = "Get gun"},
+            { // visuals [6]
+                new ButtonInfo { buttonText = "RGB Monke (stump)", method =() => mods.RGB(), isTogglable = true, toolTip = "Cycle player colors in stump"},
+                new ButtonInfo { buttonText = "Strobe Monke (stump)", method =() => mods.RGB(true), isTogglable = true, toolTip = "Rapidly strobe player colors in stump"},
+                new ButtonInfo { buttonText = "Tracers", method =() => mods.Tracers(), isTogglable = true, toolTip = "Draw lines to players"},
+                new ButtonInfo { buttonText = "Beacon ESP", method =() => mods.BeaconESP(), isTogglable = true, toolTip = "Draw vertical beacon beams from players"},
+                new ButtonInfo { buttonText = "Infection Chams", method =() => mods.FullBodyESP(), disableMethod =() => mods.DisableFullBodyESP(), isTogglable = true, toolTip = "Highlight infected players"},
+                new ButtonInfo { buttonText = "Casual Chams", method =() => mods.CasualFullBodyESP(), disableMethod =() => mods.DisableFullBodyESP(), isTogglable = true, toolTip = "Highlight all players"},
+                new ButtonInfo { buttonText = "Skeleton ESP", method =() => mods.SkeletonESP(), isTogglable = true, toolTip = "Draw bone skeletons on players"},
+                new ButtonInfo { buttonText = "Infection Skeleton ESP", method =() => mods.InfectionSkeletonESP(), isTogglable = true, toolTip = "Draw infection colored skeletons"},
+                new ButtonInfo { buttonText = "2D Box ESP", method =() => mods.TwoDBoxESP(), isTogglable = true, toolTip = "Draw 2D player boxes"},
+                new ButtonInfo { buttonText = "Infection 2D Box ESP", method =() => mods.InfectionTwoDBoxESP(), isTogglable = true, toolTip = "Draw infection colored 2D boxes"},
+                new ButtonInfo { buttonText = "3D Box ESP", method =() => mods.BoxESP(), isTogglable = true, toolTip = "Draw 3D player boxes"},
+                new ButtonInfo { buttonText = "Infection 3D Box ESP", method =() => mods.InfectionBoxESP(), isTogglable = true, toolTip = "Draw infection colored 3D boxes"},
+                new ButtonInfo { buttonText = "Name Tags", method =() => mods.NameAndDistanceTags(), isTogglable = true, toolTip = "Show player name and distance"},
+                new ButtonInfo { buttonText = "cursedgtag", overlapText = "Cursed Mode: Off", method =() => mods.CursedGTAG(), isTogglable = false, toolTip = "Change cursed time override"},
+                new ButtonInfo { buttonText = "Time Switcher", overlapText = "Time: Default", method =() => mods.TimeSwitcher(), isTogglable = false, toolTip = "Change time of day"},
+                new ButtonInfo { buttonText = "Weather Switcher", overlapText = "Weather: Default", method =() => mods.CycleWeather(), isTogglable = false, toolTip = "Change weather mode (Rain/Clear)"},
             },
 
             new ButtonInfo[]
             { // Projectile [7]
-                new ButtonInfo { buttonText = "Projectile Spam (B)", method =() => mods.SnowballSpam(GorillaLocomotion.GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0f), GTPlayer.Instance.RightHand.controllerTransform.position), enabled = false, isTogglable = true, toolTip = "Hold B to spam"},
-                new ButtonInfo { buttonText = "Projectile Gun (B)", method =() => mods.SnowballSpam(GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.forward * 20f, GTPlayer.Instance.RightHand.controllerTransform.position), enabled = false, isTogglable = true, toolTip = "Press B to shoot"},
-                new ButtonInfo { buttonText = "Snowball Fling Gun", method =() => { mods.biig = true; mods.FlingGun(); }, disableMethod =() => mods.biig = false, enabled = false, isTogglable = true, toolTip = "Fling snowballs"},
+                new ButtonInfo { buttonText = "Projectile Gun", method =() => mods.ProjectileGun(), isTogglable = true, toolTip = "Shoot projectile beam at pointer"},
+                new ButtonInfo { buttonText = "Projectile Spam (B)", method =() => mods.SnowballSpam(GorillaLocomotion.GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0f), GTPlayer.Instance.RightHand.controllerTransform.position), isTogglable = true, toolTip = "Hold B to spam from hand"},
+                new ButtonInfo { buttonText = "Snowball Aimbot", method =() => mods.SnowballAimbot(), isTogglable = true, toolTip = "Auto-aim snowballs at nearest monkey"},
+                new ButtonInfo { buttonText = "Snowball Orbit", method =() => mods.SnowballOrbit(), isTogglable = true, toolTip = "Orbiting shield of snowballs"},
+                new ButtonInfo { buttonText = "Snowball Rain", method =() => mods.SnowballRain(), isTogglable = true, toolTip = "Rain snowballs from sky"},
+                new ButtonInfo { buttonText = "Snowball Explosion", method =() => mods.SnowballExplosion(), isTogglable = false, toolTip = "Radial burst of snowballs"},
+                new ButtonInfo { buttonText = "Snowball Fling Gun", method =() => mods.FlingGun(), isTogglable = true, toolTip = "Fling locked target with giant snowballs"},
             },
 
             new ButtonInfo[]
-            { // Room [1]
-                new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), enabled = false, isTogglable = false, toolTip = "RPC Protection"},
-                new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), enabled = false, isTogglable = false, toolTip = "Experimental RPC Protection"},
-                new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room"},
-                new ButtonInfo { buttonText = "B Disconnect", method =() => mods.BDisconnect(), enabled = false, isTogglable = true, toolTip = "Press B to leave"},
-                new ButtonInfo { buttonText = "Join Genesis", method =() => mods.Joincodegenesis(), enabled = false, isTogglable = false, toolTip = "Join Genesis"},
-                new ButtonInfo { buttonText = "Join Random Room", method =() => mods.JoinRandom(), enabled = false, isTogglable = false, toolTip = "Join random"},
-                new ButtonInfo { buttonText = "Create Room", method =() => mods.CreateRoom(), enabled = false, isTogglable = false, toolTip = "Create a public room"},
-                new ButtonInfo { buttonText = "Connect to Fastest Region", method =() => PhotonNetwork.ConnectToBestCloudServer(), enabled = false, isTogglable = false, toolTip = "Join US Central server"},
-                new ButtonInfo { buttonText = "Connect to US Central", method =() => mods.ConnectToRegion("us"), enabled = false, isTogglable = false, toolTip = "Join US Central server"},
-                new ButtonInfo { buttonText = "Connect to US West", method =() => mods.ConnectToRegion("usw"), enabled = false, isTogglable = false, toolTip = "Join US West server"},
-                new ButtonInfo { buttonText = "Connect to EU", method =() => mods.ConnectToRegion("eu"), enabled = false, isTogglable = false, toolTip = "Join EU server"},
-                new ButtonInfo { buttonText = "Mute Gun (CS)", method =() => mods.MuteGun(), isTogglable = true, toolTip = "Shoot to mute player"},
-                new ButtonInfo { buttonText = "Mute All (CS)", method =() => mods.MuteAll(), enabled = false, isTogglable = false, toolTip = "Mute all players"},
-                new ButtonInfo { buttonText = "Unmute All (CS)", method =() => mods.UnmuteAll(), enabled = false, isTogglable = false, toolTip = "Unmute all players"},
-                new ButtonInfo { buttonText = "Report Gun (CS)", method =() => mods.ReportGun(), isTogglable = true, toolTip = "Shoot to report player"},
-                new ButtonInfo { buttonText = "Report All (CS)", method =() => mods.ReportAll(), enabled = false, isTogglable = false, toolTip = "Report all players"},
-                new ButtonInfo { buttonText = "Copy Identity", method =() => mods.CopyPlayerIdentity(), isTogglable = true, toolTip = "Shoot player to copy name and color"},
-                new ButtonInfo { buttonText = "Lobby Hop", method =() => mods.LobbyHop(), isTogglable = false, toolTip = "Disconnect and join new random room"},
-                new ButtonInfo { buttonText = "Rejoin Room", method =() => mods.RejoinRoom(), isTogglable = false, toolTip = "Reconnect to current room"},
+            { // overpowered [8]
+                new ButtonInfo { buttonText = "lagpwr", overlapText = "Lag Power: Weak", method =() => mods.lagchange(), isTogglable = false, toolTip = "Lag target player with events"},
+                new ButtonInfo { buttonText = "Lag Gun", method =() => mods.LagGun(), isTogglable = true, toolTip = "Lag target player with events"},
+                new ButtonInfo { buttonText = "Lag All", method =() => mods.LagAll(), isTogglable = true, toolTip = "Lag all players in room"},
+            },
+
+            new ButtonInfo[]
+            { // enbled mods [10]
+
+            },
+
+            new ButtonInfo[]
+            { // favourite mods [11]
+
+            },
+
+            new ButtonInfo[]
+            { // admin mods [12]
+
+            },
+
+            new ButtonInfo[]
+            { // Boombox Audios [13]
+
+            },
+
+            new ButtonInfo[]
+            { // Soundboard Audios [14]
+
+            },
+
+            new ButtonInfo[]
+            { // Menu Settings
+                new ButtonInfo { buttonText = "Left Hand", enableMethod =() => SettingsMods.LeftHand(), disableMethod =() => SettingsMods.RightHand(), toolTip = "Toggle menu hand", enabled = !rightHanded},
+                new ButtonInfo { buttonText = "FPS Counter", enableMethod =() => SettingsMods.EnableFPSCounter(), disableMethod =() => SettingsMods.DisableFPSCounter(), enabled = fpsCounter, toolTip = "Show FPS counter"},
+                new ButtonInfo { buttonText = "Setting Button", enableMethod =() => SettingsButton = true, disableMethod =() => SettingsButton = false, enabled = SettingsButton, toolTip = "Show settings button"},
+                new ButtonInfo { buttonText = "Folder Button", enableMethod =() => FolderButton = true, disableMethod =() => FolderButton = false, enabled = FolderButton, toolTip = "Show folder button"},
+                new ButtonInfo { buttonText = "Leave Button", enableMethod =() => SettingsMods.EnableDisconnectButton(), disableMethod =() => SettingsMods.DisableDisconnectButton(), enabled = disconnectButton, toolTip = "Show disconnect button"},
+                new ButtonInfo { buttonText = "Remove All Prefs", method =() => mods.Removeprefs(), isTogglable = false, enabled = false, toolTip = "Reset saved preferences"},
+                new ButtonInfo { buttonText = "PPos", overlapText = "Menu Layout: ShibaGT", isTogglable = false, method =() => mods.SwitchPagePos(), enabled = false, toolTip = "Switch menu layout"},
+                new ButtonInfo { buttonText = "OutlineMenu", isTogglable = true, enableMethod =() => Main.what3 = true, disableMethod =() => Main.what3 = false, enabled = Main.what3, toolTip = "Toggle menu outline"},
+                new ButtonInfo { buttonText = "Custom Button Audio", isTogglable = true, enableMethod =() => Button.customAudio = true, disableMethod =() => Button.customAudio = false, enabled = Button.customAudio, toolTip = "Use our custom button click audios"},
+                new ButtonInfo { buttonText = "Cycle Button Audio", overlapText = "Click Audio: Sound 1", isTogglable = false, method = () => MenuAudio.CycleClickSound(), toolTip = "Cycle through 8 custom button click sounds"},
+                new ButtonInfo { buttonText = "COC", overlapText = "Outline: Blue", isTogglable = false, method =() => mods.ChangeOutlineColor(), enabled = false, toolTip = "Cycle outline color"},
+                new ButtonInfo { buttonText = "Panic Button", enableMethod =() => mods.EnablePanic(), disableMethod =() => mods.DisablePanic(), isTogglable = true, toolTip = "Disable all mods and disconnect safely"},
             },
 
             new ButtonInfo[]
@@ -215,39 +261,10 @@ namespace ShibaGTGenesisReborn.Menu
             },
 
             new ButtonInfo[]
-            { // Rig [4]
-                new ButtonInfo { buttonText = "Networked Body Tracking", enableMethod =() => mods.IsNetworkedBodyTrackingActive = true, disableMethod =() => mods.IsNetworkedBodyTrackingActive = false, isTogglable = true, toolTip = "Networked body tracking" },
-                new ButtonInfo { buttonText = "bodytrack", overlapText = "Body Tracking (CS)", enableMethod =() => mods.EnableBodyTracking(), disableMethod =() => mods.DisableBodyTracking(), isTogglable = true, toolTip = "Client-side body tracking" },
-                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Freeze your rig"},
-                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey"},
-                new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), disableMethod =() => mods.NormalArms(), isTogglable = true, toolTip = "Long arms"},
-                new ButtonInfo { buttonText = "No Fingers", method =() => mods.NoFinger(), isTogglable = true, toolTip = "No fingers"},
-                new ButtonInfo { buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey"},
-                new ButtonInfo { buttonText = "Upside Down Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "neck upsidedown"},
-                new ButtonInfo { buttonText = "Broken Neck", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 90f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "broken neck"},
-                new ButtonInfo { buttonText = "Backwards Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.y = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "backwards head"},
-                new ButtonInfo { buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously"},
-            },
-
-            new ButtonInfo[]
             { // Proj Set
+                new ButtonInfo{ buttonText = "Projectile Speed", overlapText = "Speed: Normal", method =() => mods.CycleProjectileSpeed(), isTogglable = false, toolTip = "Cycle projectile firing speed"},
                 new ButtonInfo{ buttonText = "Big Snowballs", enableMethod =() => mods.biig = true, disableMethod =() => mods.biig = false, isTogglable = true, toolTip = "Giant snowballs"},
-            },
-
-            new ButtonInfo[]
-            { // favourite mods
-
-            },
-
-            new ButtonInfo[]
-            { // enbled mods
-
-            },
-
-            //always keep this at the bottom if you add another tab (by going to categories) make sure you put that section above this one:
-            new ButtonInfo[]
-            {
-
+                new ButtonInfo{ buttonText = "Rainbow Snowballs ( CS )", enableMethod =() => mods.rainbowProjectiles = true, disableMethod =() => mods.rainbowProjectiles = false, isTogglable = true, toolTip = "Rainbow RGB snowballs"},
             },
 
             new ButtonInfo[]

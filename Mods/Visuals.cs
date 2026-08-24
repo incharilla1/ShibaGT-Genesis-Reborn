@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GorillaLocomotion;
+using GorillaNetworking;
 using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
@@ -110,14 +112,22 @@ namespace ShibaGTGenesisReborn.Mods
             GorillaTagger.Instance.myVRRig.SendRPC("RPC_InitializeNoobMaterial", RpcTarget.All, c.r, c.g, c.b);
         }
 
-        public static void SkeletonESP()
+        private static Color GetESPColor(VRRig rig, bool infection)
+        {
+            if (!infection) return rig.playerColor;
+            bool isTagged = rig.mainSkin != null && rig.mainSkin.material != null &&
+                (rig.mainSkin.material.name.Contains("fected") || rig.mainSkin.material.name.Contains("It"));
+            return isTagged ? Color.red : Color.green;
+        }
+
+        public static void SkeletonESP(bool infection = false)
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
                 if (rig == null || rig.isOfflineVRRig)
                     continue;
 
-                Color col = rig.playerColor;
+                Color col = GetESPColor(rig, infection);
                 Vector3 head = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position + Vector3.up * 0.5f;
                 Vector3 spine = rig.transform.position + Vector3.up * 0.1f;
                 Vector3 leftHand = rig.leftHandTransform != null ? rig.leftHandTransform.position : spine;
@@ -131,16 +141,34 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void BoxESP()
+        public static void InfectionSkeletonESP() => SkeletonESP(true);
+
+        public static bool filledESP;
+
+        public static void BoxESP(bool infection = false)
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
                 if (rig == null || rig.isOfflineVRRig)
                     continue;
 
-                Color col = rig.playerColor;
+                Color col = GetESPColor(rig, infection);
                 Vector3 center = rig.transform.position;
                 Vector3 extents = new Vector3(0.35f, 0.45f, 0.35f);
+
+                if (filledESP)
+                {
+                    GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    Object.Destroy(cube.GetComponent<Collider>());
+                    cube.name = "3DBoxESP_Filled";
+                    cube.transform.position = center;
+                    cube.transform.localScale = extents * 2f;
+
+                    Renderer rend = cube.GetComponent<Renderer>();
+                    rend.material.shader = Shader.Find("GUI/Text Shader");
+                    rend.material.color = new Color(col.r, col.g, col.b, 0.35f);
+                    Object.Destroy(cube, Time.deltaTime);
+                }
 
                 Vector3 c0 = center + new Vector3(-extents.x, -extents.y, -extents.z);
                 Vector3 c1 = center + new Vector3(extents.x, -extents.y, -extents.z);
@@ -169,7 +197,9 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void TwoDBoxESP()
+        public static void InfectionBoxESP() => BoxESP(true);
+
+        public static void TwoDBoxESP(bool infection = false)
         {
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
             foreach (VRRig rig in VRRigCache.ActiveRigs)
@@ -177,20 +207,45 @@ namespace ShibaGTGenesisReborn.Mods
                 if (rig == null || rig.isOfflineVRRig)
                     continue;
 
-                GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                Object.Destroy(quad.GetComponent<Collider>());
-                quad.name = "2DBoxESP";
-                quad.transform.position = rig.transform.position;
-                quad.transform.localScale = new Vector3(0.65f, 0.85f, 1f);
-                if (cam != null)
-                    quad.transform.rotation = cam.transform.rotation;
+                Color col = GetESPColor(rig, infection);
+                Vector3 center = rig.transform.position;
+                Vector3 extents = new Vector3(0.325f, 0.425f, 0f);
 
-                Renderer rend = quad.GetComponent<Renderer>();
-                rend.material.shader = Shader.Find("GUI/Text Shader");
-                rend.material.color = new Color(rig.playerColor.r, rig.playerColor.g, rig.playerColor.b, 0.45f);
-                Object.Destroy(quad, Time.deltaTime);
+                if (filledESP)
+                {
+                    GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Object.Destroy(quad.GetComponent<Collider>());
+                    quad.name = "2DBoxESP";
+                    quad.transform.position = center;
+                    quad.transform.localScale = new Vector3(0.65f, 0.85f, 1f);
+                    if (cam != null)
+                        quad.transform.rotation = cam.transform.rotation;
+
+                    Renderer rend = quad.GetComponent<Renderer>();
+                    rend.material.shader = Shader.Find("GUI/Text Shader");
+                    rend.material.color = new Color(col.r, col.g, col.b, 0.45f);
+                    Object.Destroy(quad, Time.deltaTime);
+                }
+
+                if (cam != null)
+                {
+                    Vector3 right = cam.transform.right * extents.x;
+                    Vector3 up = cam.transform.up * extents.y;
+
+                    Vector3 tl = center - right + up;
+                    Vector3 tr = center + right + up;
+                    Vector3 br = center + right - up;
+                    Vector3 bl = center - right - up;
+
+                    DrawLine(tl, tr, col);
+                    DrawLine(tr, br, col);
+                    DrawLine(br, bl, col);
+                    DrawLine(bl, tl, col);
+                }
             }
         }
+
+        public static void InfectionTwoDBoxESP() => TwoDBoxESP(true);
 
         public static string GetPlayerPlatform(NetPlayer player)
         {
@@ -525,6 +580,180 @@ namespace ShibaGTGenesisReborn.Mods
                     BetterDayNightManager.instance.ClearFixedWeather(true);
                     break;
             }
+        }
+
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedCosmetics = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedHats = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedFaces = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedBadges = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedPaws = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedChests = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedFurs = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedShirts = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedPants = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedBacks = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedArms = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedTagFX = new List<CosmeticsController.CosmeticItem>();
+        private static List<CosmeticsController.CosmeticItem> savedUnlockedThrowables = new List<CosmeticsController.CosmeticItem>();
+
+        public static void EnableCosmetX()
+        {
+            CosmeticsController controller = CosmeticsController.instance;
+            if (controller == null) return;
+
+            savedUnlockedCosmetics = new List<CosmeticsController.CosmeticItem>(controller.unlockedCosmetics);
+            savedUnlockedHats = new List<CosmeticsController.CosmeticItem>(controller.unlockedHats);
+            savedUnlockedFaces = new List<CosmeticsController.CosmeticItem>(controller.unlockedFaces);
+            savedUnlockedBadges = new List<CosmeticsController.CosmeticItem>(controller.unlockedBadges);
+            savedUnlockedPaws = new List<CosmeticsController.CosmeticItem>(controller.unlockedPaws);
+            savedUnlockedChests = new List<CosmeticsController.CosmeticItem>(controller.unlockedChests);
+            savedUnlockedFurs = new List<CosmeticsController.CosmeticItem>(controller.unlockedFurs);
+            savedUnlockedShirts = new List<CosmeticsController.CosmeticItem>(controller.unlockedShirts);
+            savedUnlockedPants = new List<CosmeticsController.CosmeticItem>(controller.unlockedPants);
+            savedUnlockedBacks = new List<CosmeticsController.CosmeticItem>(controller.unlockedBacks);
+            savedUnlockedArms = new List<CosmeticsController.CosmeticItem>(controller.unlockedArms);
+            savedUnlockedTagFX = new List<CosmeticsController.CosmeticItem>(controller.unlockedTagFX);
+            savedUnlockedThrowables = new List<CosmeticsController.CosmeticItem>(controller.unlockedThrowables);
+
+            controller.unlockedCosmetics.Clear();
+            controller.unlockedHats.Clear();
+            controller.unlockedFaces.Clear();
+            controller.unlockedBadges.Clear();
+            controller.unlockedPaws.Clear();
+            controller.unlockedChests.Clear();
+            controller.unlockedFurs.Clear();
+            controller.unlockedShirts.Clear();
+            controller.unlockedPants.Clear();
+            controller.unlockedBacks.Clear();
+            controller.unlockedArms.Clear();
+            controller.unlockedTagFX.Clear();
+            controller.unlockedThrowables.Clear();
+
+            IEnumerable<CosmeticsController.CosmeticItem> allItems = controller.allCosmetics ?? (IEnumerable<CosmeticsController.CosmeticItem>)controller.allCosmeticsDict.Values;
+            if (allItems != null)
+            {
+                foreach (CosmeticsController.CosmeticItem item in allItems)
+                {
+                    if (item.isNullItem || string.IsNullOrEmpty(item.itemName)) continue;
+
+                    if (!controller.unlockedCosmetics.Contains(item))
+                        controller.unlockedCosmetics.Add(item);
+
+                    switch (item.itemCategory)
+                    {
+                        case CosmeticsController.CosmeticCategory.Hat:
+                            if (!controller.unlockedHats.Contains(item)) controller.unlockedHats.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Face:
+                            if (!controller.unlockedFaces.Contains(item)) controller.unlockedFaces.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Badge:
+                            if (!controller.unlockedBadges.Contains(item)) controller.unlockedBadges.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Paw:
+                            if (item.isThrowable)
+                            {
+                                if (!controller.unlockedThrowables.Contains(item)) controller.unlockedThrowables.Add(item);
+                            }
+                            else
+                            {
+                                if (!controller.unlockedPaws.Contains(item)) controller.unlockedPaws.Add(item);
+                            }
+                            break;
+                        case CosmeticsController.CosmeticCategory.Chest:
+                            if (!controller.unlockedChests.Contains(item)) controller.unlockedChests.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Fur:
+                            if (!controller.unlockedFurs.Contains(item)) controller.unlockedFurs.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Shirt:
+                            if (!controller.unlockedShirts.Contains(item)) controller.unlockedShirts.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Pants:
+                            if (!controller.unlockedPants.Contains(item)) controller.unlockedPants.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Back:
+                            if (!controller.unlockedBacks.Contains(item)) controller.unlockedBacks.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.Arms:
+                            if (!controller.unlockedArms.Contains(item)) controller.unlockedArms.Add(item);
+                            break;
+                        case CosmeticsController.CosmeticCategory.TagEffect:
+                            if (!controller.unlockedTagFX.Contains(item)) controller.unlockedTagFX.Add(item);
+                            break;
+                    }
+
+                    if (VRRig.LocalRig != null)
+                        VRRig.LocalRig.AddCosmetic(item.itemName);
+                    if (GorillaTagger.Instance?.offlineVRRig != null && GorillaTagger.Instance.offlineVRRig != VRRig.LocalRig)
+                        GorillaTagger.Instance.offlineVRRig.AddCosmetic(item.itemName);
+                }
+            }
+
+            controller.concatStringCosmeticsAllowed = string.Concat(controller.unlockedCosmetics.Select(x => x.itemName));
+            controller.UpdateWardrobeModelsAndButtons();
+            controller.OnCosmeticsUpdated?.Invoke();
+            VRRig.LocalRig?.RefreshCosmetics();
+            SyncCosmeticsToNetwork();
+        }
+
+        public static void DisableCosmetX()
+        {
+            CosmeticsController controller = CosmeticsController.instance;
+            if (controller == null) return;
+
+            controller.unlockedCosmetics.Clear();
+            controller.unlockedCosmetics.AddRange(savedUnlockedCosmetics);
+            controller.unlockedHats.Clear();
+            controller.unlockedHats.AddRange(savedUnlockedHats);
+            controller.unlockedFaces.Clear();
+            controller.unlockedFaces.AddRange(savedUnlockedFaces);
+            controller.unlockedBadges.Clear();
+            controller.unlockedBadges.AddRange(savedUnlockedBadges);
+            controller.unlockedPaws.Clear();
+            controller.unlockedPaws.AddRange(savedUnlockedPaws);
+            controller.unlockedChests.Clear();
+            controller.unlockedChests.AddRange(savedUnlockedChests);
+            controller.unlockedFurs.Clear();
+            controller.unlockedFurs.AddRange(savedUnlockedFurs);
+            controller.unlockedShirts.Clear();
+            controller.unlockedShirts.AddRange(savedUnlockedShirts);
+            controller.unlockedPants.Clear();
+            controller.unlockedPants.AddRange(savedUnlockedPants);
+            controller.unlockedBacks.Clear();
+            controller.unlockedBacks.AddRange(savedUnlockedBacks);
+            controller.unlockedArms.Clear();
+            controller.unlockedArms.AddRange(savedUnlockedArms);
+            controller.unlockedTagFX.Clear();
+            controller.unlockedTagFX.AddRange(savedUnlockedTagFX);
+            controller.unlockedThrowables.Clear();
+            controller.unlockedThrowables.AddRange(savedUnlockedThrowables);
+
+            controller.concatStringCosmeticsAllowed = string.Concat(controller.unlockedCosmetics.Select(x => x.itemName));
+            controller.UpdateWardrobeModelsAndButtons();
+            controller.OnCosmeticsUpdated?.Invoke();
+            VRRig.LocalRig?.RefreshCosmetics();
+            SyncCosmeticsToNetwork();
+        }
+
+        public static string GetLocalCosmeticString()
+        {
+            if (VRRig.LocalRig == null || VRRig.LocalRig.cosmeticSet == null || VRRig.LocalRig.cosmeticSet.items == null) return string.Empty;
+            List<string> items = new List<string>();
+            for (int i = 0; i < VRRig.LocalRig.cosmeticSet.items.Length; i++)
+            {
+                var item = VRRig.LocalRig.cosmeticSet.items[i];
+                items.Add((!item.isNullItem && !string.IsNullOrEmpty(item.itemName)) ? item.itemName : "null");
+            }
+            return string.Join(",", items);
+        }
+
+        public static void SyncCosmeticsToNetwork()
+        {
+            if (VRRig.LocalRig == null || NetworkingLibrary.Instance == null || !NetworkingLibrary.Instance.NetworkEnabled) return;
+            string cosmeticString = GetLocalCosmeticString();
+            if (!string.IsNullOrEmpty(cosmeticString))
+                NetworkingLibrary.Instance.SendCosmeticUpdate(cosmeticString);
         }
     }
 }

@@ -87,4 +87,14 @@ namespace ShibaGTGenesisReborn.Patches
             }
         }
     }
+
+    [HarmonyPatch(typeof(GorillaTag.Audio.GTMicWrapper), "Read")]
+    public class GTMicWrapperSoundboardPatch
+    {
+        private static void Postfix(bool __result, float[] buffer)
+        {
+            if (!__result || buffer == null || buffer.Length == 0) return;
+            Mods.Custom.SoundboardManager.InjectMicSamples(buffer);
+        }
+    }
 }

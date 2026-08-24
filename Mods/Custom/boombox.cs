@@ -2,13 +2,18 @@ using GorillaLocomotion;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Photon.Realtime;
+using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
+using ShibaGTGenesisReborn.Menu;
 using UnityEngine;
 using UnityEngine.Networking;
+using Debug = UnityEngine.Debug;
 
 namespace ShibaGTGenesisReborn.Mods.Custom
 {
@@ -50,6 +55,19 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         static string P_Obj => Path.Combine(Dir, "boombox.obj");
         static string P_Tex => Path.Combine(Dir, "boombox.png");
         public static string P_Aud => Path.Combine(Dir, "boombox_audio.wav");
+        public static string BoomboxDirectory => Path.Combine(Dir, "boombox");
+
+        public static void EnsureDirectory()
+        {
+            if (!Directory.Exists(BoomboxDirectory))
+                Directory.CreateDirectory(BoomboxDirectory);
+        }
+
+        public static void Initialize()
+        {
+            EnsureDirectory();
+            RefreshSounds(false);
+        }
 
         public static void AdjustVolume(float delta) { Volume = Mathf.Clamp(Volume + delta, 0f, 1f); if (Aud) Aud.volume = Volume; }
         public static void AdjustPitchSpeed(float delta) { PitchAndSpeed = Mathf.Clamp(PitchAndSpeed + delta, 0.5f, 2.0f); if (Aud) Aud.pitch = PitchAndSpeed; }
@@ -227,6 +245,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         public static void OpenNativePicker()
         {
+            if (pickerOpen) return;
             pickerOpen = true;
             Thread t = new Thread(() => {
                 OpenFileName ofn = new OpenFileName { lStructSize = Marshal.SizeOf(typeof(OpenFileName)), lpstrFilter = "Audio Files\0*.mp3;*.wav;*.ogg\0\0", lpstrFile = new string(new char[256]), lpstrTitle = "Select Music", Flags = 0x00080000 | 0x00001000 | 0x00000800 };
@@ -236,6 +255,96 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             });
             t.SetApartmentState(ApartmentState.STA);
             t.Start();
+        }
+
+        public static void PlayAudioFile(string path)
+        {
+            if (!File.Exists(path))
+            {
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Boombox audio not found");
+                return;
+            }
+
+            if (!Me)
+            {
+                GameObject g = new GameObject("BoomboxProcessor");
+                Me = g.AddComponent<BoomboxManager>();
+                DontDestroyOnLoad(g);
+            }
+
+            Me.StartCoroutine(SetAudio(path));
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Boombox: {Path.GetFileNameWithoutExtension(path)}");
+        }
+
+        public static void OpenFolder()
+        {
+            EnsureDirectory();
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = BoomboxDirectory,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Open boombox folder error: {ex}");
+            }
+        }
+
+        public static void RefreshSounds(bool notify = true)
+        {
+            EnsureDirectory();
+            string[] extensions = { "*.mp3", "*.wav", "*.ogg" };
+            List<string> audioFiles = new List<string>();
+
+            foreach (string ext in extensions)
+            {
+                try
+                {
+                    audioFiles.AddRange(Directory.GetFiles(BoomboxDirectory, ext, SearchOption.TopDirectoryOnly));
+                }
+                catch { }
+            }
+
+            audioFiles = audioFiles.OrderBy(f => Path.GetFileName(f)).ToList();
+            List<ButtonInfo> btnList = new List<ButtonInfo>
+            {
+                new ButtonInfo { buttonText = "Back", method = () => SettingsMods.fun(), isTogglable = false, toolTip = "Return to Fun mods" },
+                new ButtonInfo { buttonText = "Refresh Audios", method = () => RefreshSounds(true), isTogglable = false, toolTip = "Rescan boombox folder" },
+                new ButtonInfo { buttonText = "Open Folder", method = () => OpenFolder(), isTogglable = false, toolTip = "Open boombox folder in Explorer" },
+                new ButtonInfo { buttonText = "Choose File (PC)", method = () => OpenNativePicker(), isTogglable = false, toolTip = "Open native Windows file dialog" },
+                new ButtonInfo { buttonText = "Volume +", method = () => AdjustVolume(0.1f), isTogglable = false, toolTip = "Increase volume" },
+                new ButtonInfo { buttonText = "Volume -", method = () => AdjustVolume(-0.1f), isTogglable = false, toolTip = "Decrease volume" },
+                new ButtonInfo { buttonText = "Speed +", method = () => AdjustPitchSpeed(0.1f), isTogglable = false, toolTip = "Increase speed" },
+                new ButtonInfo { buttonText = "Speed -", method = () => AdjustPitchSpeed(-0.1f), isTogglable = false, toolTip = "Decrease speed" }
+            };
+
+            foreach (string file in audioFiles)
+            {
+                string name = Path.GetFileNameWithoutExtension(file);
+                string path = file;
+                btnList.Add(new ButtonInfo
+                {
+                    buttonText = name,
+                    toolTip = $"Play {name} on boombox",
+                    isTogglable = false,
+                    method = () => PlayAudioFile(path)
+                });
+            }
+
+            if (Buttons.buttons.Length > 13)
+            {
+                Buttons.buttons[13] = btnList.ToArray();
+            }
+
+            if (notify)
+            {
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Boombox: {audioFiles.Count} audio(s) found");
+                if (Main.buttonsType == 13)
+                    Main.RecreateMenu();
+            }
         }
 
         static IEnumerator SetAudio(string p)

@@ -28,6 +28,14 @@ namespace ShibaGTGenesisReborn.Libs
                     genesisDirectory = Path.Combine(rootDir, "Genesis");
                     if (!Directory.Exists(genesisDirectory))
                         Directory.CreateDirectory(genesisDirectory);
+
+                    string soundboardDir = Path.Combine(genesisDirectory, "soundboard");
+                    if (!Directory.Exists(soundboardDir))
+                        Directory.CreateDirectory(soundboardDir);
+
+                    string boomboxDir = Path.Combine(genesisDirectory, "boombox");
+                    if (!Directory.Exists(boomboxDir))
+                        Directory.CreateDirectory(boomboxDir);
                 }
 
                 return genesisDirectory;
@@ -43,6 +51,8 @@ namespace ShibaGTGenesisReborn.Libs
         private static Texture2D steamTexture;
         private static Material steamMaterial;
         private static Texture2D folderTexture;
+        private static Texture2D settingsTexture;
+        private static Texture2D homeTexture;
 
         public static Texture2D LoadTextureResource(string fileName)
         {
@@ -220,6 +230,28 @@ namespace ShibaGTGenesisReborn.Libs
 
             folderTexture = LoadTextureResource("folder.png");
             return folderTexture;
+        }
+
+        public static Texture2D GetSettingsTexture()
+        {
+            if (settingsTexture != null)
+            {
+                return settingsTexture;
+            }
+
+            settingsTexture = LoadTextureResource("settings.png");
+            return settingsTexture;
+        }
+
+        public static Texture2D GetHomeTexture()
+        {
+            if (homeTexture != null)
+            {
+                return homeTexture;
+            }
+
+            homeTexture = LoadTextureResource("home.png");
+            return homeTexture;
         }
 
         public static GameObject CreatePearlVisual(string objectName, Vector3 initialPosition, float scale = 0.14f)

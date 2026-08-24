@@ -27,7 +27,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         private static Transform head;
         private static bool isRightHand = true;
         private static float ignoreTimer = 0f;
-        private static bool everGrabbed = false;
         private static float inhaleAmount = 0f;
         private static float maxInhale = 5f;
         private static bool wasInhaling = false;
@@ -110,7 +109,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             inhaleAmount = 0f;
             tweakLevel = 0f;
             Held = false;
-            everGrabbed = false;
             if (Obj.TryGetComponent(out Rigidbody rb)) rb.isKinematic = true;
             if (tweakBar != null) tweakBar.SetActive(false);
             Obj.SetActive(false);
@@ -217,7 +215,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 if (rGrip && Vector3.Distance(player.RightHand.controllerTransform.position, Obj.transform.position) < 0.15f)
                 {
                     Held = true;
-                    everGrabbed = true;
                     Hand = player.RightHand.controllerTransform;
                     isRightHand = true;
                     OffP = Hand.InverseTransformPoint(Obj.transform.position);
@@ -226,7 +223,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 else if (lGrip && Vector3.Distance(player.LeftHand.controllerTransform.position, Obj.transform.position) < 0.15f)
                 {
                     Held = true;
-                    everGrabbed = true;
                     Hand = player.LeftHand.controllerTransform;
                     isRightHand = false;
                     OffP = Hand.InverseTransformPoint(Obj.transform.position);

@@ -6,9 +6,6 @@ using Photon.Voice.Unity;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System;
-using System.Collections;
-using System.Reflection;
-using System.Threading.Tasks;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -94,95 +91,103 @@ namespace ShibaGTGenesisReborn.Mods
             catch { /* if it goes here its a skill issue */ }
         }
 
-        public static void MutePlayer(NetPlayer player, bool shouldMute)
-        {
-            if (player == null || string.IsNullOrEmpty(player.UserId)) return;
-
-            int muteValue = shouldMute ? 1 : 0;
-            PlayerPrefs.SetInt(player.UserId, muteValue);
-            PlayerPrefs.Save();
-
-            if (VRRigCache.Instance != null && VRRigCache.Instance.TryGetVrrig(player, out RigContainer rigContainer) && rigContainer != null)
-            {
-                rigContainer.hasManualMute = true;
-                rigContainer.SetMuted(RigContainer.MuteReason.Manual, shouldMute);
-            }
-
-            GorillaScoreboardTotalUpdater.ReportMute(player, muteValue);
-
-            foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
-            {
-                if (line.linePlayer == player && line.muteButton != null)
-                {
-                    line.muteButton.isOn = shouldMute;
-                    line.muteButton.UpdateColor();
-                }
-            }
-        }
-
-        public static void ReportPlayer(NetPlayer player)
-        {
-            if (player == null || string.IsNullOrEmpty(player.UserId)) return;
-
-            string targetNickName = player.NickName ?? player.DefaultName ?? "GORILLA";
-
-            GorillaPlayerScoreboardLine.ReportPlayer(player.UserId, GorillaPlayerLineButton.ButtonType.Cheating, targetNickName);
-
-            if (GorillaScoreboardTotalUpdater.hasInstance && player.ActorNumber != -1)
-            {
-                var updater = GorillaScoreboardTotalUpdater.instance;
-
-                if (updater.reportDict.TryGetValue(player.ActorNumber, out var existingReports))
-                {
-                    existingReports.cheating = true;
-                    existingReports.pressedReport = true;
-                    updater.reportDict[player.ActorNumber] = existingReports;
-                }
-                else
-                {
-                    updater.reportDict[player.ActorNumber] = new GorillaScoreboardTotalUpdater.PlayerReports
-                    {
-                        cheating = true,
-                        pressedReport = true
-                    };
-                }
-            }
-
-            foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
-            {
-                if (line.linePlayer == player && line.reportButton != null)
-                {
-                    line.reportButton.isOn = true;
-                    line.reportButton.UpdateColor();
-                }
-            }
-        }
-
         public static void lbaction(GorillaPlayerLineButton.ButtonType type, NetPlayer player = null, bool? state = null)
         {
             if (type == GorillaPlayerLineButton.ButtonType.Mute)
             {
-                if (player != null)
+                Action<NetPlayer> mute = p =>
                 {
-                    bool shouldMute = state ?? (PlayerPrefs.GetInt(player.UserId, 0) == 0);
-                    MutePlayer(player, shouldMute);
-                }
-                else
-                {
-                    foreach (NetPlayer otherPlayer in NetworkSystem.Instance.PlayerListOthers)
+                    if (p == null || string.IsNullOrEmpty(p.UserId)) return;
+
+                    bool shouldMute = state ?? (PlayerPrefs.GetInt(p.UserId, 0) == 0);
+                    int muteValue = shouldMute ? 1 : 0;
+                    PlayerPrefs.SetInt(p.UserId, muteValue);
+                    PlayerPrefs.Save();
+
+                    if (VRRigCache.Instance != null && VRRigCache.Instance.TryGetVrrig(p, out RigContainer rigContainer) && rigContainer != null)
                     {
-                        bool shouldMute = state ?? (PlayerPrefs.GetInt(otherPlayer.UserId, 0) == 0);
-                        MutePlayer(otherPlayer, shouldMute);
+                        rigContainer.hasManualMute = true;
+                        rigContainer.SetMuted(RigContainer.MuteReason.Manual, shouldMute);
+                        if (rigContainer.Rig != null)
+                        {
+                            rigContainer.Rig.muted = shouldMute;
+                            if (rigContainer.Rig.voiceAudio != null)
+                                rigContainer.Rig.voiceAudio.mute = shouldMute;
+                        }
+                        rigContainer.RefreshVoiceChat();
                     }
-                }
+
+                    try { GorillaScoreboardTotalUpdater.ReportMute(p, muteValue); } catch { }
+
+                    if (GorillaScoreboardTotalUpdater.allScoreboardLines != null)
+                    {
+                        foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
+                        {
+                            if (line != null && (line.linePlayer?.UserId == p.UserId || line.playerActorNumber == p.ActorNumber))
+                            {
+                                line.PressButton(shouldMute, GorillaPlayerLineButton.ButtonType.Mute);
+                                if (line.muteButton != null)
+                                {
+                                    line.muteButton.isOn = shouldMute;
+                                    line.muteButton.UpdateColor();
+                                }
+                            }
+                        }
+                    }
+                };
+
+                if (player != null)
+                    mute(player);
+                else
+                    foreach (NetPlayer otherPlayer in NetworkSystem.Instance.PlayerListOthers)
+                        mute(otherPlayer);
             }
             else
             {
+                Action<NetPlayer> report = p =>
+                {
+                    if (p == null || string.IsNullOrEmpty(p.UserId)) return;
+
+                    string targetNickName = p.NickName ?? p.DefaultName ?? "GORILLA";
+                    GorillaPlayerScoreboardLine.ReportPlayer(p.UserId, GorillaPlayerLineButton.ButtonType.Cheating, targetNickName);
+
+                    if (GorillaScoreboardTotalUpdater.hasInstance && p.ActorNumber != -1)
+                    {
+                        var updater = GorillaScoreboardTotalUpdater.instance;
+                        if (updater.reportDict.TryGetValue(p.ActorNumber, out var existingReports))
+                        {
+                            existingReports.cheating = true;
+                            existingReports.pressedReport = true;
+                            updater.reportDict[p.ActorNumber] = existingReports;
+                        }
+                        else
+                        {
+                            updater.reportDict[p.ActorNumber] = new GorillaScoreboardTotalUpdater.PlayerReports
+                            {
+                                cheating = true,
+                                pressedReport = true
+                            };
+                        }
+                    }
+
+                    if (GorillaScoreboardTotalUpdater.allScoreboardLines != null)
+                    {
+                        foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
+                        {
+                            if (line != null && line.linePlayer == p && line.reportButton != null)
+                            {
+                                line.reportButton.isOn = true;
+                                line.reportButton.UpdateColor();
+                            }
+                        }
+                    }
+                };
+
                 if (player != null)
-                    ReportPlayer(player);
+                    report(player);
                 else
                     foreach (NetPlayer otherPlayer in NetworkSystem.Instance.PlayerListOthers)
-                        ReportPlayer(otherPlayer);
+                        report(otherPlayer);
             }
         }
 
@@ -192,8 +197,42 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
                 {
-                    lbaction(GorillaPlayerLineButton.ButtonType.Mute, GunLib.LockedPlayer.Creator);
-                    actionDelay = Time.time + 0.5f;
+                    NetPlayer player = GunLib.LockedPlayer.Creator;
+                    if (player == null)
+                    {
+                        var photonPlayer = RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer);
+                        if (photonPlayer != null)
+                            player = NetworkSystem.Instance.GetPlayer(photonPlayer.ActorNumber);
+                    }
+
+                    if (player != null)
+                    {
+                        lbaction(GorillaPlayerLineButton.ButtonType.Mute, player, state: true);
+                        actionDelay = Time.time + 0.5f;
+                    }
+                }
+            }, true);
+        }
+
+        public static void UnmuteGun()
+        {
+            GunLib.StartGun(() =>
+            {
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
+                {
+                    NetPlayer player = GunLib.LockedPlayer.Creator;
+                    if (player == null)
+                    {
+                        var photonPlayer = RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer);
+                        if (photonPlayer != null)
+                            player = NetworkSystem.Instance.GetPlayer(photonPlayer.ActorNumber);
+                    }
+
+                    if (player != null)
+                    {
+                        lbaction(GorillaPlayerLineButton.ButtonType.Mute, player, state: false);
+                        actionDelay = Time.time + 0.5f;
+                    }
                 }
             }, true);
         }
@@ -456,8 +495,19 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
                 {
-                    lbaction(GorillaPlayerLineButton.ButtonType.Cheating, GunLib.LockedPlayer.Creator);
-                    actionDelay = Time.time + 0.3f;
+                    NetPlayer player = GunLib.LockedPlayer.Creator;
+                    if (player == null)
+                    {
+                        var photonPlayer = RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer);
+                        if (photonPlayer != null)
+                            player = NetworkSystem.Instance.GetPlayer(photonPlayer.ActorNumber);
+                    }
+
+                    if (player != null)
+                    {
+                        lbaction(GorillaPlayerLineButton.ButtonType.Cheating, player);
+                        actionDelay = Time.time + 0.3f;
+                    }
                 }
             }, true);
         }

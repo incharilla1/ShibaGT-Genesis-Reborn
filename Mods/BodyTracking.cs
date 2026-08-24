@@ -13,13 +13,12 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void EnableBodyTracking()
         {
-            VRRig rig = VRRig.LocalRig;
-            if (rig == null) return;
+            if (VRRig.LocalRig == null) return;
 
             IsBodyTrackingActive = true;
 
             if (localTracker == null)
-                localTracker = rig.gameObject.GetComponent<BodyTracker>() ?? rig.gameObject.AddComponent<BodyTracker>();
+                localTracker = VRRig.LocalRig.gameObject.GetComponent<BodyTracker>() ?? VRRig.LocalRig.gameObject.AddComponent<BodyTracker>();
 
             localTracker.enabled = true;
             Menu.Main.GetIndex("bodytrack").overlapText = "Networked Body Tracking";
@@ -32,8 +31,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (localTracker != null)
                 localTracker.enabled = false;
 
-            VRRig rig = VRRig.LocalRig;
-            GorillaIK ik = GorillaIK.playerIK ?? rig?.GetComponent<GorillaIK>();
+            GorillaIK ik = GorillaIK.playerIK ?? VRRig.LocalRig?.GetComponent<GorillaIK>();
 
             if (ik != null)
             {
@@ -41,8 +39,8 @@ namespace ShibaGTGenesisReborn.Mods
                 ik.usingUpdatedIK = false;
             }
 
-            if (rig?.bodyTransform != null)
-                rig.bodyTransform.localRotation = Quaternion.identity;
+            if (VRRig.LocalRig?.bodyTransform != null)
+                VRRig.LocalRig.bodyTransform.localRotation = Quaternion.identity;
 
             Menu.Main.GetIndex("bodytrack").overlapText = "Body Tracking (CS)";
         }
@@ -55,12 +53,11 @@ namespace ShibaGTGenesisReborn.Mods
 
             private void LateUpdate()
             {
-                VRRig rig = VRRig.LocalRig;
-                if (rig == null || GorillaTagger.Instance == null) return;
+                if (VRRig.LocalRig == null || GorillaTagger.Instance == null) return;
 
                 Transform headTransform = GorillaTagger.Instance.headCollider != null
                     ? GorillaTagger.Instance.headCollider.transform
-                    : rig.headConstraint;
+                    : VRRig.LocalRig.headConstraint;
 
                 Transform leftHand = GorillaTagger.Instance.leftHandTransform;
                 Transform rightHand = GorillaTagger.Instance.rightHandTransform;
@@ -87,7 +84,7 @@ namespace ShibaGTGenesisReborn.Mods
 
                 prevProceduralBodyRot = Quaternion.Slerp(prevProceduralBodyRot, targetTorsoRot, Time.deltaTime * 14f);
 
-                GorillaIK ik = GorillaIK.playerIK ?? rig.GetComponent<GorillaIK>();
+                GorillaIK ik = GorillaIK.playerIK ?? VRRig.LocalRig.GetComponent<GorillaIK>();
                 if (ik != null)
                 {
                     ik.usingUpdatedIK = true;
@@ -112,8 +109,8 @@ namespace ShibaGTGenesisReborn.Mods
                     ik.rightElbowDirection = prevRightElbowDir;
                 }
 
-                if (rig.bodyTransform != null)
-                    rig.bodyTransform.rotation = prevProceduralBodyRot;
+                if (VRRig.LocalRig.bodyTransform != null)
+                    VRRig.LocalRig.bodyTransform.rotation = prevProceduralBodyRot;
             }
         }
     }

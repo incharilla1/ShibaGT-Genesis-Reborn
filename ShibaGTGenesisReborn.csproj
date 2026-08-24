@@ -11,6 +11,8 @@
 	  <EmbeddedResource Include="Resources\meta.png" />
 	  <EmbeddedResource Include="Resources\steam.png" />
 	  <EmbeddedResource Include="Resources\folder.png" />
+	  <EmbeddedResource Include="Resources\settings.png" />
+	  <EmbeddedResource Include="Resources\home.png" />
 	  <Compile Remove="ascs\**" />
 	  <None Remove="ascs\**" /> <!-- assembly csharp decompiled for newest version so i can see what they changed -->
 	</ItemGroup>
@@ -21,7 +23,6 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 	</ItemGroup>
 

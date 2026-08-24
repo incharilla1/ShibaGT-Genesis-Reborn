@@ -36,6 +36,8 @@ namespace ShibaGTGenesisReborn.Libs
         public static Color PointerColor =>
             Color.Lerp(GunColor, Color.white, 0.35f);
 
+        public static Color LockedColor => Color.black;
+
         public static void StartGun(Action action, bool lockOn)
         {
             if (IsXRDeviceActive())
@@ -49,7 +51,7 @@ namespace ShibaGTGenesisReborn.Libs
             if (GorillaTagger.Instance?.thirdPersonCamera != null)
             {
                 Camera cam = GorillaTagger.Instance.thirdPersonCamera.GetComponentInChildren<Camera>();
-                if (cam != null)
+                if (cam != null && cam.isActiveAndEnabled)
                     return cam;
             }
 
@@ -70,14 +72,14 @@ namespace ShibaGTGenesisReborn.Libs
 
             Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Ignore))
-                return;
+            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Collide))
+                hit.point = ray.origin + ray.direction * 100f;
 
             Vector3 start = GorillaTagger.Instance?.rightHandTransform != null
                 ? GorillaTagger.Instance.rightHandTransform.position
                 : cam.transform.position;
 
-            UpdateGun(hit, action, lockOn, start);
+            UpdateGun(ray, hit, action, lockOn, start);
         }
 
         public static void StartVrGun(Action action, bool lockOn)
@@ -89,33 +91,21 @@ namespace ShibaGTGenesisReborn.Libs
             }
 
             Transform hand = GorillaTagger.Instance.rightHandTransform;
-
-            if (!Physics.Raycast(hand.position, -hand.up, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Ignore))
+            if (hand == null)
                 return;
 
-            UpdateGun(hit, action, lockOn, hand.position);
+            Ray ray = new Ray(hand.position, -hand.up);
+
+            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Collide))
+                hit.point = ray.origin + ray.direction * 100f;
+
+            UpdateGun(ray, hit, action, lockOn, hand.position);
         }
 
-        private static void UpdateGun(RaycastHit hit, Action action, bool lockOn, Vector3 start)
+        private static void UpdateGun(Ray ray, RaycastHit hit, Action action, bool lockOn, Vector3 start)
         {
             if (spherepointer == null)
                 CreatePointer();
-
-            if (lockOn && LockedPlayer == null)
-            {
-                VRRig rig = hit.collider.GetComponentInParent<VRRig>();
-                if (rig != null && rig != GorillaTagger.Instance.offlineVRRig)
-                    LockedPlayer = rig;
-            }
-
-            Vector3 pos = LockedPlayer != null
-                ? LockedPlayer.transform.position
-                : hit.point;
-
-            spherepointer.transform.position = pos;
-            spherepointer.GetComponent<Renderer>().material.color = PointerColor;
-
-            UpdateLine(start, pos);
 
             bool pressed = IsXRDeviceActive()
                 ? InputHandler.Instance.RightTrigger.IsPressed
@@ -123,6 +113,30 @@ namespace ShibaGTGenesisReborn.Libs
 
             if (pressed)
             {
+                if (lockOn && LockedPlayer == null)
+                {
+                    VRRig targetRig = hit.collider?.GetComponentInParent<VRRig>();
+                    if (targetRig == null || targetRig.isOfflineVRRig || targetRig == VRRig.LocalRig)
+                    {
+                        float closestRayDist = 0.65f;
+                        foreach (VRRig rig in VRRigCache.ActiveRigs)
+                        {
+                            if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+                            Vector3 rigPos = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position;
+                            float rayDist = Vector3.Cross(ray.direction, rigPos - ray.origin).magnitude;
+                            float distAlongRay = Vector3.Dot(ray.direction, rigPos - ray.origin);
+                            if (distAlongRay > 0f && rayDist < closestRayDist)
+                            {
+                                closestRayDist = rayDist;
+                                targetRig = rig;
+                            }
+                        }
+                    }
+
+                    if (targetRig != null && !targetRig.isOfflineVRRig && targetRig != VRRig.LocalRig)
+                        LockedPlayer = targetRig;
+                }
+
                 if (!lockOn || LockedPlayer != null)
                     action.Invoke();
             }
@@ -130,6 +144,15 @@ namespace ShibaGTGenesisReborn.Libs
             {
                 LockedPlayer = null;
             }
+
+            Vector3 pos = (lockOn && LockedPlayer != null)
+                ? (LockedPlayer.headConstraint != null ? LockedPlayer.headConstraint.position : LockedPlayer.transform.position)
+                : hit.point;
+
+            spherepointer.transform.position = pos;
+            spherepointer.GetComponent<Renderer>().material.color = (lockOn && LockedPlayer != null) ? LockedColor : PointerColor;
+
+            UpdateLine(start, pos);
         }
 
         private static void CreatePointer()
@@ -204,7 +227,7 @@ namespace ShibaGTGenesisReborn.Libs
         public static bool IsXRDeviceActive()
         {
             List<XRDisplaySubsystem> list = new List<XRDisplaySubsystem>();
-            SubsystemManager.GetInstances(list);
+            SubsystemManager.GetSubsystems(list);
             foreach (XRDisplaySubsystem xr in list)
             {
                 if (xr.running)

@@ -155,7 +155,6 @@ namespace ShibaGTGenesisReborn.Mods
             if (!NetworkSystem.Instance.InRoom || NetworkSystem.Instance.LocalPlayer == null) return;
 
             NetPlayer localPlayer = NetworkSystem.Instance.LocalPlayer;
-            VRRig localRig = GorillaTagger.Instance.offlineVRRig;
 
             foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
             {
@@ -169,7 +168,7 @@ namespace ShibaGTGenesisReborn.Mods
                 Vector3 target = line.reportButton.transform.position;
                 foreach (VRRig rig in VRRigCache.ActiveRigs)
                 {
-                    if (rig == null || rig.isOfflineVRRig || rig.isMyPlayer || rig == localRig) continue;
+                    if (rig == null || rig.isOfflineVRRig || rig.isMyPlayer || rig == GorillaTagger.Instance.offlineVRRig) continue;
 
                     if ((rig.rightHandTransform != null && (rig.rightHandTransform.position - target).sqrMagnitude < 0.75f) ||
                         (rig.leftHandTransform != null && (rig.leftHandTransform.position - target).sqrMagnitude < 0.75f) ||
@@ -194,7 +193,7 @@ namespace ShibaGTGenesisReborn.Mods
             panicSavedMods.Clear();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 14 || i == 15)
+                if (i == 10 || i == 11)
                     continue;
 
                 foreach (ButtonInfo btn in Buttons.buttons[i])

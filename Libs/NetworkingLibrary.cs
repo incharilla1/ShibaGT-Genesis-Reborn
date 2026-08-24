@@ -1,11 +1,13 @@
+using GorillaNetworking;
+using Photon.Pun;
+using Photon.Realtime;
+using ShibaGTGenesisReborn.Menu;
+using ShibaGTGenesisReborn.Mods;
+using ShibaGTGenesisReborn.Mods.Custom;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Photon.Pun;
-using Photon.Realtime;
-using ShibaGTGenesisReborn.Mods;
-using ShibaGTGenesisReborn.Mods.Custom;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -27,6 +29,7 @@ namespace ShibaGTGenesisReborn.Libs
         private const string VapeSmokeEvent = "vapesmoke";
         private const string VisualizerEvent = "visualizer";
         private const string BoomboxAudioEvent = "boomboxaudio";
+        private const string CosmeticSyncEvent = "cosmeticsync";
         
         private readonly Dictionary<string, NetworkedObject> trackedObjects = new Dictionary<string, NetworkedObject>();
         private readonly HashSet<string> pendingSync = new HashSet<string>();
@@ -202,6 +205,9 @@ namespace ShibaGTGenesisReborn.Libs
                     case BoomboxAudioEvent:
                         HandleBoomboxAudio(args);
                         break;
+                    case CosmeticSyncEvent:
+                        HandleCosmeticSync(args, senderActorNumber);
+                        break;
                 }
             }
             catch (Exception e)
@@ -236,6 +242,48 @@ namespace ShibaGTGenesisReborn.Libs
             else
             {
                 TryCreateNetworkedObject(objectId, position, rotation, ownerActor, propName);
+            }
+        }
+
+        private void HandleCosmeticSync(object[] args, int senderActorNumber)
+        {
+            if (args.Length < 3 || CosmeticsController.instance == null) return;
+            string cosmeticString = args[2] as string;
+            if (string.IsNullOrEmpty(cosmeticString)) return;
+
+            VRRig targetRig = null;
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig != null && !rig.isOfflineVRRig && rig.Creator != null && rig.Creator.ActorNumber == senderActorNumber)
+                {
+                    targetRig = rig;
+                    break;
+                }
+            }
+
+            if (targetRig == null && NetworkSystem.Instance != null)
+            {
+                NetPlayer player = NetworkSystem.Instance.GetPlayer(senderActorNumber);
+                if (player != null)
+                    targetRig = GorillaGameManager.StaticFindRigForPlayer(player);
+            }
+
+            if (targetRig != null && targetRig.cosmeticSet != null && targetRig.cosmeticsObjectRegistry != null)
+            {
+                string[] items = cosmeticString.Split(',');
+                for (int i = 0; i < 16; i++)
+                {
+                    string itemName = (i < items.Length) ? items[i] : "null";
+                    if (string.IsNullOrEmpty(itemName) || itemName == "null" || itemName == "NOTHING")
+                    {
+                        targetRig.cosmeticSet.items[i] = CosmeticsController.instance.nullItem;
+                    }
+                    else if (CosmeticsController.instance.allCosmeticsDict.TryGetValue(itemName, out var cosmeticItem))
+                    {
+                        targetRig.cosmeticSet.items[i] = cosmeticItem;
+                    }
+                }
+                targetRig.SetCosmeticsActive(false);
             }
         }
 
@@ -468,6 +516,13 @@ namespace ShibaGTGenesisReborn.Libs
                 if (kvp.Value.gameObject.name.Contains("Vape"))
                     SendEventToActor(VapeSmokeEvent, player.ActorNumber, kvp.Key, Vape.isExhaling);
             }
+
+            if (VRRig.LocalRig != null && Main.GetIndex("CosmetX")?.enabled == true)
+            {
+                string cosmeticStr = mods.GetLocalCosmeticString();
+                if (!string.IsNullOrEmpty(cosmeticStr))
+                    SendEventToActor(CosmeticSyncEvent, player.ActorNumber, GetLocalPlayerId(), cosmeticStr);
+            }
         }
 
         private void OnPlayerLeft(NetPlayer player)
@@ -632,6 +687,14 @@ namespace ShibaGTGenesisReborn.Libs
                 TargetActors = new[] { targetActor }
             };
             NetworkSystemRaiseEvent.RaiseEvent(NetworkByte, data, options, reliable: true);
+        }
+
+        public void SendCosmeticUpdate(string cosmeticString)
+        {
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true || string.IsNullOrEmpty(cosmeticString)) 
+                return;
+
+            SendEvent(CosmeticSyncEvent, ReceiverGroup.Others, GetLocalPlayerId(), cosmeticString);
         }
 
         public string FindObjectId(GameObject obj)

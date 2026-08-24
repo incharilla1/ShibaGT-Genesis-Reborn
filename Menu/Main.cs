@@ -34,6 +34,8 @@ namespace ShibaGTGenesisReborn.Menu
             Instance = this;
             DontDestroyOnLoad(gameObject);
             MenuAudio.Initialize();
+            Mods.Custom.BoomboxManager.Initialize();
+            Mods.Custom.SoundboardManager.Initialize();
         }
 
         private void Update()
@@ -50,12 +52,12 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (cocHeading != null && motdBody != null && cocBody != null && motdHeading != null)
                 {
-                    cocHeading.GetComponent<TMP_Text>().text = $"<color=blue>ShibaGT Genesis Reborn v1</color>".ToUpper();
+                    cocHeading.GetComponent<TMP_Text>().text = $"<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
                     cocHeading.GetComponent<TMP_Text>().fontSize = 75f;
                     cocBody.GetComponent<TMP_Text>().richText = true;
-                    cocBody.GetComponent<TMP_Text>().text = $"\nWelcome To ShibaGT Genesis Reborn!\nThis is a Remake of the Longest Lasting Paid Mod Menu Shiba GT Genesis!\nWe currently have <color=>{GetAllButtons().Length} total mods</color> right now".ToUpper();
-                    motdHeading.GetComponent<TMP_Text>().text = "<color=blue>ShibaGT Genesis Reborn v1.0</color>".ToUpper();
-                    motdBody.GetComponent<TMP_Text>().text = "Creditz To ShibaGT/TAI for making the original menu!\nThis is just a remake!\n<color=red>We Are Not Responsible For Any Bans Using This Mod Menu!</color>".ToUpper();
+                    cocBody.GetComponent<TMP_Text>().text = $"\nWelcome To ShibaGT Genesis Reborn!\nThis is a Remake of the Longest Lasting Paid Mod Menu Shiba GT Genesis!\nWe currently have {GetAllButtons().Length} total mods right now".ToUpper();
+                    motdHeading.GetComponent<TMP_Text>().text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+                    motdBody.GetComponent<TMP_Text>().text = "Credits to ShibaGT/TAI for making the original menu!\nThis is just a remake!\n<color=red>We Are Not Responsible For Any Bans Using This Mod Menu!</color>".ToUpper();
                 }
 
                 if (menu == null)
@@ -203,13 +205,8 @@ namespace ShibaGTGenesisReborn.Menu
         public static GameObject rKey = null;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
-        private static ButtonInfo[] allButtons;
-
         private static ButtonInfo[] GetAllButtons()
         {
-            if (allButtons != null)
-                return allButtons;
-
             System.Collections.Generic.List<ButtonInfo> list = new System.Collections.Generic.List<ButtonInfo>();
             for (int i = 0; i < buttons.Length; i++)
             {
@@ -221,9 +218,7 @@ namespace ShibaGTGenesisReborn.Menu
                         list.Add(category[j]);
                 }
             }
-
-            allButtons = list.ToArray();
-            return allButtons;
+            return list.ToArray();
         }
 
         public static void UpdateSearchDisplay()
@@ -597,26 +592,21 @@ namespace ShibaGTGenesisReborn.Menu
 
             But1.AddComponent<Classes.Button>().relatedText = "home";
 
-            Text But1text = new GameObject
+            RawImage homeImg = new GameObject
             {
                 transform =
                 {
                     parent = canvasObject.transform
                 }
-            }.AddComponent<Text>();
+            }.AddComponent<RawImage>();
 
-            But1text.font = currentFont;
-            But1text.text = "\u2302";
-            But1text.fontSize = 1;
-            But1text.color = textColors[0];
-            But1text.alignment = TextAnchor.MiddleCenter;
-            But1text.resizeTextForBestFit = true;
-            But1text.resizeTextMinSize = 0;
+            homeImg.texture = ModsLib.GetHomeTexture();
+            homeImg.color = textColors[0];
 
-            RectTransform recct1 = But1text.GetComponent<RectTransform>();
+            RectTransform recct1 = homeImg.GetComponent<RectTransform>();
 
-            recct1.localPosition = new Vector3(0.064f, -0.134f, -0.216f);
-            recct1.sizeDelta = new Vector2(0.24f, 0.034f);
+            recct1.localPosition = new Vector3(0.064f, -0.134f, -0.217f);
+            recct1.sizeDelta = new Vector2(0.024f, 0.024f);
             recct1.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
             if (SettingsButton)
@@ -639,26 +629,21 @@ namespace ShibaGTGenesisReborn.Menu
 
                 But.AddComponent<Classes.Button>().relatedText = "Settings";
 
-                Text Buttext = new GameObject
+                RawImage settingsImg = new GameObject
                 {
                     transform =
                     {
                         parent = canvasObject.transform
                     }
-                }.AddComponent<Text>();
+                }.AddComponent<RawImage>();
 
-                Buttext.font = currentFont;
-                Buttext.text = "\u2699";
-                Buttext.fontSize = 1;
-                Buttext.color = textColors[0];
-                Buttext.alignment = TextAnchor.MiddleCenter;
-                Buttext.resizeTextForBestFit = true;
-                Buttext.resizeTextMinSize = 0;
+                settingsImg.texture = ModsLib.GetSettingsTexture();
+                settingsImg.color = textColors[0];
 
-                RectTransform recct = Buttext.GetComponent<RectTransform>();
+                RectTransform recct = settingsImg.GetComponent<RectTransform>();
 
                 recct.localPosition = new Vector3(0.064f, -0.087f, -0.217f);
-                recct.sizeDelta = new Vector2(0.14f, 0.024f);
+                recct.sizeDelta = new Vector2(0.024f, 0.024f);
                 recct.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
 
@@ -1130,16 +1115,16 @@ namespace ShibaGTGenesisReborn.Menu
         {
             if (favoriteButtons.Count > 0)
             {
-                if (buttons.Length > 15)
+                if (buttons.Length > 11)
                 {
-                    buttons[15] = favoriteButtons.ToArray();
+                    buttons[11] = favoriteButtons.ToArray();
                 }
             }
             else
             {
-                if (buttons.Length > 15)
+                if (buttons.Length > 11)
                 {
-                    buttons[15] = new ButtonInfo[0];
+                    buttons[11] = new ButtonInfo[0];
                 }
             }
         }
@@ -1309,7 +1294,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }
 
-            if (buttonsType == 14)
+            if (buttonsType == 10)
             {
                 SettingsMods.UpdateEnabledMods();
             }
@@ -1332,7 +1317,9 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 foreach (ButtonInfo button in searchResults)
                 {
-                    if (button != null && button.buttonText == buttonText)
+                    if (button != null && (button.buttonText == buttonText || button.overlapText == buttonText ||
+                        string.Equals(button.buttonText, buttonText, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(button.overlapText, buttonText, StringComparison.OrdinalIgnoreCase)))
                     {
                         return button;
                     }
@@ -1342,7 +1329,9 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 foreach (ButtonInfo button in Buttons.buttons[buttonsType])
                 {
-                    if (button != null && button.buttonText == buttonText)
+                    if (button != null && (button.buttonText == buttonText || button.overlapText == buttonText ||
+                        string.Equals(button.buttonText, buttonText, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(button.overlapText, buttonText, StringComparison.OrdinalIgnoreCase)))
                     {
                         return button;
                     }
@@ -1358,7 +1347,9 @@ namespace ShibaGTGenesisReborn.Menu
 
                 foreach (ButtonInfo button in buttonList)
                 {
-                    if (button != null && button.buttonText == buttonText)
+                    if (button != null && (button.buttonText == buttonText || button.overlapText == buttonText ||
+                        string.Equals(button.buttonText, buttonText, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(button.overlapText, buttonText, StringComparison.OrdinalIgnoreCase)))
                     {
                         return button;
                     }
