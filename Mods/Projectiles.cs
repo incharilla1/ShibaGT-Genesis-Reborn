@@ -206,6 +206,25 @@ namespace ShibaGTGenesisReborn.Mods
                 SendSnowball(origin, velocity, null, ThrowableHand.Right);
         }
 
+        public static void SnowballLauncher()
+        {
+            if (InputHandler.Instance == null) return;
+
+            if (InputHandler.Instance.RightGrip.WasPressed)
+            {
+                Vector3 origin = GTPlayer.Instance.RightHand.controllerTransform.position;
+                Vector3 velocity = GTPlayer.Instance.RightHand.controllerTransform.forward * 40f;
+                SendSnowball(origin, velocity, null, ThrowableHand.Right);
+            }
+
+            if (InputHandler.Instance.LeftGrip.WasPressed)
+            {
+                Vector3 origin = GTPlayer.Instance.LeftHand.controllerTransform.position;
+                Vector3 velocity = GTPlayer.Instance.LeftHand.controllerTransform.forward * 40f;
+                SendSnowball(origin, velocity, null, ThrowableHand.Left);
+            }
+        }
+
         public static void ProjectileGun()
         {
             GunLib.StartGun(() =>
@@ -219,22 +238,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SnowballAimbot()
         {
-            VRRig closestRig = null;
-            float closestDist = float.MaxValue;
-            Vector3 myPos = GorillaTagger.Instance.headCollider.transform.position;
-
-            foreach (VRRig rig in VRRigCache.ActiveRigs)
-            {
-                if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
-                Vector3 rigPos = rig.transform.position;
-                float d = Vector3.Distance(myPos, rigPos);
-                if (d < closestDist)
-                {
-                    closestDist = d;
-                    closestRig = rig;
-                }
-            }
-
+            VRRig closestRig = RigManager.GetClosestVRRig();
             if (closestRig != null)
             {
                 bool trigger = InputHandler.Instance.RightTrigger.IsPressed || (Mouse.current != null && Mouse.current.leftButton.isPressed);
@@ -263,19 +267,14 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SnowballRain()
         {
-            Vector3 center = GorillaTagger.Instance.headCollider.transform.position;
-            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * 8f;
-            Vector3 spawnPos = center + new Vector3(randomCircle.x, 9f, randomCircle.y);
-            Vector3 downVel = new Vector3(0f, -25f, 0f);
+            Vector3 center = GorillaTagger.Instance.headCollider != null
+                ? GorillaTagger.Instance.headCollider.transform.position
+                : GTPlayer.Instance.transform.position;
+            Vector2 circle = UnityEngine.Random.insideUnitCircle * 1.5f;
+            Vector3 spawnPos = center + new Vector3(circle.x, 3.0f, circle.y);
+            Vector3 downVel = new Vector3(circle.x * 2f, -38f, circle.y * 2f);
 
             SendSnowball(spawnPos, downVel, null, ThrowableHand.Dynamic);
-        }
-
-        public static void SnowballExplosion()
-        {
-            Vector3 origin = GTPlayer.Instance.RightHand.controllerTransform.position;
-            Vector3 dir = (GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.forward + UnityEngine.Random.insideUnitSphere * 0.2f).normalized;
-            SendSnowball(origin, dir * 28f, null, ThrowableHand.Dynamic);
         }
 
         public static void FlingGun()

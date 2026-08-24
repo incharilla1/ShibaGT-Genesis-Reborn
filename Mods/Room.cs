@@ -240,20 +240,117 @@ namespace ShibaGTGenesisReborn.Mods
         public static void MuteAll() => lbaction(GorillaPlayerLineButton.ButtonType.Mute, state: true);
         public static void UnmuteAll() => lbaction(GorillaPlayerLineButton.ButtonType.Mute, state: false);
 
-        private static Recorder GetActiveRecorder()
+        public static VRRig priorityVoiceTarget;
+
+        public static void PriorityVoiceGun()
         {
-            if (NetworkSystem.Instance?.LocalRecorder != null) return NetworkSystem.Instance.LocalRecorder;
-            if (NetworkSystem.Instance?.VoiceConnection?.PrimaryRecorder != null) return NetworkSystem.Instance.VoiceConnection.PrimaryRecorder;
-            if (GorillaTagger.Instance?.myRecorder != null) return GorillaTagger.Instance.myRecorder;
-            return Object.FindFirstObjectByType<GTRecorder>() ?? Object.FindFirstObjectByType<Recorder>();
+            GunLib.StartGun(() =>
+            {
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
+                {
+                    if (priorityVoiceTarget == GunLib.LockedPlayer)
+                    {
+                        ResetRigVoice(GunLib.LockedPlayer);
+                        priorityVoiceTarget = null;
+                        NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Priority Voice: Cleared");
+                    }
+                    else
+                    {
+                        if (priorityVoiceTarget != null)
+                            ResetRigVoice(priorityVoiceTarget);
+
+                        priorityVoiceTarget = GunLib.LockedPlayer;
+                        string name = priorityVoiceTarget.Creator?.NickName ?? priorityVoiceTarget.playerNameVisible;
+                        NotificationLib.SendNotification(NotificationLib.NotificationType.Enabled, "Priority Voice: " + name);
+                    }
+                    actionDelay = Time.time + 0.5f;
+                }
+            }, true);
+
+            if (priorityVoiceTarget != null && (!priorityVoiceTarget.gameObject.activeInHierarchy || priorityVoiceTarget.isOfflineVRRig))
+                priorityVoiceTarget = null;
+
+            if (priorityVoiceTarget != null)
+            {
+                ApplyPriorityVoice(priorityVoiceTarget);
+
+                VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
+                if (allRigs != null)
+                {
+                    foreach (var rig in allRigs)
+                    {
+                        if (rig == null || rig.isOfflineVRRig || rig == priorityVoiceTarget) continue;
+                        AudioSource src = GetRigAudioSource(rig);
+                        if (src != null)
+                            src.volume = 0.2f;
+                    }
+                }
+            }
         }
 
-        private static GTRecorder GetActiveGTRecorder(Recorder recorder = null)
+        public static void PriorityVoiceDisable()
         {
-            if (recorder is GTRecorder gt) return gt;
-            if (recorder != null)
+            VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
+            if (allRigs != null)
             {
-                GTRecorder comp = recorder.GetComponent<GTRecorder>();
+                foreach (var rig in allRigs)
+                {
+                    if (rig == null || rig.isOfflineVRRig) continue;
+                    ResetRigVoice(rig);
+                }
+            }
+            priorityVoiceTarget = null;
+        }
+
+        private static AudioSource GetRigAudioSource(VRRig rig)
+        {
+            if (rig == null) return null;
+            if (rig.voiceAudio != null) return rig.voiceAudio;
+            var speaker = rig.GetComponentInChildren<Speaker>() ?? rig.GetComponentInChildren<GTSpeaker>();
+            if (speaker != null)
+            {
+                var src = speaker.GetComponent<AudioSource>();
+                if (src != null) return src;
+            }
+            return rig.GetComponentInChildren<AudioSource>();
+        }
+
+        private static void ApplyPriorityVoice(VRRig rig)
+        {
+            AudioSource src = GetRigAudioSource(rig);
+            if (src != null)
+            {
+                src.volume = 1f;
+                src.spatialBlend = 0f;
+                src.minDistance = 500f;
+                src.maxDistance = 1000f;
+            }
+        }
+
+        private static void ResetRigVoice(VRRig rig)
+        {
+            AudioSource src = GetRigAudioSource(rig);
+            if (src != null)
+            {
+                src.volume = 1f;
+                src.spatialBlend = 1f;
+                src.minDistance = 1f;
+                src.maxDistance = 30f;
+            }
+        }
+
+        private static GTRecorder GetActiveGTRecorder()
+        {
+            if (NetworkSystem.Instance?.LocalRecorder is GTRecorder netGt) return netGt;
+            if (NetworkSystem.Instance?.LocalRecorder != null)
+            {
+                GTRecorder comp = NetworkSystem.Instance.LocalRecorder.GetComponent<GTRecorder>();
+                if (comp != null) return comp;
+            }
+            if (NetworkSystem.Instance?.VoiceConnection?.PrimaryRecorder is GTRecorder voiceGt) return voiceGt;
+            if (NetworkSystem.Instance?.VoiceConnection?.PrimaryRecorder != null)
+            {
+                GTRecorder comp = NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.GetComponent<GTRecorder>();
                 if (comp != null) return comp;
             }
             if (GorillaTagger.Instance?.myRecorder is GTRecorder myGt) return myGt;
@@ -262,28 +359,17 @@ namespace ShibaGTGenesisReborn.Mods
                 GTRecorder comp = GorillaTagger.Instance.myRecorder.GetComponent<GTRecorder>();
                 if (comp != null) return comp;
             }
-            if (NetworkSystem.Instance?.LocalRecorder is GTRecorder netGt) return netGt;
-            if (NetworkSystem.Instance?.LocalRecorder != null)
-            {
-                GTRecorder comp = NetworkSystem.Instance.LocalRecorder.GetComponent<GTRecorder>();
-                if (comp != null) return comp;
-            }
             return Object.FindFirstObjectByType<GTRecorder>();
         }
 
         public static void LoudMicrophone(float volumeMultiplier = 15f)
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
-            GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowVolumeAdjustment = true;
-                gtRecorder.VolumeAdjustment = volumeMultiplier;
-            }
-
+            recorder.AllowVolumeAdjustment = true;
+            recorder.VolumeAdjustment = volumeMultiplier;
             recorder.VoiceDetection = false;
             recorder.TransmitEnabled = true;
         }
@@ -291,16 +377,11 @@ namespace ShibaGTGenesisReborn.Mods
         public static void ResetMicrophoneVolume()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
-            GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowVolumeAdjustment = false;
-                gtRecorder.VolumeAdjustment = 1f;
-            }
-
+            recorder.AllowVolumeAdjustment = false;
+            recorder.VolumeAdjustment = 1f;
             recorder.VoiceDetection = true;
             recorder.VoiceDetectionThreshold = 0.07f;
         }
@@ -308,45 +389,31 @@ namespace ShibaGTGenesisReborn.Mods
         public static void MuteMicrophone()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
-            GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowVolumeAdjustment = true;
-                gtRecorder.VolumeAdjustment = 0f;
-            }
-
+            recorder.AllowVolumeAdjustment = true;
+            recorder.VolumeAdjustment = 0f;
             recorder.TransmitEnabled = false;
             recorder.VoiceDetectionThreshold = 1f;
 
             if (GorillaTagger.Instance?.offlineVRRig != null)
-            {
                 GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = false;
-            }
         }
 
         public static void UnmuteMicrophone()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
-            GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowVolumeAdjustment = false;
-                gtRecorder.VolumeAdjustment = 1f;
-            }
-
+            recorder.AllowVolumeAdjustment = false;
+            recorder.VolumeAdjustment = 1f;
             recorder.TransmitEnabled = true;
             recorder.VoiceDetectionThreshold = 0.07f;
 
             if (GorillaTagger.Instance?.offlineVRRig != null)
-            {
                 GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = true;
-            }
         }
 
         public static bool microphoneEchoForOthers;
@@ -362,7 +429,7 @@ namespace ShibaGTGenesisReborn.Mods
         public static void HearSelf(bool enable = true)
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
             recorder.DebugEchoMode = enable;
@@ -372,23 +439,21 @@ namespace ShibaGTGenesisReborn.Mods
         public static void SetMicrophonePitch(float pitch)
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            GTRecorder gtRecorder = GetActiveGTRecorder();
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowPitchAdjustment = true;
-                gtRecorder.PitchAdjustment = pitch;
-            }
+            GTRecorder recorder = GetActiveGTRecorder();
+            if (recorder == null) return;
+
+            recorder.AllowPitchAdjustment = true;
+            recorder.PitchAdjustment = pitch;
         }
 
         public static void ResetMicrophonePitch()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            GTRecorder gtRecorder = GetActiveGTRecorder();
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowPitchAdjustment = false;
-                gtRecorder.PitchAdjustment = 1f;
-            }
+            GTRecorder recorder = GetActiveGTRecorder();
+            if (recorder == null) return;
+
+            recorder.AllowPitchAdjustment = false;
+            recorder.PitchAdjustment = 1f;
         }
 
         private static bool savedNoiseVoiceDetection;
@@ -401,49 +466,39 @@ namespace ShibaGTGenesisReborn.Mods
         public static void NoiseCancellation()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
             savedNoiseVoiceDetection = recorder.VoiceDetection;
             savedNoiseVoiceDetectionThreshold = recorder.VoiceDetectionThreshold;
             savedNoiseVoiceDetectionDelayMs = recorder.VoiceDetectionDelayMs;
             savedNoiseBitrate = recorder.Bitrate;
+            savedNoiseAllowVolume = recorder.AllowVolumeAdjustment;
+            savedNoiseVolume = recorder.VolumeAdjustment;
 
             recorder.VoiceDetection = true;
             recorder.VoiceDetectionThreshold = 0.035f;
             recorder.VoiceDetectionDelayMs = 150;
             recorder.Bitrate = 64000;
             recorder.TransmitEnabled = true;
-
-            GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-            if (gtRecorder != null)
-            {
-                savedNoiseAllowVolume = gtRecorder.AllowVolumeAdjustment;
-                savedNoiseVolume = gtRecorder.VolumeAdjustment;
-                gtRecorder.AllowVolumeAdjustment = false;
-                gtRecorder.VolumeAdjustment = 1f;
-                gtRecorder.AllowPitchAdjustment = false;
-                gtRecorder.PitchAdjustment = 1f;
-            }
+            recorder.AllowVolumeAdjustment = false;
+            recorder.VolumeAdjustment = 1f;
+            recorder.AllowPitchAdjustment = false;
+            recorder.PitchAdjustment = 1f;
         }
 
         public static void DisableNoiseCancellation()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
             recorder.VoiceDetection = savedNoiseVoiceDetection;
             recorder.VoiceDetectionThreshold = savedNoiseVoiceDetectionThreshold;
             recorder.VoiceDetectionDelayMs = savedNoiseVoiceDetectionDelayMs;
             recorder.Bitrate = savedNoiseBitrate;
-
-            GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-            if (gtRecorder != null)
-            {
-                gtRecorder.AllowVolumeAdjustment = savedNoiseAllowVolume;
-                gtRecorder.VolumeAdjustment = savedNoiseVolume;
-            }
+            recorder.AllowVolumeAdjustment = savedNoiseAllowVolume;
+            recorder.VolumeAdjustment = savedNoiseVolume;
         }
 
         public static void FixMicrophone()
@@ -451,7 +506,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (!NetworkSystem.Instance.InRoom) return;
             microphoneEchoForOthers = false;
 
-            Recorder recorder = GetActiveRecorder();
+            GTRecorder recorder = GetActiveGTRecorder();
             if (recorder != null)
             {
                 recorder.SourceType = Recorder.InputSourceType.Microphone;
@@ -463,16 +518,10 @@ namespace ShibaGTGenesisReborn.Mods
                 recorder.VoiceDetectionDelayMs = 500;
                 recorder.RecordOnlyWhenJoined = true;
                 recorder.StopRecordingWhenPaused = false;
-
-                GTRecorder gtRecorder = GetActiveGTRecorder(recorder);
-                if (gtRecorder != null)
-                {
-                    gtRecorder.AllowVolumeAdjustment = false;
-                    gtRecorder.VolumeAdjustment = 1f;
-                    gtRecorder.AllowPitchAdjustment = false;
-                    gtRecorder.PitchAdjustment = 1f;
-                }
-
+                recorder.AllowVolumeAdjustment = false;
+                recorder.VolumeAdjustment = 1f;
+                recorder.AllowPitchAdjustment = false;
+                recorder.PitchAdjustment = 1f;
                 recorder.RestartRecording(true);
             }
 

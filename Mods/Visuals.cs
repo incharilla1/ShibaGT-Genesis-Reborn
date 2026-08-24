@@ -595,25 +595,35 @@ namespace ShibaGTGenesisReborn.Mods
         private static List<CosmeticsController.CosmeticItem> savedUnlockedArms = new List<CosmeticsController.CosmeticItem>();
         private static List<CosmeticsController.CosmeticItem> savedUnlockedTagFX = new List<CosmeticsController.CosmeticItem>();
         private static List<CosmeticsController.CosmeticItem> savedUnlockedThrowables = new List<CosmeticsController.CosmeticItem>();
+        private static HashSet<string> savedPlayerOwnedCosmetics = new HashSet<string>();
+        private static HashSet<string> savedOfflinePlayerOwnedCosmetics = new HashSet<string>();
 
         public static void EnableCosmetX()
         {
             CosmeticsController controller = CosmeticsController.instance;
             if (controller == null) return;
 
-            savedUnlockedCosmetics = new List<CosmeticsController.CosmeticItem>(controller.unlockedCosmetics);
-            savedUnlockedHats = new List<CosmeticsController.CosmeticItem>(controller.unlockedHats);
-            savedUnlockedFaces = new List<CosmeticsController.CosmeticItem>(controller.unlockedFaces);
-            savedUnlockedBadges = new List<CosmeticsController.CosmeticItem>(controller.unlockedBadges);
-            savedUnlockedPaws = new List<CosmeticsController.CosmeticItem>(controller.unlockedPaws);
-            savedUnlockedChests = new List<CosmeticsController.CosmeticItem>(controller.unlockedChests);
-            savedUnlockedFurs = new List<CosmeticsController.CosmeticItem>(controller.unlockedFurs);
-            savedUnlockedShirts = new List<CosmeticsController.CosmeticItem>(controller.unlockedShirts);
-            savedUnlockedPants = new List<CosmeticsController.CosmeticItem>(controller.unlockedPants);
-            savedUnlockedBacks = new List<CosmeticsController.CosmeticItem>(controller.unlockedBacks);
-            savedUnlockedArms = new List<CosmeticsController.CosmeticItem>(controller.unlockedArms);
-            savedUnlockedTagFX = new List<CosmeticsController.CosmeticItem>(controller.unlockedTagFX);
-            savedUnlockedThrowables = new List<CosmeticsController.CosmeticItem>(controller.unlockedThrowables);
+            if (controller.unlockedCosmetics != null && controller.unlockedCosmetics.Count > 0)
+            {
+                savedUnlockedCosmetics = new List<CosmeticsController.CosmeticItem>(controller.unlockedCosmetics);
+                savedUnlockedHats = new List<CosmeticsController.CosmeticItem>(controller.unlockedHats);
+                savedUnlockedFaces = new List<CosmeticsController.CosmeticItem>(controller.unlockedFaces);
+                savedUnlockedBadges = new List<CosmeticsController.CosmeticItem>(controller.unlockedBadges);
+                savedUnlockedPaws = new List<CosmeticsController.CosmeticItem>(controller.unlockedPaws);
+                savedUnlockedChests = new List<CosmeticsController.CosmeticItem>(controller.unlockedChests);
+                savedUnlockedFurs = new List<CosmeticsController.CosmeticItem>(controller.unlockedFurs);
+                savedUnlockedShirts = new List<CosmeticsController.CosmeticItem>(controller.unlockedShirts);
+                savedUnlockedPants = new List<CosmeticsController.CosmeticItem>(controller.unlockedPants);
+                savedUnlockedBacks = new List<CosmeticsController.CosmeticItem>(controller.unlockedBacks);
+                savedUnlockedArms = new List<CosmeticsController.CosmeticItem>(controller.unlockedArms);
+                savedUnlockedTagFX = new List<CosmeticsController.CosmeticItem>(controller.unlockedTagFX);
+                savedUnlockedThrowables = new List<CosmeticsController.CosmeticItem>(controller.unlockedThrowables);
+            }
+
+            if (VRRig.LocalRig?._playerOwnedCosmetics != null)
+                savedPlayerOwnedCosmetics = new HashSet<string>(VRRig.LocalRig._playerOwnedCosmetics);
+            if (GorillaTagger.Instance?.offlineVRRig?._playerOwnedCosmetics != null)
+                savedOfflinePlayerOwnedCosmetics = new HashSet<string>(GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics);
 
             controller.unlockedCosmetics.Clear();
             controller.unlockedHats.Clear();
@@ -694,6 +704,7 @@ namespace ShibaGTGenesisReborn.Mods
             controller.UpdateWardrobeModelsAndButtons();
             controller.OnCosmeticsUpdated?.Invoke();
             VRRig.LocalRig?.RefreshCosmetics();
+            GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
             SyncCosmeticsToNetwork();
         }
 
@@ -729,10 +740,48 @@ namespace ShibaGTGenesisReborn.Mods
             controller.unlockedThrowables.Clear();
             controller.unlockedThrowables.AddRange(savedUnlockedThrowables);
 
+            if (VRRig.LocalRig?._playerOwnedCosmetics != null)
+            {
+                VRRig.LocalRig._playerOwnedCosmetics.Clear();
+                VRRig.LocalRig._playerOwnedCosmetics.UnionWith(savedPlayerOwnedCosmetics);
+            }
+
+            if (GorillaTagger.Instance?.offlineVRRig?._playerOwnedCosmetics != null)
+            {
+                GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics.Clear();
+                GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics.UnionWith(savedOfflinePlayerOwnedCosmetics);
+            }
+
+            if (controller.cosmeticsPages != null)
+            {
+                for (int i = 0; i < controller.cosmeticsPages.Length; i++)
+                    controller.cosmeticsPages[i] = 0;
+            }
+
+            if (savedUnlockedCosmetics.Count == 0)
+            {
+                try
+                {
+                    controller.GetCosmeticsPlayFabCatalogData();
+                    GorillaTagger.Instance?.offlineVRRig?.GetCosmeticsPlayFabCatalogData();
+                }
+                catch { }
+            }
+
             controller.concatStringCosmeticsAllowed = string.Concat(controller.unlockedCosmetics.Select(x => x.itemName));
+
+            try
+            {
+                controller.currentWornSet?.LoadFromPlayerPreferences(controller);
+                controller.UpdateWornCosmetics(true);
+            }
+            catch { }
+
             controller.UpdateWardrobeModelsAndButtons();
             controller.OnCosmeticsUpdated?.Invoke();
+            controller.OnOutfitsUpdated?.Invoke();
             VRRig.LocalRig?.RefreshCosmetics();
+            GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
             SyncCosmeticsToNetwork();
         }
 
