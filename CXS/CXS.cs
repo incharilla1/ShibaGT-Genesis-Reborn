@@ -55,12 +55,7 @@ namespace CXS
             );
         }
 
-        public static void TeleportPlayer(Vector3 position) // Only modify this if you need any special logic
-        {
-            mods.bypasstp(position);                                                               
-            GTPlayer.Instance.TeleportTo(World2Player(position), GTPlayer.Instance.transform.rotation, true);
-            VRRig.LocalRig.transform.position = position;
-        }
+        public static void TeleportPlayer(Vector3 position) => mods.bypasstp(position);
 
         public static void EnableMod(string mod, bool enable) => Main.GetIndex(mod).enabled = enable;
 

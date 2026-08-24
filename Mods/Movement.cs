@@ -196,6 +196,7 @@ namespace ShibaGTGenesisReborn.Mods
                     rig.transform.position = position;
                     if (rig.rightHandTransform != null) rig.rightHandTransform.position = position;
                     if (rig.leftHandTransform != null) rig.leftHandTransform.position = position;
+                    if (rig.headConstraint != null) rig.headConstraint.position = position;
                 }
                 return;
             }
@@ -204,13 +205,30 @@ namespace ShibaGTGenesisReborn.Mods
 
             Noclipistuff(true);
 
-            Vector3 headOffset = GorillaTagger.Instance.headCollider.transform.position - GTPlayer.Instance.transform.position;
+            Vector3 headOffset = GorillaTagger.Instance.headCollider != null
+                ? GorillaTagger.Instance.headCollider.transform.position - GTPlayer.Instance.transform.position
+                : Vector3.zero;
+
             Vector3 targetPlayerPos = position - headOffset;
 
-            GTPlayer.Instance.TeleportTo(targetPlayerPos, GTPlayer.Instance.transform.rotation);
+            GTPlayer.Instance.TeleportTo(targetPlayerPos, GTPlayer.Instance.transform.rotation, false, false);
 
-            if (VRRig.LocalRig != null)
-                VRRig.LocalRig.transform.position = targetPlayerPos;
+            if (GorillaTagger.Instance.rigidbody != null)
+            {
+                GorillaTagger.Instance.rigidbody.position = targetPlayerPos;
+                GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
+            }
+
+            VRRig localRig = VRRig.LocalRig;
+            if (localRig != null)
+            {
+                localRig.transform.position = targetPlayerPos;
+                localRig.leftHandLink?.BreakLink();
+                localRig.rightHandLink?.BreakLink();
+            }
+
+            Physics.SyncTransforms();
+            GTPlayer.Instance.ForceRigidBodySync();
 
             Noclipistuff(false);
         }
