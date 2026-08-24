@@ -192,47 +192,20 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static bool IsSteamUser(VRRig rig, Player player)
+        public static string GetPlayerPlatform(NetPlayer player)
         {
-            if (player != null && player.CustomProperties != null)
-            {
-                if (player.CustomProperties.TryGetValue("platform", out object platObj) && platObj != null)
-                {
-                    string platStr = platObj.ToString();
-                    if (platStr.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0)
-                        return true;
-                    if (platStr.IndexOf("quest", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        platStr.IndexOf("oculus", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        platStr.IndexOf("meta", StringComparison.OrdinalIgnoreCase) >= 0)
-                        return false;
-                }
+            if (player == null || NetworkSystem.Instance == null) return string.Empty;
+            return NetworkSystem.Instance.GetPlayerPlatform(player) ?? string.Empty;
+        }
 
-                if (player.CustomProperties.Count >= 2)
-                    return true;
-            }
+        public static bool IsSteamUser(NetPlayer player)
+        {
+            return GetPlayerPlatform(player).IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
-            if (rig != null)
-            {
-                try
-                {
-                    var cosmeticsField = AccessTools.Field(rig.GetType(), "_playerOwnedCosmetics");
-                    if (cosmeticsField != null)
-                    {
-                        var cosmetics = cosmeticsField.GetValue(rig) as HashSet<string>;
-                        if (cosmetics != null)
-                        {
-                            string concat = string.Concat(cosmetics);
-                            if (concat.Contains("S. FIRST LOGIN") || concat.Contains("FIRST LOGIN"))
-                                return true;
-                            if (concat.Contains("LMAKT."))
-                                return false;
-                        }
-                    }
-                }
-                catch { }
-            }
-
-            return false;
+        public static bool IsSteamUser(VRRig rig)
+        {
+            return IsSteamUser(rig?.creator);
         }
 
         public static void NameAndDistanceTags()
@@ -242,9 +215,10 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (rig == null || rig.isOfflineVRRig) continue;
                 
+                NetPlayer netPlayer = rig.creator;
                 Player player = null;
-                if (rig.Creator != null)
-                    player = PhotonNetwork.CurrentRoom?.GetPlayer(rig.Creator.ActorNumber);
+                if (netPlayer != null)
+                    player = PhotonNetwork.CurrentRoom?.GetPlayer(netPlayer.ActorNumber);
 
                 string name = player != null ? player.NickName : (!string.IsNullOrEmpty(rig.playerNameVisible) ? rig.playerNameVisible : "Player");
                 float dist = Vector3.Distance(GorillaTagger.Instance.bodyCollider.transform.position, rig.transform.position);
@@ -264,7 +238,7 @@ namespace ShibaGTGenesisReborn.Mods
                 tm.anchor = TextAnchor.MiddleCenter;
                 tm.color = rig.playerColor;
 
-                bool isSteam = IsSteamUser(rig, player);
+                bool isSteam = IsSteamUser(netPlayer);
                 Material platformMat = isSteam ? ModsLib.GetSteamMaterial() : ModsLib.GetMetaMaterial();
 
                 if (platformMat != null)

@@ -61,7 +61,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Platforms", method =() => mods.Platforms(), isTogglable = true, toolTip = "Spawn platforms on trigger/grip"},
                 new ButtonInfo { buttonText = "Invis Platforms", method =() => mods.Platforms(true), isTogglable = true, toolTip = "Spawn invisible platforms"},
                 new ButtonInfo { buttonText = "Noclip (RT)", method =() => mods.Noclip(), isTogglable = true, toolTip = "Hold right trigger to phase through walls"},
-                new ButtonInfo { buttonText = "Fly (A)", method =() => mods.CarMonkeyandfly(15f, true), isTogglable = true, toolTip = "Hold A to fly where you look"},
+                new ButtonInfo { buttonText = "Fly (B)", method =() => mods.CarMonkeyandfly(15f, true), isTogglable = true, toolTip = "Hold B to fly where you look"},
                 new ButtonInfo { buttonText = "WASD Fly", method =() => mods.WASDFly(), isTogglable = true, toolTip = "Fly and look around with WASD/mouse"},
                 new ButtonInfo { buttonText = "Car Monkey (A)", method =() => mods.CarMonkeyandfly(15f, false), isTogglable = true, toolTip = "Hold A to drive forward"},
                 new ButtonInfo { buttonText = "TP Gun", method =() => mods.TeleportGun(), isTogglable = true, toolTip = "Point and shoot to teleport"},
@@ -182,7 +182,7 @@ namespace ShibaGTGenesisReborn.Menu
             { // Projectile [7]
                 new ButtonInfo { buttonText = "Projectile Spam (B)", method =() => mods.SnowballSpam(GorillaLocomotion.GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0f), GTPlayer.Instance.RightHand.controllerTransform.position), enabled = false, isTogglable = true, toolTip = "Hold B to spam"},
                 new ButtonInfo { buttonText = "Projectile Gun (B)", method =() => mods.SnowballSpam(GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.forward * 20f, GTPlayer.Instance.RightHand.controllerTransform.position), enabled = false, isTogglable = true, toolTip = "Press B to shoot"},
-                new ButtonInfo { buttonText = "Snowball Fling Gun", method =() => mods.FlingGun(), enabled = false, isTogglable = true, toolTip = "Fling snowballs"},
+                new ButtonInfo { buttonText = "Snowball Fling Gun", method =() => { mods.biig = true; mods.FlingGun(); }, disableMethod =() => mods.biig = false, enabled = false, isTogglable = true, toolTip = "Fling snowballs"},
             },
 
             new ButtonInfo[]
@@ -198,11 +198,11 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Connect to US Central", method =() => mods.ConnectToRegion("us"), enabled = false, isTogglable = false, toolTip = "Join US Central server"},
                 new ButtonInfo { buttonText = "Connect to US West", method =() => mods.ConnectToRegion("usw"), enabled = false, isTogglable = false, toolTip = "Join US West server"},
                 new ButtonInfo { buttonText = "Connect to EU", method =() => mods.ConnectToRegion("eu"), enabled = false, isTogglable = false, toolTip = "Join EU server"},
-                new ButtonInfo { buttonText = "Mute Gun", method =() => mods.MuteGun(), isTogglable = true, toolTip = "Shoot to mute player"},
-                new ButtonInfo { buttonText = "Mute All", method =() => mods.MuteAll(), enabled = false, isTogglable = false, toolTip = "Mute all players"},
-                new ButtonInfo { buttonText = "Unmute All", method =() => mods.UnmuteAll(), enabled = false, isTogglable = false, toolTip = "Unmute all players"},
-                new ButtonInfo { buttonText = "Report Gun", method =() => mods.ReportGun(), isTogglable = true, toolTip = "Shoot to report player"},
-                new ButtonInfo { buttonText = "Report All", method =() => mods.ReportAll(), enabled = false, isTogglable = false, toolTip = "Report all players"},
+                new ButtonInfo { buttonText = "Mute Gun (CS)", method =() => mods.MuteGun(), isTogglable = true, toolTip = "Shoot to mute player"},
+                new ButtonInfo { buttonText = "Mute All (CS)", method =() => mods.MuteAll(), enabled = false, isTogglable = false, toolTip = "Mute all players"},
+                new ButtonInfo { buttonText = "Unmute All (CS)", method =() => mods.UnmuteAll(), enabled = false, isTogglable = false, toolTip = "Unmute all players"},
+                new ButtonInfo { buttonText = "Report Gun (CS)", method =() => mods.ReportGun(), isTogglable = true, toolTip = "Shoot to report player"},
+                new ButtonInfo { buttonText = "Report All (CS)", method =() => mods.ReportAll(), enabled = false, isTogglable = false, toolTip = "Report all players"},
                 new ButtonInfo { buttonText = "Copy Identity", method =() => mods.CopyPlayerIdentity(), isTogglable = true, toolTip = "Shoot player to copy name and color"},
                 new ButtonInfo { buttonText = "Lobby Hop", method =() => mods.LobbyHop(), isTogglable = false, toolTip = "Disconnect and join new random room"},
                 new ButtonInfo { buttonText = "Rejoin Room", method =() => mods.RejoinRoom(), isTogglable = false, toolTip = "Reconnect to current room"},
@@ -210,21 +210,23 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Move Set
-                new ButtonInfo{ buttonText = "pltclr", method =() => mods.PlatColorChange(), isTogglable = false, overlapText = "Plat Color: Blue", toolTip = "Change platform color"},
-                new ButtonInfo{ buttonText = "pullmode", method =() => mods.ChangePullMode(), isTogglable = false, overlapText = "Pull Mode: Legit", toolTip = "Change pull mode"},
+                new ButtonInfo { buttonText = "pltclr", method =() => mods.PlatColorChange(), isTogglable = false, overlapText = "Plat Color: Blue", toolTip = "Change platform color"},
+                new ButtonInfo { buttonText = "pullmode", method =() => mods.ChangePullMode(), isTogglable = false, overlapText = "Pull Mode: Legit", toolTip = "Change pull mode"},
             },
 
             new ButtonInfo[]
             { // Rig [4]
-                new ButtonInfo{ buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Ghost Monkey"},
-                new ButtonInfo{ buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey"},
-                new ButtonInfo{ buttonText = "Long Arms", method =() => mods.LongArms(), disableMethod =() => mods.NormalArms(), isTogglable = true, toolTip = "Long arms"},
-                new ButtonInfo{ buttonText = "No Fingers", method =() => mods.NoFinger(), isTogglable = true, toolTip = "No fingers"},
-                new ButtonInfo{ buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey"},
-                new ButtonInfo{ buttonText = "Upside Down Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "neck upsidedown"},
-                new ButtonInfo{ buttonText = "Broken Neck", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 90f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "broken neck"},
-                new ButtonInfo{ buttonText = "Backwards Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.y = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "backwards head"},
-                new ButtonInfo{ buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously"},
+                new ButtonInfo { buttonText = "Networked Body Tracking", enableMethod =() => mods.IsNetworkedBodyTrackingActive = true, disableMethod =() => mods.IsNetworkedBodyTrackingActive = false, isTogglable = true, toolTip = "Networked body tracking" },
+                new ButtonInfo { buttonText = "bodytrack", overlapText = "Body Tracking (CS)", enableMethod =() => mods.EnableBodyTracking(), disableMethod =() => mods.DisableBodyTracking(), isTogglable = true, toolTip = "Client-side body tracking" },
+                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Freeze your rig"},
+                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey"},
+                new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), disableMethod =() => mods.NormalArms(), isTogglable = true, toolTip = "Long arms"},
+                new ButtonInfo { buttonText = "No Fingers", method =() => mods.NoFinger(), isTogglable = true, toolTip = "No fingers"},
+                new ButtonInfo { buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey"},
+                new ButtonInfo { buttonText = "Upside Down Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "neck upsidedown"},
+                new ButtonInfo { buttonText = "Broken Neck", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 90f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "broken neck"},
+                new ButtonInfo { buttonText = "Backwards Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.y = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "backwards head"},
+                new ButtonInfo { buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously"},
             },
 
             new ButtonInfo[]

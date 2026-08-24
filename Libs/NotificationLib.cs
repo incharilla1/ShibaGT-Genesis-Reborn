@@ -87,13 +87,11 @@ namespace ShibaGTGenesisReborn.Libs
 
         public void Init()
         {
-            if (_hasInitialized)
-                return;
+            if (_hasInitialized) return;
 
             _mainCamera = GameObject.Find("Main Camera");
 
-            if (_mainCamera == null)
-                return;
+            if (_mainCamera == null) return;
 
             _hudObj2 = CreateAndTrackHUDObject("HUD_Notification_Parent");
 

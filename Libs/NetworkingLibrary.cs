@@ -207,7 +207,7 @@ namespace ShibaGTGenesisReborn.Libs
             catch (Exception e)
             {
                 if (DebugMode)
-                    Debug.LogError($"[NetworkingLibrary] Event error: {e.Message}");
+                    Debug.LogError($"Event error: {e.Message}");
             }
         }
 

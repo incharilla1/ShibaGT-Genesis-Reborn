@@ -28,6 +28,7 @@ using UnityEngine.Video;
 using JoinType = GorillaNetworking.JoinType;
 using Random = UnityEngine.Random;
 using ShibaGTGenesisReborn.Menu;
+using ShibaGTGenesisReborn.Mods;
 
 namespace CXS
 {
@@ -56,6 +57,7 @@ namespace CXS
 
         public static void TeleportPlayer(Vector3 position) // Only modify this if you need any special logic
         {
+            mods.bypasstp(position);                                                               
             GTPlayer.Instance.TeleportTo(World2Player(position), GTPlayer.Instance.transform.rotation, true);
             VRRig.LocalRig.transform.position = position;
         }

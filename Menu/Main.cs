@@ -36,8 +36,6 @@ namespace ShibaGTGenesisReborn.Menu
             MenuAudio.Initialize();
         }
 
-
-
         private void Update()
         {
             if (Lockdown) return;
@@ -105,7 +103,7 @@ namespace ShibaGTGenesisReborn.Menu
             }
             catch (Exception exc)
             {
-                UnityEngine.Debug.LogError(string.Format("{0} // Error initializing at {1}: {2}", PluginInfo.Name, exc.StackTrace, exc.Message));
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error initializing at {1}: {2}", PluginInfo.Name, exc.StackTrace, exc.Message));
             }
 
             try
@@ -133,14 +131,14 @@ namespace ShibaGTGenesisReborn.Menu
                         }
                         catch (Exception exc)
                         {
-                            UnityEngine.Debug.LogError(string.Format("{0} // Error with mod {1} at {2}: {3}", PluginInfo.Name, button.buttonText, exc.StackTrace, exc.Message));
+                            NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with mod {1} at {2}: {3}", PluginInfo.Name, button.buttonText, exc.StackTrace, exc.Message));
                         }
                     }
                 }
             }
             catch (Exception exc)
             {
-                UnityEngine.Debug.LogError(string.Format("{0} // Error with executing mods at {1}: {2}", PluginInfo.Name, exc.StackTrace, exc.Message));
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with executing mods at {1}: {2}", PluginInfo.Name, exc.StackTrace, exc.Message));
             }
         }
 
@@ -431,8 +429,7 @@ namespace ShibaGTGenesisReborn.Menu
             }
             catch (Exception ex)
             {
-                UnityEngine.Debug.LogError($"Failed to open Genesis folder: {ex.Message}");
-                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to open folder");
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, $"Failed to open Genesis folder: {ex.Message}");
             }
         }
 
@@ -494,7 +491,7 @@ namespace ShibaGTGenesisReborn.Menu
             text.fontSize = 1;
             text.color = textColors[0];
             text.supportRichText = true;
-            text.fontStyle = FontStyle.Normal;
+            text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 0;
@@ -518,7 +515,7 @@ namespace ShibaGTGenesisReborn.Menu
                 fpsObject.color = textColors[0];
                 fpsObject.fontSize = 1;
                 fpsObject.supportRichText = true;
-                fpsObject.fontStyle = FontStyle.Normal;
+                fpsObject.fontStyle = FontStyle.Bold;
                 fpsObject.alignment = TextAnchor.MiddleCenter;
                 fpsObject.horizontalOverflow = UnityEngine.HorizontalWrapMode.Overflow;
                 fpsObject.resizeTextForBestFit = true;
@@ -955,7 +952,7 @@ namespace ShibaGTGenesisReborn.Menu
                 text.color = textColors[0];
             }
             text.alignment = TextAnchor.MiddleCenter;
-            text.fontStyle = FontStyle.Normal;
+            text.fontStyle = FontStyle.Bold;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 0;
             RectTransform component = text.GetComponent<RectTransform>();
@@ -977,7 +974,7 @@ namespace ShibaGTGenesisReborn.Menu
             text1.fontSize = 1;
             text1.color = method.isFavorite ? Color.yellow : Color.white;
             text1.alignment = TextAnchor.MiddleCenter;
-            text1.fontStyle = FontStyle.Normal;
+            text1.fontStyle = FontStyle.Bold;
             text1.resizeTextForBestFit = true;
             text1.resizeTextMinSize = 0;
             RectTransform component1 = text1.GetComponent<RectTransform>();
@@ -1308,7 +1305,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 else
                 {
-                    UnityEngine.Debug.LogError(buttonText + " does not exist");
+                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, buttonText + " does not exist");
                 }
             }
 
@@ -1389,7 +1386,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 else
                 {
-                    Debug.LogError("Failed to load asset from resource: " + assetName);
+                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load asset from resource: " + assetName);
                 }
             }
 
@@ -1412,7 +1409,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 else
                 {
-                    Debug.LogError("Failed to load asset from resource: " + fullassetName);
+                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load asset from resource: " + fullassetName);
                 }
             }
 
@@ -1435,7 +1432,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 else
                 {
-                    Debug.LogError("Failed to load asset from resource: " + fullassetName);
+                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load asset from resource: " + fullassetName);
                 }
             }
 

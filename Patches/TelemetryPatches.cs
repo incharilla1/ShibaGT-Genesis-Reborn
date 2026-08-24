@@ -52,7 +52,7 @@ namespace ShibaGTGenesisReborn.Patches
                 false;
         }
 
-        [HarmonyPatch(typeof(PlayFabClientAPI), "UpdateUserTitleDisplayName")] // Credits to Shiny for letting me use this
+        [HarmonyPatch(typeof(PlayFabClientAPI), "UpdateUserTitleDisplayName")]
         public class DisplayNamePatch
         {
             public static string RandomString(int length = 4)
