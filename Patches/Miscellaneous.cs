@@ -8,48 +8,49 @@ using UnityEngine;
 namespace ShibaGTGenesisReborn.Patches
 {
     [HarmonyPatch(typeof(MonkeAgent), "IncrementRPCCallLocal")]
-    public class NoIncrementRPCCallLocal : MonoBehaviour
+    public class NoIncrementRPCCallLocal
     {
-        private static bool Prefix(PhotonMessageInfoWrapped infoWrapped, string rpcFunction)
-        {
-            return false;
-        }
+        private static bool Prefix(PhotonMessageInfoWrapped infoWrapped, string rpcFunction) => false;
     }
 
     [HarmonyPatch(typeof(MonkeAgent), "IncrementRPCCall", new Type[] { typeof(PhotonMessageInfo), typeof(string) })]
-    public class NoIncrementRPCCall : MonoBehaviour
+    public class NoIncrementRPCCall
     {
-        private static bool Prefix(PhotonMessageInfo info, string callingMethod = "")
-        {
-            return false;
-        }
+        private static bool Prefix(PhotonMessageInfo info, string callingMethod = "") => false;
     }
 
     [HarmonyPatch(typeof(MonkeAgent), "IncrementRPCCall", new Type[] { typeof(PhotonMessageInfoWrapped), typeof(string) })]
-    public class NoIncrementRPCCallWrapped : MonoBehaviour
+    public class NoIncrementRPCCallWrapped
     {
-        private static bool Prefix(PhotonMessageInfoWrapped infoWrapped, string callingMethod = "")
-        {
-            return false;
-        }
+        private static bool Prefix(PhotonMessageInfoWrapped infoWrapped, string callingMethod = "") => false;
     }
 
-    // Thanks DrPerky
     [HarmonyPatch(typeof(VRRig), "IncrementRPC", new Type[] { typeof(PhotonMessageInfoWrapped), typeof(string) })]
-    public class NoIncrementRPC : MonoBehaviour
+    public class NoIncrementRPC
     {
-        private static bool Prefix(PhotonMessageInfoWrapped info, string sourceCall)
-        {
-            return false;
-        }
+        private static bool Prefix(PhotonMessageInfoWrapped info, string sourceCall) => false;
     }
 
     [HarmonyPatch(typeof(VRRig), "IncrementRPC", new Type[] { typeof(PhotonMessageInfo), typeof(string) })]
-    public class NoIncrementRPCUnwrapped : MonoBehaviour
+    public class NoIncrementRPCUnwrapped
     {
-        private static bool Prefix(PhotonMessageInfo info, string sourceCall)
+        private static bool Prefix(PhotonMessageInfo info, string sourceCall) => false;
+    }
+
+    [HarmonyPatch(typeof(GorillaQuitBox), nameof(GorillaQuitBox.OnBoxTriggered))]
+    public class NoQuitBoxPatch
+    {
+        private static bool Prefix() => Main.GetIndex("Disable Quitbox")?.enabled != true;
+    }
+
+    [HarmonyPatch(typeof(GorillaLocomotion.GTPlayer), nameof(GorillaLocomotion.GTPlayer.SetScaleMultiplier))]
+    public class SetScaleMultiplierPatch
+    {
+        private static bool Prefix(ref float s)
         {
-            return false;
+            if (float.IsNaN(s) || float.IsInfinity(s) || s <= 0f)
+                s = 1f;
+            return true;
         }
     }
 
@@ -95,6 +96,74 @@ namespace ShibaGTGenesisReborn.Patches
         {
             if (!__result || buffer == null || buffer.Length == 0) return;
             Mods.Custom.SoundboardManager.InjectMicSamples(buffer);
+        }
+    }
+
+    [HarmonyPatch(typeof(GorillaTag.Audio.GTMicWrapper), "Read")]
+    public class GTMicWrapperDSPPatch
+    {
+        private static float robotPhase;
+        private static float stutterPhase;
+        private static float lowPassFilter;
+        private static float radioLow;
+        private static float radioHigh;
+
+        private static void Postfix(bool __result, float[] buffer)
+        {
+            if (!__result || buffer == null || buffer.Length == 0) return;
+
+            if (mods.robotMic)
+            {
+                const float carrier = 2f * Mathf.PI * 65f / 16000f;
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    buffer[i] *= Mathf.Sin(robotPhase);
+                    robotPhase += carrier;
+                    if (robotPhase > 2f * Mathf.PI) robotPhase -= 2f * Mathf.PI;
+                }
+            }
+
+            if (mods.radioMic)
+            {
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    radioLow += 0.45f * (buffer[i] - radioLow);
+                    radioHigh += 0.08f * (radioLow - radioHigh);
+                    float band = radioLow - radioHigh;
+                    buffer[i] = Mathf.Clamp(band * 3.5f, -0.6f, 0.6f);
+                }
+            }
+
+            if (mods.bitcrushMic)
+            {
+                const float steps = 8f;
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    buffer[i] = Mathf.Round(buffer[i] * steps) / steps;
+                }
+            }
+
+            if (mods.underwaterMic)
+            {
+                const float alpha = 0.12f;
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    lowPassFilter += alpha * (buffer[i] - lowPassFilter);
+                    buffer[i] = lowPassFilter * 1.5f;
+                }
+            }
+
+            if (mods.stutterMic)
+            {
+                const float carrier = 2f * Mathf.PI * 12f / 16000f;
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    float trem = (Mathf.Sin(stutterPhase) + 1f) * 0.5f;
+                    buffer[i] *= trem;
+                    stutterPhase += carrier;
+                    if (stutterPhase > 2f * Mathf.PI) stutterPhase -= 2f * Mathf.PI;
+                }
+            }
         }
     }
 }

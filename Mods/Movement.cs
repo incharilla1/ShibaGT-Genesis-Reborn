@@ -26,9 +26,9 @@ namespace ShibaGTGenesisReborn.Mods
             "Reset"
         };
 
-        [Setting] private static int pullmodeIndex = 0;
-        [Setting] private static int Platcolor;
-        private static Color PlatColor = Color.blue;
+        [Setting] public static int pullmodeIndex = 0;
+        [Setting] public static int Platcolor;
+        public static Color PlatColor = Color.blue;
         public static readonly Color[] PlatColors =
         {
             Color.blue,
@@ -94,13 +94,6 @@ namespace ShibaGTGenesisReborn.Mods
                 GameObject.Destroy(PlatL);
                 PlatL = null;
             }
-        }
-
-        public static void PlatColorChange()
-        {
-            Platcolor = (Platcolor + 1) % PlatColors.Length;
-            Main.GetIndex("pltclr").overlapText = "Plat Color: " + ColorNames[Platcolor];
-            PlatColor = PlatColors[Platcolor];
         }
 
         public static void Noclip() => Noclipistuff(!InputHandler.Instance.RightTrigger.IsPressed);
@@ -247,27 +240,24 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void ChangePullMode()
         {
-            pullmodeIndex = (pullmodeIndex + 1) % pullmodes.Length;
-
-            switch (pullmodeIndex)
+            Main.Change("pullmode", ref pullmodeIndex, pullmodes, () =>
             {
-                case 0:
-                    PullPower = 0.025f;
-                    UpHillPower = 0.02f;
-                    break;
-
-                case 1:
-                    PullPower = 0.07f;
-                    UpHillPower = 0.065f;
-                    break;
-
-                case 2:
-                    PullPower = 0.001f;
-                    UpHillPower = 0.001f;
-                    break;
-            }
-
-            Main.GetIndex("pullmode").overlapText = "Pull Mode: " + pullmodes[pullmodeIndex];
+                switch (pullmodeIndex)
+                {
+                    case 0:
+                        PullPower = 0.025f;
+                        UpHillPower = 0.02f;
+                        break;
+                    case 1:
+                        PullPower = 0.07f;
+                        UpHillPower = 0.065f;
+                        break;
+                    case 2:
+                        PullPower = 0.001f;
+                        UpHillPower = 0.001f;
+                        break;
+                }
+            });
         }
 
         public static void GravityManager(Gravitytypes type)

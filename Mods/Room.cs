@@ -6,6 +6,7 @@ using Photon.Voice.Unity;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -53,19 +54,17 @@ namespace ShibaGTGenesisReborn.Mods
             if (!NetworkSystem.Instance.InRoom) return;
             try
             {
-                if (MonkeAgent.instance != null)
-                {
-                    MonkeAgent.instance.rpcErrorMax = int.MaxValue;
-                    MonkeAgent.instance.rpcCallLimit = int.MaxValue;
-                    MonkeAgent.instance.logErrorMax = int.MaxValue;
-                    MonkeAgent.instance.userDecayTime = 0f;
+                if (MonkeAgent.instance == null) return;
+                MonkeAgent.instance.rpcErrorMax = int.MaxValue;
+                MonkeAgent.instance.rpcCallLimit = int.MaxValue;
+                MonkeAgent.instance.logErrorMax = int.MaxValue;
+                MonkeAgent.instance.userDecayTime = 0f;
 
-                    MonkeAgent.instance.reportedPlayers?.Clear();
-                    MonkeAgent.instance.userRPCCalls?.Clear();
+                MonkeAgent.instance.reportedPlayers?.Clear();
+                MonkeAgent.instance.userRPCCalls?.Clear();
 
-                    Application.logMessageReceived -= MonkeAgent.instance.LogErrorCount;
-                    GorillaSlicerSimpleManager.UnregisterSliceable(MonkeAgent.instance, GorillaSlicerSimpleManager.UpdateStep.Update);
-                }
+                Application.logMessageReceived -= MonkeAgent.instance.LogErrorCount;
+                GorillaSlicerSimpleManager.UnregisterSliceable(MonkeAgent.instance, GorillaSlicerSimpleManager.UpdateStep.Update);
 
                 PhotonNetwork.MaxResendsBeforeDisconnect = int.MaxValue;
                 PhotonNetwork.QuickResends = int.MaxValue;
@@ -88,7 +87,7 @@ namespace ShibaGTGenesisReborn.Mods
                     }
                 }
             }
-            catch { /* if it goes here its a skill issue */ }
+            catch { /* if it goes here its a skill issue on your end */ }
         }
 
         public static void lbaction(GorillaPlayerLineButton.ButtonType type, NetPlayer player = null, bool? state = null)
@@ -240,7 +239,7 @@ namespace ShibaGTGenesisReborn.Mods
         public static void MuteAll() => lbaction(GorillaPlayerLineButton.ButtonType.Mute, state: true);
         public static void UnmuteAll() => lbaction(GorillaPlayerLineButton.ButtonType.Mute, state: false);
 
-        public static VRRig priorityVoiceTarget;
+        public static HashSet<VRRig> priorityVoiceTargets = new HashSet<VRRig>();
 
         public static void PriorityVoiceGun()
         {
@@ -248,41 +247,46 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
                 {
-                    if (priorityVoiceTarget == GunLib.LockedPlayer)
+                    VRRig locked = GunLib.LockedPlayer;
+                    string name = locked.Creator?.NickName ?? locked.playerNameVisible;
+
+                    if (priorityVoiceTargets.Contains(locked))
                     {
-                        ResetRigVoice(GunLib.LockedPlayer);
-                        priorityVoiceTarget = null;
-                        NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Priority Voice: Cleared");
+                        priorityVoiceTargets.Remove(locked);
+                        ResetRigVoice(locked);
+                        ResetRigHighlight(locked);
+                        NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Priority Voice Removed: " + name);
                     }
                     else
                     {
-                        if (priorityVoiceTarget != null)
-                            ResetRigVoice(priorityVoiceTarget);
-
-                        priorityVoiceTarget = GunLib.LockedPlayer;
-                        string name = priorityVoiceTarget.Creator?.NickName ?? priorityVoiceTarget.playerNameVisible;
-                        NotificationLib.SendNotification(NotificationLib.NotificationType.Enabled, "Priority Voice: " + name);
+                        priorityVoiceTargets.Add(locked);
+                        NotificationLib.SendNotification(NotificationLib.NotificationType.Enabled, "Priority Voice Added: " + name);
                     }
                     actionDelay = Time.time + 0.5f;
                 }
             }, true);
 
-            if (priorityVoiceTarget != null && (!priorityVoiceTarget.gameObject.activeInHierarchy || priorityVoiceTarget.isOfflineVRRig))
-                priorityVoiceTarget = null;
+            priorityVoiceTargets.RemoveWhere(r => r == null || !r.gameObject.activeInHierarchy || r.isOfflineVRRig);
 
-            if (priorityVoiceTarget != null)
+            if (priorityVoiceTargets.Count > 0)
             {
-                ApplyPriorityVoice(priorityVoiceTarget);
-
                 VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
                 if (allRigs != null)
                 {
                     foreach (var rig in allRigs)
                     {
-                        if (rig == null || rig.isOfflineVRRig || rig == priorityVoiceTarget) continue;
-                        AudioSource src = GetRigAudioSource(rig);
-                        if (src != null)
-                            src.volume = 0.2f;
+                        if (rig == null || rig.isOfflineVRRig) continue;
+
+                        if (priorityVoiceTargets.Contains(rig))
+                        {
+                            ApplyPriorityVoice(rig);
+                            HighlightRig(rig, Color.yellow);
+                        }
+                        else
+                        {
+                            AudioSource src = GetRigAudioSource(rig);
+                            if (src != null) src.volume = 0.2f;
+                        }
                     }
                 }
             }
@@ -297,9 +301,54 @@ namespace ShibaGTGenesisReborn.Mods
                 {
                     if (rig == null || rig.isOfflineVRRig) continue;
                     ResetRigVoice(rig);
+                    ResetRigHighlight(rig);
                 }
             }
-            priorityVoiceTarget = null;
+            priorityVoiceTargets.Clear();
+        }
+
+        public static void LoudVoiceAll()
+        {
+            VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
+            if (allRigs != null)
+            {
+                foreach (var rig in allRigs)
+                {
+                    if (rig == null || rig.isOfflineVRRig) continue;
+                    ApplyPriorityVoice(rig);
+                }
+            }
+        }
+
+        public static void DisableLoudVoiceAll()
+        {
+            VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
+            if (allRigs != null)
+            {
+                foreach (var rig in allRigs)
+                {
+                    if (rig == null || rig.isOfflineVRRig) continue;
+                    ResetRigVoice(rig);
+                }
+            }
+        }
+
+        private static void HighlightRig(VRRig rig, Color color)
+        {
+            if (rig?.mainSkin?.material != null)
+            {
+                rig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
+                rig.mainSkin.material.color = color;
+            }
+        }
+
+        private static void ResetRigHighlight(VRRig rig)
+        {
+            if (rig?.mainSkin?.material != null)
+            {
+                rig.mainSkin.material.shader = Shader.Find("GorillaTag/UberShader");
+                rig.mainSkin.material.color = rig.playerColor;
+            }
         }
 
         private static AudioSource GetRigAudioSource(VRRig rig)
@@ -419,6 +468,11 @@ namespace ShibaGTGenesisReborn.Mods
         public static bool microphoneEchoForOthers;
         public static float echoDelaySeconds = 0.25f;
         public static float echoDecayFactor = 0.55f;
+        public static bool robotMic;
+        public static bool radioMic;
+        public static bool bitcrushMic;
+        public static bool underwaterMic;
+        public static bool stutterMic;
 
         public static void MicrophoneEcho(bool enableEcho = true)
         {
@@ -505,6 +559,11 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (!NetworkSystem.Instance.InRoom) return;
             microphoneEchoForOthers = false;
+            robotMic = false;
+            radioMic = false;
+            bitcrushMic = false;
+            underwaterMic = false;
+            stutterMic = false;
 
             GTRecorder recorder = GetActiveGTRecorder();
             if (recorder != null)

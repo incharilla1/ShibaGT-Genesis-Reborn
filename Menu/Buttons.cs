@@ -36,6 +36,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Movement", method =() => SettingsMods.moveset(), toolTip = "Move settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Projectiles", method =() => SettingsMods.projset(), toolTip = "Proj settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Anti Report", method =() => mods.AntiReport(), toolTip = "Block reports", isTogglable = true, enabled = true},
+                new ButtonInfo { buttonText = "Disable Quitbox", isTogglable = true, enabled = true, toolTip = "Prevent quitbox triggers from quitting the game"},
                 new ButtonInfo { buttonText = "Filled ESP", enableMethod =() => mods.filledESP = true, disableMethod =() => mods.filledESP = false, isTogglable = true, enabled = false, toolTip = "Toggle filled 2D and 3D box ESP"},
             },
 
@@ -56,7 +57,8 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Mute All (CS)", method =() => mods.MuteAll(), enabled = false, isTogglable = false, toolTip = "Mute all players"},
                 new ButtonInfo { buttonText = "Unmute Gun", method =() => mods.UnmuteGun(), isTogglable = true, toolTip = "Shoot to unmute player"},
                 new ButtonInfo { buttonText = "Unmute All", method =() => mods.UnmuteAll(), enabled = false, isTogglable = false, toolTip = "Unmute all players"},
-                new ButtonInfo { buttonText = "Priority Voice Gun", method =() => mods.PriorityVoiceGun(), disableMethod =() => mods.PriorityVoiceDisable(), isTogglable = true, toolTip = "Shoot player to prioritize their voice for you"},
+                new ButtonInfo { buttonText = "Priority Voice Gun", method =() => mods.PriorityVoiceGun(), disableMethod =() => mods.PriorityVoiceDisable(), isTogglable = true, toolTip = "Shoot players to prioritize/highlight their voice for you"},
+                new ButtonInfo { buttonText = "Loud Voice All (CS)", method =() => mods.LoudVoiceAll(), disableMethod =() => mods.DisableLoudVoiceAll(), isTogglable = true, toolTip = "Make all player voices 2D and heard globally"},
                 new ButtonInfo { buttonText = "Report Gun", method =() => mods.ReportGun(), isTogglable = true, toolTip = "Shoot to report player"},
                 new ButtonInfo { buttonText = "Report All", method =() => mods.ReportAll(), enabled = false, isTogglable = false, toolTip = "Report all players"},
                 new ButtonInfo { buttonText = "Copy Identity", method =() => mods.CopyPlayerIdentity(), isTogglable = true, toolTip = "Shoot player to copy name and color"},
@@ -136,6 +138,11 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Microphone Echo", method =() => mods.MicrophoneEcho(true), disableMethod =() => mods.MicrophoneEcho(false), isTogglable = true, toolTip = "Echo your voice for other players"},
                 new ButtonInfo { buttonText = "Chipmunk Mic", method =() => mods.SetMicrophonePitch(1.6f), disableMethod =() => mods.ResetMicrophonePitch(), isTogglable = true, toolTip = "High pitch voice modulation"},
                 new ButtonInfo { buttonText = "Deep Voice Mic", method =() => mods.SetMicrophonePitch(0.6f), disableMethod =() => mods.ResetMicrophonePitch(), isTogglable = true, toolTip = "Deep voice modulation"},
+                new ButtonInfo { buttonText = "Robot Mic", enableMethod =() => mods.robotMic = true, disableMethod =() => mods.robotMic = false, isTogglable = true, toolTip = "Metallic robotic voice modulation"},
+                new ButtonInfo { buttonText = "Radio Mic", enableMethod =() => mods.radioMic = true, disableMethod =() => mods.radioMic = false, isTogglable = true, toolTip = "Tactical walkie-talkie radio voice"},
+                new ButtonInfo { buttonText = "8-Bit Mic", enableMethod =() => mods.bitcrushMic = true, disableMethod =() => mods.bitcrushMic = false, isTogglable = true, toolTip = "Retro 8-bit arcade bitcrusher voice"},
+                new ButtonInfo { buttonText = "Underwater Mic", enableMethod =() => mods.underwaterMic = true, disableMethod =() => mods.underwaterMic = false, isTogglable = true, toolTip = "Muffled underwater voice filter"},
+                new ButtonInfo { buttonText = "Stutter Mic", enableMethod =() => mods.stutterMic = true, disableMethod =() => mods.stutterMic = false, isTogglable = true, toolTip = "Choppy tremolo stutter mic effect"},
                 new ButtonInfo { buttonText = "Fix Microphone", method =() => mods.FixMicrophone(), isTogglable = false, toolTip = "Reset and repair microphone settings"},
                 new ButtonInfo { buttonText = "Hear Self", method =() => mods.HearSelf(true), disableMethod =() => mods.HearSelf(false), isTogglable = true, toolTip = "Hear your own microphone live to test audio"},
                 new ButtonInfo { buttonText = "Noise Cancellation", method =() => mods.NoiseCancellation(), disableMethod =() => mods.DisableNoiseCancellation(), isTogglable = true, toolTip = "Gate out background noise via VAD threshold"},
@@ -207,7 +214,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // overpowered [8]
-                new ButtonInfo { buttonText = "lagpwr", overlapText = "Lag Power: Weak", method =() => mods.lagchange(), isTogglable = false, toolTip = "Lag target player with events"},
+                new ButtonInfo { buttonText = "lagpwr", overlapText = "Lag Power: Weak", method =() => Main.Change("lagpwr", ref mods.lagindex, mods.lagnames), isTogglable = false, toolTip = "Lag target player with events"},
                 new ButtonInfo { buttonText = "Lag Gun", method =() => mods.LagGun(), isTogglable = true, toolTip = "Lag target player with events"},
                 new ButtonInfo { buttonText = "Lag All", method =() => mods.LagAll(), isTogglable = true, toolTip = "Lag all players in room"},
             },
@@ -246,23 +253,23 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Leave Button", enableMethod =() => SettingsMods.EnableDisconnectButton(), disableMethod =() => SettingsMods.DisableDisconnectButton(), enabled = disconnectButton, toolTip = "Show disconnect button"},
                 new ButtonInfo { buttonText = "Remove All Prefs", method =() => Preferences.Reset(), isTogglable = false, enabled = false, toolTip = "Reset saved preferences"},
                 new ButtonInfo { buttonText = "PPos", overlapText = "Menu Layout: ShibaGT", isTogglable = false, method =() => mods.SwitchPagePos(), enabled = false, toolTip = "Switch menu layout"},
-                new ButtonInfo { buttonText = "OutlineMenu", isTogglable = true, enableMethod =() => Main.what3 = true, disableMethod =() => Main.what3 = false, enabled = Main.what3, toolTip = "Toggle menu outline"},
+                new ButtonInfo { buttonText = "Outline Menu", isTogglable = true, enableMethod =() => Main.showOutline = true, disableMethod =() => Main.showOutline = false, enabled = Main.showOutline, toolTip = "Toggle menu outline"},
                 new ButtonInfo { buttonText = "Custom Button Audio", isTogglable = true, enableMethod =() => Button.customAudio = true, disableMethod =() => Button.customAudio = false, enabled = Button.customAudio, toolTip = "Use our custom button click audios"},
                 new ButtonInfo { buttonText = "Cycle Button Audio", overlapText = "Click Audio: Sound 1", isTogglable = false, method = () => MenuAudio.CycleClickSound(), toolTip = "Cycle through 8 custom button click sounds"},
-                new ButtonInfo { buttonText = "COC", overlapText = "Outline: Blue", isTogglable = false, method =() => mods.ChangeOutlineColor(), enabled = false, toolTip = "Cycle outline color"},
+                new ButtonInfo { buttonText = "COC", overlapText = "Outline: Blue", isTogglable = false, method =() => Main.Change("COC", ref mods.OutlineIndex, mods.outnames, () => Main.outlineColor = mods.outlines[mods.OutlineIndex]), enabled = false, toolTip = "Cycle outline color"},
                 new ButtonInfo { buttonText = "Streamer Mode", enableMethod =() => StreamerMode.Enable(), disableMethod =() => StreamerMode.Disable(), enabled = streamerMode, isTogglable = true, toolTip = "Hides menu and all mod visuals from recordings & spectator view"},
                 new ButtonInfo { buttonText = "Panic Button", enableMethod =() => mods.EnablePanic(), disableMethod =() => mods.DisablePanic(), isTogglable = true, toolTip = "Disable all mods and disconnect safely"},
             },
 
             new ButtonInfo[]
             { // Move Set
-                new ButtonInfo { buttonText = "pltclr", method =() => mods.PlatColorChange(), isTogglable = false, overlapText = "Plat Color: Blue", toolTip = "Change platform color"},
+                new ButtonInfo { buttonText = "pltclr", method =() => Main.Change("pltclr", ref mods.Platcolor, mods.ColorNames, () => mods.PlatColor = mods.PlatColors[mods.Platcolor]), isTogglable = false, overlapText = "Plat Color: Blue", toolTip = "Change platform color"},
                 new ButtonInfo { buttonText = "pullmode", method =() => mods.ChangePullMode(), isTogglable = false, overlapText = "Pull Mode: Legit", toolTip = "Change pull mode"},
             },
 
             new ButtonInfo[]
             { // Proj Set
-                new ButtonInfo{ buttonText = "Projectile Speed", overlapText = "Speed: Normal", method =() => mods.CycleProjectileSpeed(), isTogglable = false, toolTip = "Cycle projectile firing speed"},
+                new ButtonInfo{ buttonText = "Projectile Speed", overlapText = "Speed: Normal", method =() => Main.Change("Projectile Speed", ref mods.projectileSpeedIndex, mods.projectileSpeedNames), isTogglable = false, toolTip = "Cycle projectile firing speed"},
                 new ButtonInfo{ buttonText = "Big Snowballs", enableMethod =() => mods.biig = true, disableMethod =() => mods.biig = false, isTogglable = true, toolTip = "Giant snowballs"},
                 new ButtonInfo{ buttonText = "Rainbow Snowballs (CS)", enableMethod =() => mods.rainbowProjectiles = true, disableMethod =() => mods.rainbowProjectiles = false, isTogglable = true, toolTip = "Rainbow RGB snowballs"},
             },

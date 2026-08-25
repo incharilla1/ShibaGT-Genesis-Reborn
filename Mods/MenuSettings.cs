@@ -60,15 +60,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SwitchPagePos()
         {
-            Main.what = !Main.what ? true : false;
-            Main.GetIndex("PPos").overlapText = Main.what ? "Menu Layout: Sides" : "Menu Layout: ShibaGT";
-        }
-
-        public static void ChangeOutlineColor()
-        {
-            OutlineIndex = (OutlineIndex + 1) % outlines.Length;
-            Main.GetIndex("COC").overlapText = "Outline: " + outnames[OutlineIndex];
-            Main.what2 = outlines[OutlineIndex];
+            Main.sideLayout = !Main.sideLayout;
+            Main.GetIndex("PPos").overlapText = Main.sideLayout ? "Menu Layout: Sides" : "Menu Layout: ShibaGT";
         }
 
         private static float notifcooldown;

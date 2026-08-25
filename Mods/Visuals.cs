@@ -352,35 +352,30 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void CursedGTAG()
         {
-            cursedIndex = (cursedIndex + 1) % cursedNames.Length;
-
-            ButtonInfo cursedBtn = Main.GetIndex("cursedgtag");
-            if (cursedBtn != null)
+            Main.Change("cursedgtag", ref cursedIndex, cursedNames, () =>
             {
-                cursedBtn.overlapText = "Cursed: " + cursedNames[cursedIndex];
-            }
-
-            if (!savedLighting)
-            {
-                originalFog = RenderSettings.fog;
-                originalFogColor = RenderSettings.fogColor;
-                originalAmbientLight = RenderSettings.ambientLight;
-                savedLighting = true;
-            }
-
-            if (cursedIndex == 4)
-            {
-                FixShaders();
-                if (BetterDayNightManager.instance != null)
+                if (!savedLighting)
                 {
-                    BetterDayNightManager.instance.UnsetTimeIndexOverrideFunction();
-                    BetterDayNightManager.instance.ClearTimeOfDay(true);
-                    BetterDayNightManager.instance.UpdateTimeOfDay(true);
+                    originalFog = RenderSettings.fog;
+                    originalFogColor = RenderSettings.fogColor;
+                    originalAmbientLight = RenderSettings.ambientLight;
+                    savedLighting = true;
                 }
-                return;
-            }
 
-            ApplyCursedShaders(cursedIndex);
+                if (cursedIndex == 4)
+                {
+                    FixShaders();
+                    if (BetterDayNightManager.instance != null)
+                    {
+                        BetterDayNightManager.instance.UnsetTimeIndexOverrideFunction();
+                        BetterDayNightManager.instance.ClearTimeOfDay(true);
+                        BetterDayNightManager.instance.UpdateTimeOfDay(true);
+                    }
+                    return;
+                }
+
+                ApplyCursedShaders(cursedIndex);
+            }, "Cursed: ");
         }
 
         private static void ApplyCursedShaders(int mode)
@@ -520,39 +515,19 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TimeSwitcher()
         {
-            timeOfDayIndex = (timeOfDayIndex + 1) % timeOfDayNames.Length;
-
-            ButtonInfo timeBtn = Main.GetIndex("Time Switcher") ?? Main.GetIndex("Weather Switcher");
-            if (timeBtn != null)
+            Main.Change("Time Switcher", ref timeOfDayIndex, timeOfDayNames, () =>
             {
-                timeBtn.overlapText = "Time: " + timeOfDayNames[timeOfDayIndex];
-            }
-
-            if (BetterDayNightManager.instance == null)
-            {
-                return;
-            }
-
-            switch (timeOfDayIndex)
-            {
-                case 0:
-                    BetterDayNightManager.instance.SetTimeOfDay(1, true);
-                    break;
-                case 1:
-                    BetterDayNightManager.instance.SetTimeOfDay(3, true);
-                    break;
-                case 2:
-                    BetterDayNightManager.instance.SetTimeOfDay(7, true);
-                    break;
-                case 3:
-                    BetterDayNightManager.instance.SetTimeOfDay(0, true);
-                    break;
-                case 4:
-                    BetterDayNightManager.instance.ClearTimeOfDay(true);
-                    break;
-            }
-
-            BetterDayNightManager.instance.UpdateTimeOfDay(true);
+                if (BetterDayNightManager.instance == null) return;
+                switch (timeOfDayIndex)
+                {
+                    case 0: BetterDayNightManager.instance.SetTimeOfDay(1, true); break;
+                    case 1: BetterDayNightManager.instance.SetTimeOfDay(3, true); break;
+                    case 2: BetterDayNightManager.instance.SetTimeOfDay(7, true); break;
+                    case 3: BetterDayNightManager.instance.SetTimeOfDay(0, true); break;
+                    case 4: BetterDayNightManager.instance.ClearTimeOfDay(true); break;
+                }
+                BetterDayNightManager.instance.UpdateTimeOfDay(true);
+            });
         }
 
         public static void WeatherSwitcher() => TimeSwitcher();
@@ -562,24 +537,16 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void CycleWeather()
         {
-            weatherIndex = (weatherIndex + 1) % weatherNames.Length;
-            Main.GetIndex("Weather Switcher").overlapText = "Weather: " + weatherNames[weatherIndex];
-
-            if (BetterDayNightManager.instance == null)
-                return;
-
-            switch (weatherIndex)
+            Main.Change("Weather Switcher", ref weatherIndex, weatherNames, () =>
             {
-                case 0:
-                    BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.Raining, true);
-                    break;
-                case 1:
-                    BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.None, true);
-                    break;
-                case 2:
-                    BetterDayNightManager.instance.ClearFixedWeather(true);
-                    break;
-            }
+                if (BetterDayNightManager.instance == null) return;
+                switch (weatherIndex)
+                {
+                    case 0: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.Raining, true); break;
+                    case 1: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.None, true); break;
+                    case 2: BetterDayNightManager.instance.ClearFixedWeather(true); break;
+                }
+            });
         }
 
         private static List<CosmeticsController.CosmeticItem> savedUnlockedCosmetics = new List<CosmeticsController.CosmeticItem>();

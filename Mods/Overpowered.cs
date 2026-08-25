@@ -1,6 +1,7 @@
 using ExitGames.Client.Photon;
 using Photon.Pun;
 using Photon.Realtime;
+using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using UnityEngine;
@@ -9,7 +10,7 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        public static int lagindex;
+        [Setting] public static int lagindex;
         public static int[] lagthings =
         {
             300,
@@ -30,12 +31,6 @@ namespace ShibaGTGenesisReborn.Mods
             3f,
             8f
         };
-
-        public static void lagchange()
-        {
-            lagindex = (lagindex + 1) % lagthings.Length;
-            Main.GetIndex("lagpwr").overlapText = "Lag Power: " + lagnames[lagindex];
-        }
 
         public static float tagTimer;
         public static float CDown;

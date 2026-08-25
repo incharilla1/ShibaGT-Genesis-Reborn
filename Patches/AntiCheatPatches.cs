@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Libs;
 using System;
@@ -110,6 +110,44 @@ namespace ShibaGTGenesisReborn.Patches
         {
             private static bool Prefix() =>
                 false;
+        }
+
+        [HarmonyPatch(typeof(MonkeAgent), "SliceUpdate")]
+        public class NoSliceUpdate
+        {
+            private static bool Prefix() =>
+                false;
+        }
+
+        [HarmonyPatch(typeof(GorillaNetworkPublicTestsJoin), "PostTick")]
+        public class NoPostTick1
+        {
+            private static bool Prefix() =>
+                false;
+        }
+
+        [HarmonyPatch(typeof(GorillaNetworkPublicTestJoin2), "PostTick")]
+        public class NoPostTick2
+        {
+            private static bool Prefix() =>
+                false;
+        }
+
+        [HarmonyPatch(typeof(GorillaTag.ReportMuteTimer), "OnTimedEvent")]
+        public class NoReportMuteTimer
+        {
+            private static bool Prefix() =>
+                false;
+        }
+
+        [HarmonyPatch(typeof(GorillaNetworking.GorillaComputer), nameof(GorillaNetworking.GorillaComputer.CheckAutoBanListForName))]
+        public class NoAutoBanName
+        {
+            private static bool Prefix(ref bool __result)
+            {
+                __result = true;
+                return false;
+            }
         }
     }
 }

@@ -37,7 +37,7 @@ namespace ShibaGTGenesisReborn.Mods
         [Setting] public static bool rainbowProjectiles;
         [Setting] public static int projectileSpeedIndex;
         private static readonly float[] projectileDelays = { 0.60f, 0.30f, 0.20f, 0.10f };
-        private static readonly string[] projectileSpeedNames = { "Normal", "Fast", "Quick", "Insane" };
+        public static readonly string[] projectileSpeedNames = { "Normal", "Fast", "Quick", "Insane" };
 
         private static ProjectileEntry _snowballEntry;
         private static bool _isInitializing;
@@ -48,12 +48,6 @@ namespace ShibaGTGenesisReborn.Mods
         private static int _lastSentIndex = -1;
 
         public static float GetProjectileDelay() => projectileDelays[projectileSpeedIndex % projectileDelays.Length];
-
-        public static void CycleProjectileSpeed()
-        {
-            projectileSpeedIndex = (projectileSpeedIndex + 1) % projectileDelays.Length;
-            Main.GetIndex("Projectile Speed").overlapText = "Speed: " + projectileSpeedNames[projectileSpeedIndex];
-        }
 
         public static void InitializeSnowball()
         {

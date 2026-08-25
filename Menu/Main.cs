@@ -170,9 +170,9 @@ namespace ShibaGTGenesisReborn.Menu
             Instance = null;
         }
 
-        [Setting] public static bool what;
-        public static Color what2 = Color.blue;
-        [Setting] public static bool what3;
+        [Setting] public static bool sideLayout;
+        public static Color outlineColor = Color.blue;
+        [Setting] public static bool showOutline;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
         private static ButtonInfo[] GetAllButtons()
@@ -255,7 +255,7 @@ namespace ShibaGTGenesisReborn.Menu
             menuBackground.GetComponent<Renderer>().material.color = backgroundColor.colors[0].color;
             menuBackground.transform.position = new Vector3(0.05f, 0f, 0f);
             menuBackground.GetComponent<Renderer>().material.color = Color.black;
-            if (what3) OutlineObj(menuBackground, what2, what2, false, 3);
+            if (showOutline) OutlineObj(menuBackground, outlineColor, outlineColor, false, 3);
 
             canvasObject = new GameObject();
             canvasObject.transform.parent = menu.transform;
@@ -335,9 +335,9 @@ namespace ShibaGTGenesisReborn.Menu
             But1.transform.localPosition = new Vector3(0.56f, -0.45f, -0.57f);
 
             But1.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
-            if (what3)
+            if (showOutline)
             {
-                OutlineObj(But1, what2, what2, false);
+                OutlineObj(But1, outlineColor, outlineColor, false);
             }
 
             But1.AddComponent<Classes.Button>().relatedText = "home";
@@ -372,9 +372,9 @@ namespace ShibaGTGenesisReborn.Menu
                 But.transform.localPosition = new Vector3(0.56f, -0.29f, -0.57f);
 
                 But.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
-                if (what3)
+                if (showOutline)
                 {
-                    OutlineObj(But, what2, what2, false);
+                    OutlineObj(But, outlineColor, outlineColor, false);
                 }
 
                 But.AddComponent<Classes.Button>().relatedText = "Settings";
@@ -409,9 +409,9 @@ namespace ShibaGTGenesisReborn.Menu
                 folderBtn.transform.localPosition = new Vector3(0.56f, -0.13f, -0.57f);
 
                 folderBtn.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
-                if (what3)
+                if (showOutline)
                 {
-                    OutlineObj(folderBtn, what2, what2, false);
+                    OutlineObj(folderBtn, outlineColor, outlineColor, false);
                 }
 
                 folderBtn.AddComponent<Classes.Button>().relatedText = "GenesisFolder";
@@ -448,9 +448,9 @@ namespace ShibaGTGenesisReborn.Menu
                 disconnectbutton.transform.localScale = new Vector3(0.09f, 0.4f, 0.09f);
                 disconnectbutton.transform.localPosition = new Vector3(0.56f, 0f, 0.57f);
                 disconnectbutton.GetComponent<Renderer>().material.color = Color.black;
-                if (what3)
+                if (showOutline)
                 {
-                    OutlineObj(disconnectbutton, what2, what2, false, 3);
+                    OutlineObj(disconnectbutton, outlineColor, outlineColor, false, 3);
                 }
                 disconnectbutton.AddComponent<Classes.Button>().relatedText = "Disconnect";
 
@@ -485,13 +485,13 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.GetComponent<BoxCollider>().isTrigger = true;
             gameObject.transform.parent = menu.transform;
             gameObject.transform.rotation = Quaternion.identity;
-            gameObject.transform.localScale = what ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
-            gameObject.transform.localPosition = what ? new Vector3(0.56f, 0.657f, 0.0063f) : new Vector3(0.56f, -0.37f, 0.555f);
+            gameObject.transform.localScale = sideLayout ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
+            gameObject.transform.localPosition = sideLayout ? new Vector3(0.56f, 0.657f, 0.0063f) : new Vector3(0.56f, -0.37f, 0.555f);
             gameObject.GetComponent<Renderer>().material.color = Color.black;
             gameObject.AddComponent<Classes.Button>().relatedText = "NextPage";
-            if (what3)
+            if (showOutline)
             {
-                OutlineObj(gameObject, what2, what2, false, 3);
+                OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
             }
 
             text = new GameObject
@@ -511,7 +511,7 @@ namespace ShibaGTGenesisReborn.Menu
             component = text.GetComponent<RectTransform>();
             component.localPosition = Vector3.zero;
             component.sizeDelta = new Vector2(0.2f, 0.03f);
-            component.localPosition = what ? new Vector3(0.064f, 0.195f, 0f) : new Vector3(0.064f, -0.115f, 0.215f);
+            component.localPosition = sideLayout ? new Vector3(0.064f, 0.195f, 0f) : new Vector3(0.064f, -0.115f, 0.215f);
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
             gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -523,12 +523,12 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.GetComponent<BoxCollider>().isTrigger = true;
             gameObject.transform.parent = menu.transform;
             gameObject.transform.rotation = Quaternion.identity;
-            gameObject.transform.localScale = what ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
-            gameObject.transform.localPosition = what ? new Vector3(0.56f, -0.657f, 0.0063f) : new Vector3(0.56f, 0.37f, 0.555f);
+            gameObject.transform.localScale = sideLayout ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
+            gameObject.transform.localPosition = sideLayout ? new Vector3(0.56f, -0.657f, 0.0063f) : new Vector3(0.56f, 0.37f, 0.555f);
             gameObject.GetComponent<Renderer>().material.color = Color.black;
-            if (what3)
+            if (showOutline)
             {
-                OutlineObj(gameObject, what2, what2, false, 3);
+                OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
             }
             gameObject.AddComponent<Classes.Button>().relatedText = "PreviousPage";
 
@@ -549,7 +549,7 @@ namespace ShibaGTGenesisReborn.Menu
             component = text.GetComponent<RectTransform>();
             component.localPosition = Vector3.zero;
             component.sizeDelta = new Vector2(0.2f, 0.03f);
-            component.localPosition = what ? new Vector3(0.064f, -0.195f, 0f) : new Vector3(0.064f, 0.115f, 0.215f);
+            component.localPosition = sideLayout ? new Vector3(0.064f, -0.195f, 0f) : new Vector3(0.064f, 0.115f, 0.215f);
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
             ButtonInfo[] activeButtons;
@@ -586,9 +586,9 @@ namespace ShibaGTGenesisReborn.Menu
             btn.relatedText = method.buttonText;
             btn.buttonInfo = method;
             gameObject.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
-            if (what3)
+            if (showOutline)
             {
-                OutlineObj(gameObject, what2, what2, false, 3);
+                OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
             }
 
             GameObject gameObject1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -606,9 +606,9 @@ namespace ShibaGTGenesisReborn.Menu
             favBtn.relatedText = "fav_" + method.buttonText;
             favBtn.buttonInfo = method;
             gameObject1.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
-            if (what3)
+            if (showOutline)
             {
-                OutlineObj(gameObject1, what2, what2, false, 3);
+                OutlineObj(gameObject1, outlineColor, outlineColor, false, 3);
             }
 
             ColorChanger colorChanger = gameObject.AddComponent<ColorChanger>();
@@ -1032,6 +1032,25 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             return null;
+        }
+
+        public static void Change(string buttonText, ref int index, string[] names, Action sideEffect = null, string prefix = null)
+        {
+            if (names == null || names.Length == 0) return;
+            index = (index + 1) % names.Length;
+
+            ButtonInfo btn = GetIndex(buttonText);
+            if (btn != null)
+            {
+                if (prefix == null)
+                {
+                    int colon = btn.overlapText != null ? btn.overlapText.IndexOf(':') : -1;
+                    prefix = colon >= 0 ? btn.overlapText.Substring(0, colon + 2) : $"{buttonText}: ";
+                }
+                btn.overlapText = prefix + names[index];
+            }
+
+            sideEffect?.Invoke();
         }
 
         private static void CacheObjects()
