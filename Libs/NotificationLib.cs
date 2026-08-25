@@ -1,4 +1,4 @@
-﻿using ShibaGTGenesisReborn;
+using ShibaGTGenesisReborn;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Menu;
 using System;
@@ -67,6 +67,7 @@ namespace ShibaGTGenesisReborn.Libs
         public static bool IsEnabled { get; set; } = true;
 
         public static NotificationLib Instance { get; private set; }
+        public GameObject RootHUD => _hudObj2;
 
         private void Awake()
         {
@@ -94,10 +95,12 @@ namespace ShibaGTGenesisReborn.Libs
             if (_mainCamera == null) return;
 
             _hudObj2 = CreateAndTrackHUDObject("HUD_Notification_Parent");
+            _hudObj2.layer = 2;
 
             _hudObj2.transform.position = _mainCamera.transform.position + new Vector3(-1.5f, 0f, -4.5f);
 
             _hudObj = CreateAndTrackHUDObject("HUD_Notification", _hudObj2.transform);
+            _hudObj.layer = 2;
 
             Canvas canvas = _hudObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;

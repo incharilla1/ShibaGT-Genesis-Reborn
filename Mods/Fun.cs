@@ -15,7 +15,6 @@ namespace ShibaGTGenesisReborn.Mods
     {
         public static float delay;
         public static bool enablebracelet;
-        private static GameObject cat = null;
 
         public static void HoverboardSpam()
         {
@@ -309,55 +308,6 @@ namespace ShibaGTGenesisReborn.Mods
                 });
                 RPCProt();
             }
-        }
-
-        public static void sillycatholdable()
-        {
-            if (cat == null)
-            {
-                cat = Main.LoadAssetBundle("sillylilguy");
-                Object.Destroy(cat.transform.Find("Cube").GetComponent<BoxCollider>());
-            }
-
-            cat.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-            cat.transform.position = TrueRightHand().position;
-            cat.transform.rotation = TrueRightHand().rotation;
-        }
-
-        public static void RemoveCat()
-        {
-            if (cat != null)
-            {
-                Object.Destroy(cat);
-                cat = null;
-            }
-        }
-
-        public static void ShibaGun()
-        {
-            GunLib.StartGun(() =>
-            {
-                Vector3 funn = (GunLib.GetPointerPos() - GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.position).normalized;
-                funn *= 60f;
-
-                GameObject shiba = Main.LoadAssetBundle("shiba");
-                shiba.transform.localScale /= 3f;
-                shiba.transform.position = GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.position;
-                shiba.transform.rotation = GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.rotation;
-
-                Object.Destroy(shiba.GetComponent<Rigidbody>());
-                Object.Destroy(shiba.GetComponent<BoxCollider>());
-
-                shiba.transform.Find("Handle1").AddComponent<BoxCollider>();
-                shiba.transform.Find("Handle1").AddComponent<Rigidbody>();
-                shiba.transform.Find("Handle1").GetComponent<Rigidbody>().linearVelocity = funn;
-
-                shiba.gameObject.layer = 8;
-                shiba.transform.Find("Handle1").gameObject.layer = 8;
-                shiba.transform.Find("Handle1").name = string.Concat(shiba.name, "MonoObject");
-
-                Object.Destroy(shiba, 15f);
-            }, false);
         }
 
         public static (Vector3 position, Quaternion rotation, Vector3 up, Vector3 forward, Vector3 right) TrueRightHand()

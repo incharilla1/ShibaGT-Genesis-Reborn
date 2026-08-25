@@ -1,55 +1,49 @@
-﻿using HarmonyLib;
+using HarmonyLib;
+using GorillaNetworking;
 using PlayFab;
 using PlayFab.ClientModels;
 using PlayFab.Internal;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace ShibaGTGenesisReborn.Patches
 {
-    public class PlayFabTelemetryPatches
+    public class TelemetryPatches
     {
         [HarmonyPatch(typeof(PlayFabDeviceUtil), "SendDeviceInfoToPlayFab")]
-        public class PlayfabUtil01
+        public class PlayfabDevicePatch1
         {
-            private static bool Prefix() =>
-                false;
+            private static bool Prefix() => false;
         }
 
         [HarmonyPatch(typeof(PlayFabClientInstanceAPI), "ReportDeviceInfo")]
-        public class PlayfabUtil02
+        public class PlayfabDevicePatch2
         {
-            private static bool Prefix() =>
-                false;
+            private static bool Prefix() => false;
         }
 
         [HarmonyPatch(typeof(PlayFabClientAPI), "ReportDeviceInfo")]
-        public class PlayfabUtil03
+        public class PlayfabDevicePatch3
         {
-            private static bool Prefix() =>
-                false;
+            private static bool Prefix() => false;
         }
 
         [HarmonyPatch(typeof(PlayFabDeviceUtil), "GetAdvertIdFromUnity")]
-        public class PlayfabUtil04
+        public class PlayfabDevicePatch4
         {
-            private static bool Prefix() =>
-                false;
+            private static bool Prefix() => false;
         }
 
         [HarmonyPatch(typeof(PlayFabClientAPI), "AttributeInstall")]
-        public class PlayfabUtil05
+        public class PlayfabDevicePatch5
         {
-            private static bool Prefix() =>
-                false;
+            private static bool Prefix() => false;
         }
 
         [HarmonyPatch(typeof(PlayFabHttp), "InitializeScreenTimeTracker")]
-        public class PlayfabUtil06
+        public class PlayfabDevicePatch6
         {
-            private static bool Prefix() =>
-                false;
+            private static bool Prefix() => false;
         }
 
         [HarmonyPatch(typeof(PlayFabClientAPI), "UpdateUserTitleDisplayName")]
@@ -72,6 +66,56 @@ namespace ShibaGTGenesisReborn.Patches
 
             public static void Prefix(ref UpdateUserTitleDisplayNameRequest request, Action<UpdateUserTitleDisplayNameResult> resultCallback, Action<PlayFabError> errorCallback, object customData = null, Dictionary<string, string> extraHeaders = null) =>
                 request.DisplayName = RandomString(UnityEngine.Random.Range(3, 12));
+        }
+
+        [HarmonyPatch(typeof(GorillaTelemetry), nameof(GorillaTelemetry.EnqueueTelemetryEvent), new Type[] { typeof(string), typeof(object), typeof(string[]) })]
+        public class NoEnqueueTelemetry
+        {
+            private static bool Prefix() => false;
+        }
+
+        [HarmonyPatch(typeof(GorillaTelemetry), "FlushMothershipTelemetry")]
+        public class NoFlushTelemetry
+        {
+            private static bool Prefix() => false;
+        }
+
+        [HarmonyPatch(typeof(GorillaServer), nameof(GorillaServer.CheckIsMothershipTelemetryEnabled))]
+        public class ForceDisableMothership
+        {
+            private static bool Prefix(ref bool __result)
+            {
+                __result = false;
+                return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(CustomMapTelemetry), nameof(CustomMapTelemetry.StartMapTracking))]
+        public class NoCustomMapTracking
+        {
+            private static bool Prefix() => false;
+        }
+
+        [HarmonyPatch(typeof(CustomMapTelemetry), "EndMetricsCapture")]
+        public class NoMetricsCapture
+        {
+            private static bool Prefix() => false;
+        }
+
+        [HarmonyPatch(typeof(CustomMapTelemetry), "EndPerfCapture")]
+        public class NoPerfCapture
+        {
+            private static bool Prefix() => false;
+        }
+
+        [HarmonyPatch(typeof(GTDev), "FetchDevID")]
+        public class SpoofDevID
+        {
+            private static bool Prefix(ref int __result)
+            {
+                __result = 0;
+                return false;
+            }
         }
     }
 }

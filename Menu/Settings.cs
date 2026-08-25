@@ -26,6 +26,7 @@ namespace ShibaGTGenesisReborn
         public static bool FolderButton = true;
         public static bool rightHanded = true;
         public static bool disableNotifications = true;
+        public static bool streamerMode = false;
 
         public static KeyCode keyboardButton = KeyCode.Q;
 

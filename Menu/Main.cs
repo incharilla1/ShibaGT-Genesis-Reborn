@@ -36,6 +36,7 @@ namespace ShibaGTGenesisReborn.Menu
             MenuAudio.Initialize();
             Mods.Custom.BoomboxManager.Initialize();
             Mods.Custom.SoundboardManager.Initialize();
+            StreamerMode.EnsureInitialized();
         }
 
         private void Update()
@@ -158,30 +159,6 @@ namespace ShibaGTGenesisReborn.Menu
                 reference = null;
             }
 
-            if (keyboard != null)
-            {
-                Destroy(keyboard);
-                keyboard = null;
-            }
-
-            if (lKey != null)
-            {
-                Destroy(lKey);
-                lKey = null;
-            }
-
-            if (rKey != null)
-            {
-                Destroy(rKey);
-                rKey = null;
-            }
-
-            if (searchDisplayText != null)
-            {
-                Destroy(searchDisplayText.gameObject);
-                searchDisplayText = null;
-            }
-
             if (canvasObject != null)
             {
                 Destroy(canvasObject);
@@ -195,14 +172,6 @@ namespace ShibaGTGenesisReborn.Menu
         public static bool what;
         public static Color what2 = Color.blue;
         public static bool what3;
-        public static string searchQuery = "";
-        public static bool isSearching = false;
-        public static System.Collections.Generic.List<ButtonInfo> searchResults = new System.Collections.Generic.List<ButtonInfo>();
-        public static Text searchDisplayText = null;
-        public static GameObject keyboard = null;
-        public static Transform menuSpawnPos = null;
-        public static GameObject lKey = null;
-        public static GameObject rKey = null;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
         private static ButtonInfo[] GetAllButtons()
@@ -219,168 +188,6 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }
             return list.ToArray();
-        }
-
-        public static void UpdateSearchDisplay()
-        {
-            if (searchDisplayText != null)
-            {
-                searchDisplayText.text = "Search: " + searchQuery + "_";
-            }
-        }
-
-        public static void ExecuteSearch()
-        {
-            if (string.IsNullOrEmpty(searchQuery))
-            {
-                buttonsType = 0;
-                pageNumber = 0;
-                RecreateMenu();
-                return;
-            }
-
-            searchResults.Clear();
-            string queryLower = searchQuery.ToLower();
-
-            foreach (ButtonInfo[] buttonList in Buttons.buttons)
-            {
-                foreach (ButtonInfo button in buttonList)
-                {
-                    if (button.buttonText.ToLower().Contains(queryLower) ||
-                        (button.toolTip != null && button.toolTip.ToLower().Contains(queryLower)))
-                    {
-                        if (!searchResults.Contains(button))
-                        {
-                            searchResults.Add(button);
-                        }
-                    }
-                }
-            }
-
-            if (searchResults.Count == 0)
-            {
-                NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "No mods found for: " + searchQuery);
-                searchQuery = "";
-                UpdateSearchDisplay();
-                return;
-            }
-
-            buttonsType = 999;
-            pageNumber = 0;
-            RecreateMenu();
-        }
-
-        public static void ShowSearchResults()
-        {
-            if (menu == null) return;
-
-            buttonsType = 999;
-            pageNumber = 0;
-            RecreateMenu();
-        }
-
-        public static void Search()
-        {
-            isSearching = !isSearching;
-
-            if (isSearching)
-            {
-                searchQuery = "";
-
-                if (keyboard == null)
-                {
-                    keyboard = LoadAssetBundle("keyboard");
-                    if (keyboard != null)
-                    {
-                        keyboard.transform.position = GorillaTagger.Instance.bodyCollider.transform.position;
-                        keyboard.transform.rotation = GorillaTagger.Instance.bodyCollider.transform.rotation;
-
-                        menuSpawnPos = keyboard.transform.Find("MenuSpawnPosition").transform;
-
-                        foreach (Transform trans in keyboard.transform.Find("fard").GetComponentsInChildren<Transform>())
-                        {
-                            try
-                            {
-                                Renderer renderer = trans.GetComponent<Renderer>();
-                                if (renderer != null && trans.name != "Canvas")
-                                {
-                                    renderer.material.color = Color.cyan;
-                                }
-                            }
-                            catch { }
-
-                            bool isExcluded = trans.name == "bg" || trans.name == "Canvas" || trans.name == "row1" ||
-                                             trans.name == "row2" || trans.name == "row3" ||
-                                             (trans.name == "space" && trans.parent.name == "Canvas") ||
-                                             trans.name == "MenuSpawnPosition";
-
-                            if (!isExcluded)
-                            {
-                                KeyboardButton btn = trans.AddComponent<KeyboardButton>();
-                                btn.key = trans.name;
-                            }
-                        }
-
-                        if (lKey == null)
-                        {
-                            lKey = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                            lKey.transform.parent = GorillaLocomotion.GTPlayer.Instance.LeftHand.controllerTransform;
-                            lKey.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-                            lKey.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
-                            lKey.GetComponent<Renderer>().material.color = Color.blue;
-                        }
-                        if (rKey == null)
-                        {
-                            rKey = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                            rKey.transform.parent = GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform;
-                            rKey.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-                            rKey.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
-                            rKey.GetComponent<Renderer>().material.color = Color.blue;
-                        }
-                        Debug.Log("Keyboard loaded successfully");
-                    }
-                }
-
-                buttonsType = 999;
-                pageNumber = 0;
-                searchResults.Clear();
-                RecreateMenu();
-            }
-            else
-            {
-                if (lKey != null)
-                {
-                    UnityEngine.Object.Destroy(lKey);
-                    lKey = null;
-                }
-                if (rKey != null)
-                {
-                    UnityEngine.Object.Destroy(rKey);
-                    rKey = null;
-                }
-                if (keyboard != null)
-                {
-                    UnityEngine.Object.Destroy(keyboard);
-                    keyboard = null;
-                }
-
-                if (searchDisplayText != null)
-                {
-                    UnityEngine.Object.Destroy(searchDisplayText.gameObject);
-                    searchDisplayText = null;
-                }
-
-                buttonsType = 0;
-                pageNumber = 0;
-                searchQuery = "";
-                searchResults.Clear();
-                isSearching = false;
-
-                if (menu != null)
-                {
-                    RecreateMenu();
-                }
-            }
         }
 
         public static void OutlineObj(GameObject toOut, Color color1, Color color2, bool parentself = false, float thickness = 1)
@@ -458,12 +265,7 @@ namespace ShibaGTGenesisReborn.Menu
             canvasScaler.dynamicPixelsPerUnit = 1000f;
 
             int lastPage = 0;
-            if (buttonsType == 999)
-            {
-                lastPage = ((searchResults.Count + buttonsPerPage - 1) / buttonsPerPage) - 1;
-                if (lastPage < 0) lastPage = 0;
-            }
-            else if (buttonsType < buttons.Length)
+            if (buttonsType < buttons.Length)
             {
                 lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
                 if (lastPage < 0) lastPage = 0;
@@ -521,59 +323,6 @@ namespace ShibaGTGenesisReborn.Menu
                 component2.position = new Vector3(0.06f, 0f, 0.135f);
                 component2.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
-
-            GameObject SearchButton = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (!UnityInput.Current.GetKey(KeyCode.Q))
-            {
-                SearchButton.layer = 2;
-            }
-            UnityEngine.Object.Destroy(SearchButton.GetComponent<Rigidbody>());
-            SearchButton.GetComponent<BoxCollider>().isTrigger = true;
-            SearchButton.transform.parent = menu.transform;
-            SearchButton.transform.rotation = Quaternion.identity;
-            SearchButton.transform.localScale = new Vector3(0.09f, 0.8f, 0.07f);
-            SearchButton.transform.localPosition = new Vector3(0.56f, 0f, 0.28f);
-            SearchButton.GetComponent<Renderer>().material.color = Color.black;
-            SearchButton.AddComponent<Classes.Button>().relatedText = "Search";
-
-            if (what3)
-            {
-                OutlineObj(SearchButton, what2, what2, false);
-            }
-            else
-            {
-                OutlineObj(SearchButton, new Color(0.06f, 0.06f, 0.06f), new Color(0.06f, 0.06f, 0.06f), false);
-            }
-
-            Text SearchText = new GameObject
-            {
-                transform =
-                {
-                    parent = canvasObject.transform
-                }
-            }.AddComponent<Text>();
-
-            if (isSearching)
-            {
-                SearchText.text = "Searching...";
-                SearchText.color = Color.cyan;
-            }
-            else
-            {
-                SearchText.text = "Search...";
-                SearchText.color = textColors[0];
-            }
-            SearchText.font = currentFont;
-            SearchText.fontSize = 1;
-            SearchText.alignment = TextAnchor.MiddleCenter;
-            SearchText.resizeTextForBestFit = true;
-            SearchText.resizeTextMinSize = 0;
-
-            RectTransform rectt1 = SearchText.GetComponent<RectTransform>();
-            rectt1.localPosition = Vector3.zero;
-            rectt1.sizeDelta = new Vector2(0.2f, 0.03f);
-            rectt1.localPosition = new Vector3(0.064f, 0.05f, 0.105f);
-            rectt1.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
             var But1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
 
@@ -804,11 +553,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             ButtonInfo[] activeButtons;
 
-            if (buttonsType == 999 && searchResults.Count > 0)
-            {
-                activeButtons = searchResults.Skip(pageNumber * buttonsPerPage).Take(buttonsPerPage).ToArray();
-            }
-            else if (buttonsType < buttons.Length)
+            if (buttonsType < buttons.Length)
             {
                 activeButtons = buttons[buttonsType].Skip(pageNumber * buttonsPerPage).Take(buttonsPerPage).ToArray();
             }
@@ -820,43 +565,6 @@ namespace ShibaGTGenesisReborn.Menu
             for (int i = 0; i < activeButtons.Length; i++)
             {
                 CreateButton(i * 0.095f, activeButtons[i]);
-            }
-
-            if (isSearching)
-            {
-                CreateSearchDisplay();
-            }
-        }
-
-        public static void CreateSearchDisplay()
-        {
-            if (searchDisplayText == null)
-            {
-                searchDisplayText = new GameObject
-                {
-                    transform =
-                    {
-                        parent = canvasObject.transform
-                    }
-                }.AddComponent<Text>();
-
-                searchDisplayText.font = currentFont;
-                searchDisplayText.text = "Search: " + searchQuery + "_";
-                searchDisplayText.fontSize = 1;
-                searchDisplayText.color = Color.cyan;
-                searchDisplayText.alignment = TextAnchor.MiddleCenter;
-                searchDisplayText.resizeTextForBestFit = true;
-                searchDisplayText.resizeTextMinSize = 0;
-
-                RectTransform component = searchDisplayText.GetComponent<RectTransform>();
-                component.localPosition = Vector3.zero;
-                component.sizeDelta = new Vector2(0.28f, 0.03f);
-                component.position = new Vector3(0.06f, -0.08f, 0.065f);
-                component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
-            }
-            else
-            {
-                searchDisplayText.text = "Search: " + searchQuery + "_";
             }
         }
 
@@ -1144,12 +852,7 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             int lastPage = 0;
-            if (buttonsType == 999)
-            {
-                lastPage = ((searchResults.Count + buttonsPerPage - 1) / buttonsPerPage) - 1;
-                if (lastPage < 0) lastPage = 0;
-            }
-            else if (buttonsType < buttons.Length)
+            if (buttonsType < buttons.Length)
             {
                 lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
                 if (lastPage < 0) lastPage = 0;
@@ -1188,18 +891,8 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 OpenGenesisFolder();
             }
-            else if (buttonText == "Search")
-            {
-                Search();
-                return;
-            }
             else if (buttonText == "home")
             {
-                if (isSearching)
-                {
-                    Search();
-                    return;
-                }
                 buttonsType = 0;
                 pageNumber = 0;
                 RecreateMenu();
@@ -1313,19 +1006,7 @@ namespace ShibaGTGenesisReborn.Menu
                 return null;
             }
 
-            if (buttonsType == 999)
-            {
-                foreach (ButtonInfo button in searchResults)
-                {
-                    if (button != null && (button.buttonText == buttonText || button.overlapText == buttonText ||
-                        string.Equals(button.buttonText, buttonText, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(button.overlapText, buttonText, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        return button;
-                    }
-                }
-            }
-            else if (buttonsType >= 0 && buttonsType < Buttons.buttons.Length && Buttons.buttons[buttonsType] != null)
+            if (buttonsType >= 0 && buttonsType < Buttons.buttons.Length && Buttons.buttons[buttonsType] != null)
             {
                 foreach (ButtonInfo button in Buttons.buttons[buttonsType])
                 {
@@ -1359,77 +1040,6 @@ namespace ShibaGTGenesisReborn.Menu
             return null;
         }
 
-        public static AssetBundle assetBundle = null;
-
-        public static GameObject LoadAssetBundle(string assetName)
-        {
-            GameObject gameObject = null;
-
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ShibaGTGenesisReborn.AssetBundles.gen"))
-            {
-                if (stream != null)
-                {
-                    if (assetBundle == null)
-                    {
-                        assetBundle = AssetBundle.LoadFromStream(stream);
-                    }
-                    gameObject = Instantiate<GameObject>(assetBundle.LoadAsset<GameObject>(assetName));
-                }
-                else
-                {
-                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load asset from resource: " + assetName);
-                }
-            }
-
-            return gameObject;
-        }
-
-        public static GameObject LoadAssetBundle2(string fullassetName)
-        {
-            GameObject gameObject = null;
-
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ShibaGTGenesisReborn.AssetBundles." + fullassetName))
-            {
-                if (stream != null)
-                {
-                    if (assetBundle == null)
-                    {
-                        assetBundle = AssetBundle.LoadFromStream(stream);
-                    }
-                    gameObject = Instantiate<GameObject>(assetBundle.LoadAsset<GameObject>("IngameGUI"));
-                }
-                else
-                {
-                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load asset from resource: " + fullassetName);
-                }
-            }
-
-            return gameObject;
-        }
-
-        public static GameObject LoadAssetBundle3Real(string fullassetName)
-        {
-            GameObject gameObject = null;
-
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ShibaGTGenesisReborn.AssetBundles." + fullassetName))
-            {
-                if (stream != null)
-                {
-                    if (assetBundle == null)
-                    {
-                        assetBundle = AssetBundle.LoadFromStream(stream);
-                    }
-                    gameObject = Instantiate<GameObject>(assetBundle.LoadAsset<GameObject>(fullassetName));
-                }
-                else
-                {
-                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load asset from resource: " + fullassetName);
-                }
-            }
-
-            return gameObject;
-        }
-
         private static void CacheObjects()
         {
             if (cocHeading == null)
@@ -1456,19 +1066,9 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void CleanupResources()
         {
-            if (searchResults != null)
-            {
-                searchResults.Clear();
-            }
             if (favoriteButtons != null)
             {
                 favoriteButtons.Clear();
-            }
-
-            if (assetBundle != null)
-            {
-                assetBundle.Unload(true);
-                assetBundle = null;
             }
 
             cocHeading = null;

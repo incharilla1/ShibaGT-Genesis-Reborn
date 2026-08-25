@@ -48,7 +48,7 @@ namespace ShibaGTGenesisReborn.Mods
             "Magenta",
         };
 
-        private static GameObject PlatR, PlatL = null;
+        public static GameObject PlatR, PlatL = null;
         private static Vector3 scale = new Vector3(0.0125f, 0.28f, 0.3825f);
 
         private static bool teleportGunPressed;

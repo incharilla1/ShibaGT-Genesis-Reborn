@@ -5,8 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Threading;
+using BepInEx;
 using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
@@ -26,20 +25,20 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         public static float PitchAndSpeed = 1.0f;
         public static bool UseVisualizer = true;
         public static float VisualizerIntensity = 0.3f;
-        public static float BaseScale = 0.8f;
+        public static float BaseScale = 1.25f;
         public static float BodySide = 0.0f;
         public static float BodyHeight = -0.1f;
         public static float BodyDepth = -0.15f;
         public static float BodyRoll = -15f;
         public static Vector3 BackOffset => new Vector3(BodySide, BodyHeight, BodyDepth);
 
-        public static BoomboxManager Me;
         public static GameObject Obj;
         public static AudioSource Aud;
-        public static Mesh CM;
         public static Texture2D CT;
-        public static bool Done;
-        public static bool Down;
+        public static Mesh CM;
+        public static BoomboxManager Me;
+        public static bool Done = false;
+        public static bool Down = false;
         public static bool Held = false;
         public static bool OnBack = false;
         public static Transform Hand;
@@ -47,8 +46,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         private static Vector3 OffP;
         private static Quaternion OffR;
         private static float ignoreTimer = 0f;
-        private static bool pickerOpen = false;
-        private static readonly Queue<Action> ThreadQueue = new Queue<Action>();
         private static float[] samples = new float[256];
 
         static string Dir => ModsLib.GenesisDirectory;
@@ -81,7 +78,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 Me = g.AddComponent<BoomboxManager>();
                 DontDestroyOnLoad(g);
             }
-            lock (ThreadQueue) { while (ThreadQueue.Count > 0) ThreadQueue.Dequeue().Invoke(); }
             if (!Done && !Down && CM == null) { Down = true; Me.StartCoroutine(DoResources(modelUrl, texUrl)); }
             else if (!Done && CM != null) Spawn();
             if (Done && Obj)
@@ -133,9 +129,9 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 ignoreTimer = Time.time + 1.0f;
                 if (Obj.TryGetComponent(out Collider c))
                 {
-                    IgnoreCollisionRecursive(c, GorillaTagger.Instance.transform);
+                    ModsLib.IgnoreCollisionRecursive(c, GorillaTagger.Instance.transform);
                     if (GorillaTagger.Instance.offlineVRRig != null)
-                        IgnoreCollisionRecursive(c, GorillaTagger.Instance.offlineVRRig.transform);
+                        ModsLib.IgnoreCollisionRecursive(c, GorillaTagger.Instance.offlineVRRig.transform);
                 }
             }
 
@@ -177,7 +173,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                         if (Obj.TryGetComponent(out Rigidbody rel))
                         {
                             rel.isKinematic = false;
-                            rel.velocity = isRightHand ? player.GetHandVelocityTracker(false).GetAverageVelocity(true, 0.05f) : player.GetHandVelocityTracker(true).GetAverageVelocity(true, 0.05f);
+                            rel.linearVelocity = isRightHand ? player.GetHandVelocityTracker(false).GetAverageVelocity(true, 0.05f) : player.GetHandVelocityTracker(true).GetAverageVelocity(true, 0.05f);
                         }
                     }
                 }
@@ -206,27 +202,77 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         static IEnumerator DoResources(string u, string t)
         {
-            if (File.Exists(P_Tex)) { CT = new Texture2D(2, 2); CT.LoadImage(File.ReadAllBytes(P_Tex)); }
-            else { UnityWebRequest tr = UnityWebRequestTexture.GetTexture(t); yield return tr.SendWebRequest(); if (tr.result == UnityWebRequest.Result.Success) { CT = DownloadHandlerTexture.GetContent(tr); File.WriteAllBytes(P_Tex, tr.downloadHandler.data); } }
+            EnsureDirectory();
+
+            string localTex = ModsLib.FindLocalAsset("boomboxmesh.png", P_Tex, Path.Combine(Dir, "boombox.png"));
+            if (!string.IsNullOrEmpty(localTex))
+            {
+                CT = new Texture2D(2, 2);
+                CT.LoadImage(File.ReadAllBytes(localTex));
+            }
+            else if (!string.IsNullOrEmpty(t))
+            {
+                using UnityWebRequest tr = UnityWebRequestTexture.GetTexture(t);
+                yield return tr.SendWebRequest();
+                if (tr.result == UnityWebRequest.Result.Success)
+                {
+                    CT = DownloadHandlerTexture.GetContent(tr);
+                    File.WriteAllBytes(P_Tex, tr.downloadHandler.data);
+                }
+            }
+
+            string localObj = ModsLib.FindLocalAsset("boombox.obj", P_Obj);
             string objData = "";
-            if (File.Exists(P_Obj)) objData = File.ReadAllText(P_Obj);
-            else { UnityWebRequest r = UnityWebRequest.Get(u); yield return r.SendWebRequest(); if (r.result == UnityWebRequest.Result.Success) { objData = r.downloadHandler.text; File.WriteAllText(P_Obj, objData); } }
-            if (!string.IsNullOrEmpty(objData)) { CM = Pars(objData); Spawn(); } else Down = false;
+            if (!string.IsNullOrEmpty(localObj))
+            {
+                objData = File.ReadAllText(localObj);
+                if (!File.Exists(P_Obj)) File.WriteAllText(P_Obj, objData);
+            }
+            else if (!string.IsNullOrEmpty(u))
+            {
+                using UnityWebRequest r = UnityWebRequest.Get(u);
+                yield return r.SendWebRequest();
+                if (r.result == UnityWebRequest.Result.Success && !r.downloadHandler.text.StartsWith("<") && !r.downloadHandler.text.StartsWith("404"))
+                {
+                    objData = r.downloadHandler.text;
+                    File.WriteAllText(P_Obj, objData);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(objData))
+            {
+                try
+                {
+                    CM = ModsLib.ParseObj(objData);
+                    Spawn();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Boombox parse error: {ex}");
+                    Down = false;
+                }
+            }
+            else
+            {
+                Down = false;
+            }
         }
 
         static void Spawn()
         {
             if (Obj) return;
             var player = GorillaLocomotion.GTPlayer.Instance;
+            if (player == null || player.RightHand.controllerTransform == null) return;
+
             Obj = new GameObject("BoomboxItem");
             Obj.transform.position = player.RightHand.controllerTransform.position;
             Obj.layer = 8;
             Obj.AddComponent<MeshFilter>().mesh = CM;
             var mr = Obj.AddComponent<MeshRenderer>();
-            mr.material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard")) { mainTexture = CT ?? Texture2D.whiteTexture };
+            mr.material = ModsLib.CreateItemMaterial(CT);
             BoxCollider col = Obj.AddComponent<BoxCollider>();
             var rb = Obj.AddComponent<Rigidbody>();
-            rb.mass = 1f; rb.drag = 0.5f; rb.angularDrag = 0.5f;
+            rb.mass = 1f; rb.linearDamping = 0.5f; rb.angularDamping = 0.5f;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             Aud = Obj.AddComponent<AudioSource>();
             Aud.spatialBlend = SpatialBlend3D;
@@ -235,26 +281,12 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             Aud.volume = Volume;
             Aud.pitch = PitchAndSpeed;
             Obj.transform.localScale = Vector3.one * BaseScale;
-            IgnoreCollisionRecursive(col, player.transform);
-            if (GorillaTagger.Instance.offlineVRRig != null) IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
+            ModsLib.IgnoreCollisionRecursive(col, player.transform);
+            if (GorillaTagger.Instance.offlineVRRig != null) ModsLib.IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
             Done = true;
             
             if (NetworkingLibrary.Instance != null && NetworkingLibrary.Instance.NetworkEnabled)
                 Obj.RegisterForNetwork();
-        }
-
-        public static void OpenNativePicker()
-        {
-            if (pickerOpen) return;
-            pickerOpen = true;
-            Thread t = new Thread(() => {
-                OpenFileName ofn = new OpenFileName { lStructSize = Marshal.SizeOf(typeof(OpenFileName)), lpstrFilter = "Audio Files\0*.mp3;*.wav;*.ogg\0\0", lpstrFile = new string(new char[256]), lpstrTitle = "Select Music", Flags = 0x00080000 | 0x00001000 | 0x00000800 };
-                ofn.nMaxFile = ofn.lpstrFile.Length;
-                if (GetOpenFileName(ofn)) { string path = ofn.lpstrFile; lock (ThreadQueue) ThreadQueue.Enqueue(() => { Me.StartCoroutine(SetAudio(path)); pickerOpen = false; }); }
-                else lock (ThreadQueue) ThreadQueue.Enqueue(() => { pickerOpen = false; });
-            });
-            t.SetApartmentState(ApartmentState.STA);
-            t.Start();
         }
 
         public static void PlayAudioFile(string path)
@@ -314,7 +346,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 new ButtonInfo { buttonText = "Back", method = () => SettingsMods.fun(), isTogglable = false, toolTip = "Return to Fun mods" },
                 new ButtonInfo { buttonText = "Refresh Audios", method = () => RefreshSounds(true), isTogglable = false, toolTip = "Rescan boombox folder" },
                 new ButtonInfo { buttonText = "Open Folder", method = () => OpenFolder(), isTogglable = false, toolTip = "Open boombox folder in Explorer" },
-                new ButtonInfo { buttonText = "Choose File (PC)", method = () => OpenNativePicker(), isTogglable = false, toolTip = "Open native Windows file dialog" },
                 new ButtonInfo { buttonText = "Volume +", method = () => AdjustVolume(0.1f), isTogglable = false, toolTip = "Increase volume" },
                 new ButtonInfo { buttonText = "Volume -", method = () => AdjustVolume(-0.1f), isTogglable = false, toolTip = "Decrease volume" },
                 new ButtonInfo { buttonText = "Speed +", method = () => AdjustPitchSpeed(0.1f), isTogglable = false, toolTip = "Increase speed" },
@@ -368,16 +399,5 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 }
             }
         }
-
-        [DllImport("comdlg32.dll", SetLastError = true, CharSet = CharSet.Auto)] private static extern bool GetOpenFileName([In, Out] OpenFileName ofn);
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)] private class OpenFileName { public int lStructSize; public IntPtr hwndOwner; public IntPtr hInstance; public string lpstrFilter; public string lpstrCustomFilter; public int nMaxCustFilter; public int nFilterIndex; public string lpstrFile; public int nMaxFile; public string lpstrFileTitle; public int nMaxFileTitle; public string lpstrInitialDir; public string lpstrTitle; public int Flags; public short nFileOffset; public short nFileExtension; public string lpstrDefExt; public IntPtr lCustData; public IntPtr lpfnHook; public string lpTemplateName; public IntPtr pvReserved; public int dwReserved; public int FlagsEx; }
-        static void IgnoreCollisionRecursive(Collider col, Transform target) { if (!col || !target) return; foreach (Collider c in target.GetComponentsInChildren<Collider>(true)) Physics.IgnoreCollision(col, c, true); }
-        static Mesh Pars(string s)
-        {
-            List<Vector3> v = new List<Vector3>(); List<Vector2> u = new List<Vector2>(); List<Vector3> n = new List<Vector3>(); List<int> t = new List<int>(); List<Vector3> nv = new List<Vector3>(); List<Vector2> nu = new List<Vector2>(); List<Vector3> nn = new List<Vector3>();
-            using (StringReader r = new StringReader(s)) { string l; while ((l = r.ReadLine()) != null) { if (l.Length < 2 || l[0] == '#') continue; string[] p = l.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); if (p[0] == "v") v.Add(new Vector3(-float.Parse(p[1]), float.Parse(p[2]), float.Parse(p[3]))); else if (p[0] == "vt") u.Add(new Vector2(float.Parse(p[1]), float.Parse(p[2]))); else if (p[0] == "vn") n.Add(new Vector3(-float.Parse(p[1]), float.Parse(p[2]), float.Parse(p[3]))); else if (p[0] == "f") { for (int i = 3; i >= 1; i--) Fix(p[i], v, u, n, nv, nu, nn, t); if (p.Length == 5) { Fix(p[4], v, u, n, nv, nu, nn, t); Fix(p[3], v, u, n, nv, nu, nn, t); Fix(p[1], v, u, n, nv, nu, nn, t); } } } }
-            Mesh m = new Mesh { vertices = nv.ToArray(), uv = nu.ToArray(), normals = nn.ToArray(), triangles = t.ToArray() }; m.RecalculateBounds(); m.RecalculateNormals(); return m;
-        }
-        static void Fix(string s, List<Vector3> v, List<Vector2> u, List<Vector3> n, List<Vector3> nv, List<Vector2> nu, List<Vector3> nn, List<int> t) { string[] c = s.Split('/'); nv.Add(v[int.Parse(c[0]) - 1]); if (c.Length > 1 && c[1] != "") nu.Add(u[int.Parse(c[1]) - 1]); else nu.Add(Vector2.zero); if (c.Length > 2 && c[2] != "") nn.Add(n[int.Parse(c[2]) - 1]); else nn.Add(Vector3.up); t.Add(nv.Count - 1); }
     }
 }

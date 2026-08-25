@@ -2,6 +2,7 @@ using GorillaLocomotion;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using BepInEx;
 using ShibaGTGenesisReborn.Libs;
@@ -111,12 +112,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             seal.AddComponent<MeshFilter>().mesh = CM;
             MeshRenderer mr = seal.AddComponent<MeshRenderer>();
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            Texture2D tex = CT ?? Texture2D.whiteTexture;
-            mat.mainTexture = tex;
-            mat.SetTexture("_BaseMap", tex);
-            mat.color = Color.white;
-            mr.material = mat;
+            mr.material = ModsLib.CreateItemMaterial(CT);
 
             MeshCollider col = seal.AddComponent<MeshCollider>();
             col.convex = true;
@@ -137,15 +133,15 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             Rigidbody rb = seal.AddComponent<Rigidbody>();
             rb.mass = 1.5f;
-            rb.drag = 0f;
-            rb.angularDrag = 0.05f;
+            rb.linearDamping = 0f;
+            rb.angularDamping = 0.05f;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            rb.velocity = velocity;
+            rb.linearVelocity = velocity;
             rb.angularVelocity = UnityEngine.Random.insideUnitSphere * 8f;
 
-            IgnoreCollisionRecursive(col, player.transform);
+            ModsLib.IgnoreCollisionRecursive(col, player.transform);
             if (GorillaTagger.Instance && GorillaTagger.Instance.offlineVRRig != null)
-                IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
+                ModsLib.IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
             if (player.bodyCollider) Physics.IgnoreCollision(col, player.bodyCollider, true);
             if (player.headCollider) Physics.IgnoreCollision(col, player.headCollider, true);
 
@@ -174,7 +170,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 if (!s) continue;
                 if (!s.TryGetComponent(out Rigidbody rb)) continue;
 
-                if (rb.velocity.sqrMagnitude < 0.5f)
+                if (rb.linearVelocity.sqrMagnitude < 0.5f)
                 {
                     Vector3 kick = new Vector3(
                         UnityEngine.Random.Range(-2f, 2f),
@@ -188,23 +184,17 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             }
         }
 
-        static void IgnoreCollisionRecursive(Collider myCol, Transform target)
-        {
-            if (!myCol || !target) return;
-            foreach (Collider c in target.GetComponentsInChildren<Collider>(true))
-                Physics.IgnoreCollision(myCol, c, true);
-        }
-
         static IEnumerator Load(string u, string t)
         {
-            if (File.Exists(P_Tex) && new FileInfo(P_Tex).Length > 100)
+            string localTex = ModsLib.FindLocalAsset("fatseal.jpeg", P_Tex, Path.Combine(Dir, "fatseal.png"), Path.Combine(Paths.PluginPath ?? string.Empty, "files", "fatseal.png"));
+            if (!string.IsNullOrEmpty(localTex))
             {
                 CT = new Texture2D(2, 2);
-                CT.LoadImage(File.ReadAllBytes(P_Tex));
+                CT.LoadImage(File.ReadAllBytes(localTex));
             }
-            else
+            else if (!string.IsNullOrEmpty(t))
             {
-                UnityWebRequest tr = UnityWebRequestTexture.GetTexture(t);
+                using UnityWebRequest tr = UnityWebRequestTexture.GetTexture(t);
                 yield return tr.SendWebRequest();
                 if (tr.result == UnityWebRequest.Result.Success)
                 {
@@ -213,62 +203,41 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 }
             }
 
+            string localObj = ModsLib.FindLocalAsset("fatseal.obj", P_Obj);
             string objData = "";
-            if (File.Exists(P_Obj) && new FileInfo(P_Obj).Length > 100) objData = File.ReadAllText(P_Obj);
-            else
+            if (!string.IsNullOrEmpty(localObj))
             {
-                UnityWebRequest r = UnityWebRequest.Get(u);
+                objData = File.ReadAllText(localObj);
+                if (!File.Exists(P_Obj)) File.WriteAllText(P_Obj, objData);
+            }
+            else if (!string.IsNullOrEmpty(u))
+            {
+                using UnityWebRequest r = UnityWebRequest.Get(u);
                 yield return r.SendWebRequest();
-                if (r.result == UnityWebRequest.Result.Success)
+                if (r.result == UnityWebRequest.Result.Success && !r.downloadHandler.text.StartsWith("<") && !r.downloadHandler.text.StartsWith("404"))
                 {
                     objData = r.downloadHandler.text;
                     File.WriteAllText(P_Obj, objData);
                 }
             }
 
-            if (!string.IsNullOrEmpty(objData) && !objData.StartsWith("<"))
+            if (!string.IsNullOrEmpty(objData))
             {
-                CM = Pars(objData);
-                Done = true;
-            }
-            else Down = false;
-        }
-
-        static Mesh Pars(string s)
-        {
-            List<Vector3> v = new List<Vector3>(); List<Vector2> u = new List<Vector2>();
-            List<Vector3> n = new List<Vector3>(); List<int> t = new List<int>();
-            List<Vector3> nv = new List<Vector3>(); List<Vector2> nu = new List<Vector2>();
-            List<Vector3> nn = new List<Vector3>();
-            using (StringReader r = new StringReader(s))
-            {
-                string l;
-                while ((l = r.ReadLine()) != null)
+                try
                 {
-                    if (l.Length < 2 || l[0] == '#') continue;
-                    string[] p = l.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (p[0] == "v") v.Add(new Vector3(-float.Parse(p[1]), float.Parse(p[2]), float.Parse(p[3])));
-                    else if (p[0] == "vt") u.Add(new Vector2(float.Parse(p[1]), float.Parse(p[2])));
-                    else if (p[0] == "vn") n.Add(new Vector3(-float.Parse(p[1]), float.Parse(p[2]), float.Parse(p[3])));
-                    else if (p[0] == "f")
-                    {
-                        for (int i = 3; i >= 1; i--) Fix(p[i], v, u, n, nv, nu, nn, t);
-                        if (p.Length == 5) { Fix(p[4], v, u, n, nv, nu, nn, t); Fix(p[3], v, u, n, nv, nu, nn, t); Fix(p[1], v, u, n, nv, nu, nn, t); }
-                    }
+                    CM = ModsLib.ParseObj(objData);
+                    Done = true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Seal parse error: {ex}");
+                    Down = false;
                 }
             }
-            Mesh m = new Mesh();
-            if (nv.Count > 65000) m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            m.vertices = nv.ToArray(); m.uv = nu.ToArray(); m.normals = nn.ToArray(); m.triangles = t.ToArray();
-            m.RecalculateBounds(); m.RecalculateNormals(); return m;
-        }
-
-        static void Fix(string s, List<Vector3> v, List<Vector2> u, List<Vector3> n, List<Vector3> nv, List<Vector2> nu, List<Vector3> nn, List<int> t)
-        {
-            string[] c = s.Split('/'); nv.Add(v[int.Parse(c[0]) - 1]);
-            if (c.Length > 1 && c[1] != "") nu.Add(u[int.Parse(c[1]) - 1]); else nu.Add(Vector2.zero);
-            if (c.Length > 2 && c[2] != "") nn.Add(n[int.Parse(c[2]) - 1]); else nn.Add(Vector3.up);
-            t.Add(nv.Count - 1);
+            else
+            {
+                Down = false;
+            }
         }
     }
 }

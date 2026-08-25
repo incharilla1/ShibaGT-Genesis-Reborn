@@ -2,6 +2,7 @@ using BepInEx;
 using GorillaLocomotion;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -420,6 +421,131 @@ namespace ShibaGTGenesisReborn.Libs
                 UnityEngine.Object.Destroy(endAnchor);
                 endAnchor = null;
             }
+        }
+        #endregion
+
+        #region Custom Item & Asset Utilities
+        public static string TryFindLocalFile(params string[] candidatePaths)
+        {
+            foreach (string candidate in candidatePaths)
+            {
+                if (!string.IsNullOrEmpty(candidate) && File.Exists(candidate) && new FileInfo(candidate).Length > 50)
+                    return candidate;
+            }
+            return null;
+        }
+
+        public static string FindLocalAsset(string fileName, params string[] extraCandidates)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+
+            List<string> paths = new List<string>
+            {
+                Path.Combine(GenesisDirectory, fileName),
+                Path.Combine(GenesisDirectory, "files", fileName),
+                Path.Combine(Paths.PluginPath ?? string.Empty, "files", fileName),
+                Path.Combine(Paths.PluginPath ?? string.Empty, fileName),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Mods", "Custom", "files", fileName),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "files", fileName),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName)
+            };
+
+            if (extraCandidates != null)
+                paths.AddRange(extraCandidates);
+
+            return TryFindLocalFile(paths.ToArray());
+        }
+
+        public static void IgnoreCollisionRecursive(Collider col, Transform target)
+        {
+            if (!col || !target) return;
+            foreach (Collider c in target.GetComponentsInChildren<Collider>(true))
+                Physics.IgnoreCollision(col, c, true);
+        }
+
+        public static Material CreateItemMaterial(Texture2D texture = null)
+        {
+            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("GorillaTag/UberShader") ?? Shader.Find("Sprites/Default"));
+            Texture2D tex = texture ?? Texture2D.whiteTexture;
+            mat.mainTexture = tex;
+            mat.SetTexture("_BaseMap", tex);
+            mat.color = Color.white;
+            return mat;
+        }
+
+        public static Mesh ParseObj(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.StartsWith("<") || s.StartsWith("404")) return null;
+
+            List<Vector3> v = new List<Vector3>();
+            List<Vector2> u = new List<Vector2>();
+            List<Vector3> n = new List<Vector3>();
+            List<int> t = new List<int>();
+            List<Vector3> nv = new List<Vector3>();
+            List<Vector2> nu = new List<Vector2>();
+            List<Vector3> nn = new List<Vector3>();
+
+            using (StringReader r = new StringReader(s))
+            {
+                string l;
+                while ((l = r.ReadLine()) != null)
+                {
+                    if (l.Length < 2 || l[0] == '#') continue;
+                    string[] p = l.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length < 2) continue;
+
+                    if (p[0] == "v" && p.Length >= 4)
+                        v.Add(new Vector3(-float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture), float.Parse(p[3], CultureInfo.InvariantCulture)));
+                    else if (p[0] == "vt" && p.Length >= 3)
+                        u.Add(new Vector2(float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture)));
+                    else if (p[0] == "vn" && p.Length >= 4)
+                        n.Add(new Vector3(-float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture), float.Parse(p[3], CultureInfo.InvariantCulture)));
+                    else if (p[0] == "f" && p.Length >= 4)
+                    {
+                        for (int i = 3; i >= 1; i--) FixObjVertex(p[i], v, u, n, nv, nu, nn, t);
+                        if (p.Length == 5)
+                        {
+                            FixObjVertex(p[4], v, u, n, nv, nu, nn, t);
+                            FixObjVertex(p[3], v, u, n, nv, nu, nn, t);
+                            FixObjVertex(p[1], v, u, n, nv, nu, nn, t);
+                        }
+                    }
+                }
+            }
+
+            if (nv.Count == 0) return null;
+
+            Mesh m = new Mesh();
+            if (nv.Count > 65000) m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            m.vertices = nv.ToArray();
+            m.uv = nu.ToArray();
+            m.normals = nn.ToArray();
+            m.triangles = t.ToArray();
+            m.RecalculateBounds();
+            m.RecalculateNormals();
+            return m;
+        }
+
+        private static void FixObjVertex(string s, List<Vector3> v, List<Vector2> u, List<Vector3> n, List<Vector3> nv, List<Vector2> nu, List<Vector3> nn, List<int> t)
+        {
+            string[] c = s.Split('/');
+            int vIdx = int.Parse(c[0], CultureInfo.InvariantCulture) - 1;
+            if (vIdx >= 0 && vIdx < v.Count) nv.Add(v[vIdx]); else nv.Add(Vector3.zero);
+            if (c.Length > 1 && !string.IsNullOrEmpty(c[1]))
+            {
+                int uIdx = int.Parse(c[1], CultureInfo.InvariantCulture) - 1;
+                if (uIdx >= 0 && uIdx < u.Count) nu.Add(u[uIdx]); else nu.Add(Vector2.zero);
+            }
+            else nu.Add(Vector2.zero);
+
+            if (c.Length > 2 && !string.IsNullOrEmpty(c[2]))
+            {
+                int nIdx = int.Parse(c[2], CultureInfo.InvariantCulture) - 1;
+                if (nIdx >= 0 && nIdx < n.Count) nn.Add(n[nIdx]); else nn.Add(Vector3.up);
+            }
+            else nn.Add(Vector3.up);
+
+            t.Add(nv.Count - 1);
         }
         #endregion
     }

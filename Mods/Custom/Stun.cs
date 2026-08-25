@@ -33,8 +33,8 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         public static bool isLoaded;
         public static bool isDownloading;
 
-        private static GameObject heldGrenadeObject;
-        private static GameObject thrownGrenadeObject;
+        public static GameObject heldGrenadeObject;
+        public static GameObject thrownGrenadeObject;
         private static Vector3 thrownGrenadePosition;
         private static Vector3 thrownGrenadeVelocity;
 
@@ -494,7 +494,15 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 Directory.CreateDirectory(GenesisDir);
             }
 
-            if (!File.Exists(LocalAudioPath) || new FileInfo(LocalAudioPath).Length < 100)
+            string localAudio = ModsLib.FindLocalAsset("loud.mp3", LocalAudioPath);
+            if (!string.IsNullOrEmpty(localAudio))
+            {
+                using UnityWebRequest localAudioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + Path.GetFullPath(localAudio), AudioType.MPEG);
+                yield return localAudioRequest.SendWebRequest();
+                if (localAudioRequest.result == UnityWebRequest.Result.Success)
+                    stunAudioClip = DownloadHandlerAudioClip.GetContent(localAudioRequest);
+            }
+            else if (!string.IsNullOrEmpty(AudioUrl))
             {
                 using UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip(AudioUrl, AudioType.MPEG);
                 yield return audioRequest.SendWebRequest();
@@ -504,22 +512,14 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                     File.WriteAllBytes(LocalAudioPath, audioRequest.downloadHandler.data);
                 }
             }
-            else
-            {
-                using UnityWebRequest localAudioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + LocalAudioPath, AudioType.MPEG);
-                yield return localAudioRequest.SendWebRequest();
-                if (localAudioRequest.result == UnityWebRequest.Result.Success)
-                {
-                    stunAudioClip = DownloadHandlerAudioClip.GetContent(localAudioRequest);
-                }
-            }
 
+            string localMtl = ModsLib.FindLocalAsset("stun_grenade.mtl", LocalMtlPath);
             string mtlContent = "";
-            if (File.Exists(LocalMtlPath) && new FileInfo(LocalMtlPath).Length > 10)
+            if (!string.IsNullOrEmpty(localMtl))
             {
-                mtlContent = File.ReadAllText(LocalMtlPath);
+                mtlContent = File.ReadAllText(localMtl);
             }
-            else
+            else if (!string.IsNullOrEmpty(MtlUrl))
             {
                 using UnityWebRequest mtlRequest = UnityWebRequest.Get(MtlUrl);
                 yield return mtlRequest.SendWebRequest();
@@ -530,12 +530,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 }
             }
 
+            string localObj = ModsLib.FindLocalAsset("stun_grenade.obj", LocalObjPath);
             string objContent = "";
-            if (File.Exists(LocalObjPath) && new FileInfo(LocalObjPath).Length > 100)
+            if (!string.IsNullOrEmpty(localObj))
             {
-                objContent = File.ReadAllText(LocalObjPath);
+                objContent = File.ReadAllText(localObj);
             }
-            else
+            else if (!string.IsNullOrEmpty(ObjUrl))
             {
                 using UnityWebRequest objRequest = UnityWebRequest.Get(ObjUrl);
                 yield return objRequest.SendWebRequest();
@@ -548,120 +549,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             if (!string.IsNullOrEmpty(objContent) && !objContent.StartsWith("<"))
             {
-                grenadeMesh = ParseObj(objContent);
+                grenadeMesh = ModsLib.ParseObj(objContent);
                 Color grenadeColor = ParseMtlColor(mtlContent);
                 grenadeMaterial = CreateGrenadeMaterial(grenadeColor);
                 isLoaded = true;
             }
 
             isDownloading = false;
-        }
-
-        private static Mesh ParseObj(string objText)
-        {
-            List<Vector3> vertices = new List<Vector3>();
-            List<Vector2> uvs = new List<Vector2>();
-            List<Vector3> normals = new List<Vector3>();
-            List<Vector3> outVertices = new List<Vector3>();
-            List<Vector2> outUvs = new List<Vector2>();
-            List<Vector3> outNormals = new List<Vector3>();
-            List<int> triangles = new List<int>();
-
-            using (StringReader reader = new StringReader(objText))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    line = line.Trim();
-                    if (line.Length < 2 || line.StartsWith("#")) continue;
-
-                    string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length < 2) continue;
-
-                    if (parts[0] == "v" && parts.Length >= 4)
-                    {
-                        if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) &&
-                            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) &&
-                            float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
-                        {
-                            vertices.Add(new Vector3(-x, y, z));
-                        }
-                    }
-                    else if (parts[0] == "vt" && parts.Length >= 3)
-                    {
-                        if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float u) &&
-                            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float v))
-                        {
-                            uvs.Add(new Vector2(u, v));
-                        }
-                    }
-                    else if (parts[0] == "vn" && parts.Length >= 4)
-                    {
-                        if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) &&
-                            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) &&
-                            float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
-                        {
-                            normals.Add(new Vector3(-x, y, z));
-                        }
-                    }
-                    else if (parts[0] == "f" && parts.Length >= 4)
-                    {
-                        int count = parts.Length - 1;
-                        for (int i = 1; i <= count - 2; i++)
-                        {
-                            AddVertex(parts[1], vertices, uvs, normals, outVertices, outUvs, outNormals, triangles);
-                            AddVertex(parts[i + 2], vertices, uvs, normals, outVertices, outUvs, outNormals, triangles);
-                            AddVertex(parts[i + 1], vertices, uvs, normals, outVertices, outUvs, outNormals, triangles);
-                        }
-                    }
-                }
-            }
-
-            Mesh mesh = new Mesh();
-            if (outVertices.Count > 65000)
-            {
-                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            }
-            mesh.vertices = outVertices.ToArray();
-            if (outUvs.Count == outVertices.Count) mesh.uv = outUvs.ToArray();
-            if (outNormals.Count == outVertices.Count) mesh.normals = outNormals.ToArray();
-            mesh.triangles = triangles.ToArray();
-            mesh.RecalculateBounds();
-            mesh.RecalculateNormals();
-            return mesh;
-        }
-
-        private static void AddVertex(string vertexString, List<Vector3> v, List<Vector2> vt, List<Vector3> vn, List<Vector3> outV, List<Vector2> outVt, List<Vector3> outVn, List<int> outTris)
-        {
-            string[] tokens = vertexString.Split('/');
-            if (tokens.Length > 0 && int.TryParse(tokens[0], out int vIndex) && vIndex > 0 && vIndex <= v.Count)
-            {
-                outV.Add(v[vIndex - 1]);
-            }
-            else
-            {
-                outV.Add(Vector3.zero);
-            }
-
-            if (tokens.Length > 1 && !string.IsNullOrEmpty(tokens[1]) && int.TryParse(tokens[1], out int vtIndex) && vtIndex > 0 && vtIndex <= vt.Count)
-            {
-                outVt.Add(vt[vtIndex - 1]);
-            }
-            else
-            {
-                outVt.Add(Vector2.zero);
-            }
-
-            if (tokens.Length > 2 && !string.IsNullOrEmpty(tokens[2]) && int.TryParse(tokens[2], out int vnIndex) && vnIndex > 0 && vnIndex <= vn.Count)
-            {
-                outVn.Add(vn[vnIndex - 1]);
-            }
-            else
-            {
-                outVn.Add(Vector3.up);
-            }
-
-            outTris.Add(outV.Count - 1);
         }
 
         private static Color ParseMtlColor(string mtlText)

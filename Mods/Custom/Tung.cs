@@ -2,7 +2,9 @@ using GorillaLocomotion;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using BepInEx;
 using ShibaGTGenesisReborn.Libs;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -70,9 +72,9 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                     ignoreTimer = Time.time + 1.0f;
                     if (Obj.TryGetComponent(out Collider myCol))
                     {
-                        IgnoreCollisionRecursive(myCol, player.transform);
+                        ModsLib.IgnoreCollisionRecursive(myCol, player.transform);
                         if (GorillaTagger.Instance.offlineVRRig != null)
-                            IgnoreCollisionRecursive(myCol, GorillaTagger.Instance.offlineVRRig.transform);
+                            ModsLib.IgnoreCollisionRecursive(myCol, GorillaTagger.Instance.offlineVRRig.transform);
                         if (player.bodyCollider) Physics.IgnoreCollision(myCol, player.bodyCollider, true);
                         if (player.headCollider) Physics.IgnoreCollision(myCol, player.headCollider, true);
                     }
@@ -109,7 +111,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                                 ? player.GetHandVelocityTracker(false).GetAverageVelocity(true, 0.05f)
                                 : player.GetHandVelocityTracker(true).GetAverageVelocity(true, 0.05f);
 
-                            releaseRb.velocity = throwVel;
+                            releaseRb.linearVelocity = throwVel;
                             releaseRb.angularVelocity = UnityEngine.Random.insideUnitSphere * 5f;
                         }
                     }
@@ -139,13 +141,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             }
         }
 
-        static void IgnoreCollisionRecursive(Collider myCol, Transform target)
-        {
-            if (!myCol || !target) return;
-            foreach (Collider c in target.GetComponentsInChildren<Collider>(true))
-                Physics.IgnoreCollision(myCol, c, true);
-        }
-
         public static void Kill()
         {
             if (Obj != null && NetworkingLibrary.Instance != null)
@@ -165,14 +160,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             MeshFilter mf = Obj.AddComponent<MeshFilter>();
             MeshRenderer mr = Obj.AddComponent<MeshRenderer>();
             mf.mesh = CM;
-
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            if (!CT) CT = Texture2D.whiteTexture;
-
-            mat.mainTexture = CT;
-            mat.SetTexture("_BaseMap", CT);
-            mat.color = Color.white;
-            mr.material = mat;
+            mr.material = ModsLib.CreateItemMaterial(CT);
 
             MeshCollider col = Obj.AddComponent<MeshCollider>();
             col.convex = true;
@@ -191,7 +179,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             Obj.transform.localScale = new Vector3(0.045f, 0.045f, 0.045f);
 
             if (GorillaLocomotion.GTPlayer.Instance)
-                IgnoreCollisionRecursive(col, GorillaLocomotion.GTPlayer.Instance.transform);
+                ModsLib.IgnoreCollisionRecursive(col, GorillaLocomotion.GTPlayer.Instance.transform);
 
             Done = true;
             
@@ -201,36 +189,34 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         static IEnumerator Do(string u, string t, string a)
         {
-            if (File.Exists(P_Aud) && new FileInfo(P_Aud).Length > 100)
+            string localAud = ModsLib.FindLocalAsset("tungtung.wav", P_Aud);
+            if (!string.IsNullOrEmpty(localAud))
             {
-                using (UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip("file://" + P_Aud, AudioType.WAV))
-                {
-                    yield return req.SendWebRequest();
-                    if (req.result == UnityWebRequest.Result.Success)
-                        CA = DownloadHandlerAudioClip.GetContent(req);
-                }
+                using UnityWebRequest ar = UnityWebRequestMultimedia.GetAudioClip("file://" + Path.GetFullPath(localAud), AudioType.WAV);
+                yield return ar.SendWebRequest();
+                if (ar.result == UnityWebRequest.Result.Success)
+                    CA = DownloadHandlerAudioClip.GetContent(ar);
             }
             else if (!string.IsNullOrEmpty(a))
             {
-                using (UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(a, AudioType.WAV))
+                using UnityWebRequest ar = UnityWebRequestMultimedia.GetAudioClip(a, AudioType.WAV);
+                yield return ar.SendWebRequest();
+                if (ar.result == UnityWebRequest.Result.Success)
                 {
-                    yield return req.SendWebRequest();
-                    if (req.result == UnityWebRequest.Result.Success)
-                    {
-                        CA = DownloadHandlerAudioClip.GetContent(req);
-                        File.WriteAllBytes(P_Aud, req.downloadHandler.data);
-                    }
+                    CA = DownloadHandlerAudioClip.GetContent(ar);
+                    File.WriteAllBytes(P_Aud, ar.downloadHandler.data);
                 }
             }
 
-            if (File.Exists(P_Tex) && new FileInfo(P_Tex).Length > 100)
+            string localTex = ModsLib.FindLocalAsset("TungTungTungSahur.png", P_Tex, Path.Combine(Dir, "tungtung.png"), Path.Combine(Paths.PluginPath ?? string.Empty, "files", "tungtung.png"));
+            if (!string.IsNullOrEmpty(localTex))
             {
                 CT = new Texture2D(2, 2);
-                CT.LoadImage(File.ReadAllBytes(P_Tex));
+                CT.LoadImage(File.ReadAllBytes(localTex));
             }
-            else
+            else if (!string.IsNullOrEmpty(t))
             {
-                UnityWebRequest tr = UnityWebRequestTexture.GetTexture(t);
+                using UnityWebRequest tr = UnityWebRequestTexture.GetTexture(t);
                 yield return tr.SendWebRequest();
                 if (tr.result == UnityWebRequest.Result.Success)
                 {
@@ -239,62 +225,41 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 }
             }
 
+            string localObj = ModsLib.FindLocalAsset("TungTungTungSahur.obj", P_Obj, Path.Combine(Dir, "tungtung.obj"), Path.Combine(Paths.PluginPath ?? string.Empty, "files", "tungtung.obj"));
             string objData = "";
-            if (File.Exists(P_Obj) && new FileInfo(P_Obj).Length > 100) objData = File.ReadAllText(P_Obj);
-            else
+            if (!string.IsNullOrEmpty(localObj))
             {
-                UnityWebRequest r = UnityWebRequest.Get(u);
+                objData = File.ReadAllText(localObj);
+                if (!File.Exists(P_Obj)) File.WriteAllText(P_Obj, objData);
+            }
+            else if (!string.IsNullOrEmpty(u))
+            {
+                using UnityWebRequest r = UnityWebRequest.Get(u);
                 yield return r.SendWebRequest();
-                if (r.result == UnityWebRequest.Result.Success)
+                if (r.result == UnityWebRequest.Result.Success && !r.downloadHandler.text.StartsWith("<") && !r.downloadHandler.text.StartsWith("404"))
                 {
                     objData = r.downloadHandler.text;
                     File.WriteAllText(P_Obj, objData);
                 }
             }
 
-            if (!string.IsNullOrEmpty(objData) && !objData.StartsWith("<"))
+            if (!string.IsNullOrEmpty(objData))
             {
-                CM = Pars(objData);
-                Spawn();
-            }
-            else Down = false;
-        }
-
-        static Mesh Pars(string s)
-        {
-            List<Vector3> v = new List<Vector3>(); List<Vector2> u = new List<Vector2>();
-            List<Vector3> n = new List<Vector3>(); List<int> t = new List<int>();
-            List<Vector3> nv = new List<Vector3>(); List<Vector2> nu = new List<Vector2>();
-            List<Vector3> nn = new List<Vector3>();
-            using (StringReader r = new StringReader(s))
-            {
-                string l;
-                while ((l = r.ReadLine()) != null)
+                try
                 {
-                    if (l.Length < 2 || l[0] == '#') continue;
-                    string[] p = l.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (p[0] == "v") v.Add(new Vector3(-float.Parse(p[1]), float.Parse(p[2]), float.Parse(p[3])));
-                    else if (p[0] == "vt") u.Add(new Vector2(float.Parse(p[1]), float.Parse(p[2])));
-                    else if (p[0] == "vn") n.Add(new Vector3(-float.Parse(p[1]), float.Parse(p[2]), float.Parse(p[3])));
-                    else if (p[0] == "f")
-                    {
-                        for (int i = 3; i >= 1; i--) Fix(p[i], v, u, n, nv, nu, nn, t);
-                        if (p.Length == 5) { Fix(p[4], v, u, n, nv, nu, nn, t); Fix(p[3], v, u, n, nv, nu, nn, t); Fix(p[1], v, u, n, nv, nu, nn, t); }
-                    }
+                    CM = ModsLib.ParseObj(objData);
+                    Spawn();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Tung parse error: {ex}");
+                    Down = false;
                 }
             }
-            Mesh m = new Mesh();
-            if (nv.Count > 65000) m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            m.vertices = nv.ToArray(); m.uv = nu.ToArray(); m.normals = nn.ToArray(); m.triangles = t.ToArray();
-            m.RecalculateBounds(); m.RecalculateNormals(); return m;
-        }
-
-        static void Fix(string s, List<Vector3> v, List<Vector2> u, List<Vector3> n, List<Vector3> nv, List<Vector2> nu, List<Vector3> nn, List<int> t)
-        {
-            string[] c = s.Split('/'); nv.Add(v[int.Parse(c[0]) - 1]);
-            if (c.Length > 1 && c[1] != "") nu.Add(u[int.Parse(c[1]) - 1]); else nu.Add(Vector2.zero);
-            if (c.Length > 2 && c[2] != "") nn.Add(n[int.Parse(c[2]) - 1]); else nn.Add(Vector3.up);
-            t.Add(nv.Count - 1);
+            else
+            {
+                Down = false;
+            }
         }
     }
 }

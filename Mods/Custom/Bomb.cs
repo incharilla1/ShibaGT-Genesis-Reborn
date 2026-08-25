@@ -33,7 +33,7 @@ namespace ShibaGTGenesisReborn.Mods
         public static bool isLoaded;
         public static bool isDownloading;
 
-        private static GameObject activeBombObject;
+        public static GameObject activeBombObject;
         private static Vector3 activeBombPosition;
         private static float detonationTimestamp;
         private static bool isBombActive;
@@ -228,7 +228,15 @@ namespace ShibaGTGenesisReborn.Mods
                 Directory.CreateDirectory(GenesisDir);
             }
 
-            if (!File.Exists(LocalAudioPath) || new FileInfo(LocalAudioPath).Length < 100)
+            string localAudio = ModsLib.FindLocalAsset("explode_bomb.mp3", LocalAudioPath);
+            if (!string.IsNullOrEmpty(localAudio))
+            {
+                using UnityWebRequest localAudioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + Path.GetFullPath(localAudio), AudioType.MPEG);
+                yield return localAudioRequest.SendWebRequest();
+                if (localAudioRequest.result == UnityWebRequest.Result.Success)
+                    bombAudioClip = DownloadHandlerAudioClip.GetContent(localAudioRequest);
+            }
+            else if (!string.IsNullOrEmpty(AudioUrl))
             {
                 using UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip(AudioUrl, AudioType.MPEG);
                 yield return audioRequest.SendWebRequest();
@@ -238,22 +246,14 @@ namespace ShibaGTGenesisReborn.Mods
                     File.WriteAllBytes(LocalAudioPath, audioRequest.downloadHandler.data);
                 }
             }
-            else
-            {
-                using UnityWebRequest localAudioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + LocalAudioPath, AudioType.MPEG);
-                yield return localAudioRequest.SendWebRequest();
-                if (localAudioRequest.result == UnityWebRequest.Result.Success)
-                {
-                    bombAudioClip = DownloadHandlerAudioClip.GetContent(localAudioRequest);
-                }
-            }
 
-            if (File.Exists(LocalTexturePath) && new FileInfo(LocalTexturePath).Length > 100)
+            string localTex = ModsLib.FindLocalAsset("Bomb.png", LocalTexturePath);
+            if (!string.IsNullOrEmpty(localTex))
             {
                 bombTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                bombTexture.LoadImage(File.ReadAllBytes(LocalTexturePath));
+                bombTexture.LoadImage(File.ReadAllBytes(localTex));
             }
-            else
+            else if (!string.IsNullOrEmpty(TextureUrl))
             {
                 using UnityWebRequest textureRequest = UnityWebRequestTexture.GetTexture(TextureUrl);
                 yield return textureRequest.SendWebRequest();
@@ -264,12 +264,13 @@ namespace ShibaGTGenesisReborn.Mods
                 }
             }
 
+            string localObj = ModsLib.FindLocalAsset("Bomb.obj", LocalObjPath);
             string objContent = "";
-            if (File.Exists(LocalObjPath) && new FileInfo(LocalObjPath).Length > 100)
+            if (!string.IsNullOrEmpty(localObj))
             {
-                objContent = File.ReadAllText(LocalObjPath);
+                objContent = File.ReadAllText(localObj);
             }
-            else
+            else if (!string.IsNullOrEmpty(ObjUrl))
             {
                 using UnityWebRequest objRequest = UnityWebRequest.Get(ObjUrl);
                 yield return objRequest.SendWebRequest();
@@ -282,167 +283,12 @@ namespace ShibaGTGenesisReborn.Mods
 
             if (!string.IsNullOrEmpty(objContent) && !objContent.StartsWith("<"))
             {
-                bombMesh = ParseObj(objContent);
-                bombMaterial = CreateBombMaterial(bombTexture);
+                bombMesh = ModsLib.ParseObj(objContent);
+                bombMaterial = ModsLib.CreateItemMaterial(bombTexture);
                 isLoaded = true;
             }
 
             isDownloading = false;
-        }
-
-        private static Mesh ParseObj(string objText)
-        {
-            List<Vector3> vertices = new List<Vector3>();
-            List<Vector2> uvs = new List<Vector2>();
-            List<Vector3> normals = new List<Vector3>();
-            List<Vector3> outVertices = new List<Vector3>();
-            List<Vector2> outUvs = new List<Vector2>();
-            List<Vector3> outNormals = new List<Vector3>();
-            List<int> triangles = new List<int>();
-
-            using (StringReader reader = new StringReader(objText))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    line = line.Trim();
-                    if (line.Length < 2 || line.StartsWith("#"))
-                    {
-                        continue;
-                    }
-
-                    string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length < 2)
-                    {
-                        continue;
-                    }
-
-                    if (parts[0] == "v" && parts.Length >= 4)
-                    {
-                        if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) &&
-                            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) &&
-                            float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
-                        {
-                            vertices.Add(new Vector3(-x, y, z));
-                        }
-                    }
-                    else if (parts[0] == "vt" && parts.Length >= 3)
-                    {
-                        if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float u) &&
-                            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float v))
-                        {
-                            uvs.Add(new Vector2(u, v));
-                        }
-                    }
-                    else if (parts[0] == "vn" && parts.Length >= 4)
-                    {
-                        if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) &&
-                            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) &&
-                            float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
-                        {
-                            normals.Add(new Vector3(-x, y, z));
-                        }
-                    }
-                    else if (parts[0] == "f" && parts.Length >= 4)
-                    {
-                        int count = parts.Length - 1;
-                        for (int i = 1; i <= count - 2; i++)
-                        {
-                            AddVertex(parts[1], vertices, uvs, normals, outVertices, outUvs, outNormals, triangles);
-                            AddVertex(parts[i + 2], vertices, uvs, normals, outVertices, outUvs, outNormals, triangles);
-                            AddVertex(parts[i + 1], vertices, uvs, normals, outVertices, outUvs, outNormals, triangles);
-                        }
-                    }
-                }
-            }
-
-            Mesh mesh = new Mesh();
-            if (outVertices.Count > 65000)
-            {
-                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            }
-            mesh.vertices = outVertices.ToArray();
-            if (outUvs.Count == outVertices.Count)
-            {
-                mesh.uv = outUvs.ToArray();
-            }
-            if (outNormals.Count == outVertices.Count)
-            {
-                mesh.normals = outNormals.ToArray();
-            }
-            mesh.triangles = triangles.ToArray();
-            mesh.RecalculateBounds();
-            mesh.RecalculateNormals();
-            return mesh;
-        }
-
-        private static void AddVertex(
-            string vertexString,
-            List<Vector3> sourceVertices,
-            List<Vector2> sourceUvs,
-            List<Vector3> sourceNormals,
-            List<Vector3> outputVertices,
-            List<Vector2> outputUvs,
-            List<Vector3> outputNormals,
-            List<int> outputTriangles)
-        {
-            string[] tokens = vertexString.Split('/');
-            if (tokens.Length > 0 && int.TryParse(tokens[0], out int vertexIndex) && vertexIndex > 0 && vertexIndex <= sourceVertices.Count)
-            {
-                outputVertices.Add(sourceVertices[vertexIndex - 1]);
-            }
-            else
-            {
-                outputVertices.Add(Vector3.zero);
-            }
-
-            if (tokens.Length > 1 && !string.IsNullOrEmpty(tokens[1]) && int.TryParse(tokens[1], out int uvIndex) && uvIndex > 0 && uvIndex <= sourceUvs.Count)
-            {
-                outputUvs.Add(sourceUvs[uvIndex - 1]);
-            }
-            else
-            {
-                outputUvs.Add(Vector2.zero);
-            }
-
-            if (tokens.Length > 2 && !string.IsNullOrEmpty(tokens[2]) && int.TryParse(tokens[2], out int normalIndex) && normalIndex > 0 && normalIndex <= sourceNormals.Count)
-            {
-                outputNormals.Add(sourceNormals[normalIndex - 1]);
-            }
-            else
-            {
-                outputNormals.Add(Vector3.up);
-            }
-
-            outputTriangles.Add(outputVertices.Count - 1);
-        }
-
-        private static Material CreateBombMaterial(Texture2D texture)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("GorillaTag/UberShader")
-                ?? Shader.Find("Sprites/Default");
-
-            Material material = new Material(shader)
-            {
-                mainTexture = texture != null ? texture : Texture2D.whiteTexture,
-                color = Color.white
-            };
-
-            if (texture != null)
-            {
-                if (material.HasProperty("_BaseMap"))
-                {
-                    material.SetTexture("_BaseMap", texture);
-                }
-                if (material.HasProperty("_BaseColor"))
-                {
-                    material.SetColor("_BaseColor", Color.white);
-                }
-            }
-
-            return material;
         }
     }
 }

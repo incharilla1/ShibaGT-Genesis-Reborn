@@ -184,8 +184,8 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 new ButtonInfo { buttonText = "Refresh Audios", method = () => RefreshSounds(true), isTogglable = false, toolTip = "Rescan soundboard folder" },
                 new ButtonInfo { buttonText = "Stop Soundboard", method = () => Stop(), isTogglable = false, toolTip = "Stop playing current audio" },
                 new ButtonInfo { buttonText = "Open Folder", method = () => OpenFolder(), isTogglable = false, toolTip = "Open soundboard folder in Explorer" },
-                new ButtonInfo { buttonText = "Vol +", method = () => AdjustVolume(0.1f), isTogglable = false, toolTip = "Increase soundboard volume" },
-                new ButtonInfo { buttonText = "Vol -", method = () => AdjustVolume(-0.1f), isTogglable = false, toolTip = "Decrease soundboard volume" }
+                new ButtonInfo { buttonText = "Volume +", method = () => AdjustVolume(0.1f), isTogglable = false, toolTip = "Increase soundboard volume" },
+                new ButtonInfo { buttonText = "Volume -", method = () => AdjustVolume(-0.1f), isTogglable = false, toolTip = "Decrease soundboard volume" }
             };
 
             foreach (string file in audioFiles)
