@@ -580,7 +580,7 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.transform.parent = menu.transform;
             gameObject.transform.rotation = Quaternion.identity;
             gameObject.transform.localScale = new Vector3(0.05f, 0.6f, 0.08f);
-            gameObject.transform.localPosition = new Vector3(0.56f, 0.1f, 0.17f - offset);
+            gameObject.transform.localPosition = new Vector3(0.56f, 0.1f, 0.25f - offset);
             Classes.Button btn = gameObject.AddComponent<Classes.Button>();
             btn.relatedText = method.buttonText;
             btn.buttonInfo = method;
@@ -600,7 +600,7 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject1.transform.parent = menu.transform;
             gameObject1.transform.rotation = Quaternion.identity;
             gameObject1.transform.localScale = new Vector3(0.05f, 0.1f, 0.085f);
-            gameObject1.transform.localPosition = new Vector3(0.56f, -0.35f, 0.17f - offset);
+            gameObject1.transform.localPosition = new Vector3(0.56f, -0.35f, 0.25f - offset);
             Classes.Button favBtn = gameObject1.AddComponent<Classes.Button>();
             favBtn.relatedText = "fav_" + method.buttonText;
             favBtn.buttonInfo = method;
@@ -651,7 +651,7 @@ namespace ShibaGTGenesisReborn.Menu
             RectTransform component = text.GetComponent<RectTransform>();
             component.localPosition = Vector3.zero;
             component.sizeDelta = new Vector2(.2f, .03f);
-            component.localPosition = new Vector3(.064f, 0.03f, 0.064f - offset / 2.68f);
+            component.localPosition = new Vector3(.064f, 0.03f, 0.0935f - offset / 2.68f);
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
             Text text1 = new GameObject
@@ -673,7 +673,7 @@ namespace ShibaGTGenesisReborn.Menu
             RectTransform component1 = text1.GetComponent<RectTransform>();
             component1.localPosition = Vector3.zero;
             component1.sizeDelta = new Vector2(.2f, .03f);
-            component1.localPosition = new Vector3(.064f, -0.105f, 0.064f - offset / 2.68f);
+            component1.localPosition = new Vector3(.064f, -0.105f, 0.0935f - offset / 2.68f);
             component1.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
         }
 
