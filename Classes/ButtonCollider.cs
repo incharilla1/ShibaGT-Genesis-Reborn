@@ -13,7 +13,7 @@ namespace ShibaGTGenesisReborn.Classes
         public ButtonInfo buttonInfo;
 
         public static float buttonCooldown = 0f;
-        public static bool customAudio = false;
+        [Setting] public static bool customAudio = false;
 
         private static void plaything()
         {

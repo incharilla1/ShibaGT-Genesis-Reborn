@@ -10,7 +10,7 @@ namespace ShibaGTGenesisReborn.Menu
     public static class MenuAudio
     {
         public static AudioSource audioSource;
-        public static int selectedSoundIndex = 1;
+        [Setting] public static int selectedSoundIndex = 1;
         private static readonly AudioClip[] clickClips = new AudioClip[8];
         private static bool isInitialized;
 

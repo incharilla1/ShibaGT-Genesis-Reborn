@@ -73,49 +73,5 @@ namespace ShibaGTGenesisReborn.Patches
         {
             private static bool Prefix() => false;
         }
-
-        [HarmonyPatch(typeof(GorillaTelemetry), "FlushMothershipTelemetry")]
-        public class NoFlushTelemetry
-        {
-            private static bool Prefix() => false;
-        }
-
-        [HarmonyPatch(typeof(GorillaServer), nameof(GorillaServer.CheckIsMothershipTelemetryEnabled))]
-        public class ForceDisableMothership
-        {
-            private static bool Prefix(ref bool __result)
-            {
-                __result = false;
-                return false;
-            }
-        }
-
-        [HarmonyPatch(typeof(CustomMapTelemetry), nameof(CustomMapTelemetry.StartMapTracking))]
-        public class NoCustomMapTracking
-        {
-            private static bool Prefix() => false;
-        }
-
-        [HarmonyPatch(typeof(CustomMapTelemetry), "EndMetricsCapture")]
-        public class NoMetricsCapture
-        {
-            private static bool Prefix() => false;
-        }
-
-        [HarmonyPatch(typeof(CustomMapTelemetry), "EndPerfCapture")]
-        public class NoPerfCapture
-        {
-            private static bool Prefix() => false;
-        }
-
-        [HarmonyPatch(typeof(GTDev), "FetchDevID")]
-        public class SpoofDevID
-        {
-            private static bool Prefix(ref int __result)
-            {
-                __result = 0;
-                return false;
-            }
-        }
     }
 }

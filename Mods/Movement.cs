@@ -26,9 +26,8 @@ namespace ShibaGTGenesisReborn.Mods
             "Reset"
         };
 
-        private static int pullmodeIndex = 0;
-
-        private static int Platcolor;
+        [Setting] private static int pullmodeIndex = 0;
+        [Setting] private static int Platcolor;
         private static Color PlatColor = Color.blue;
         public static readonly Color[] PlatColors =
         {

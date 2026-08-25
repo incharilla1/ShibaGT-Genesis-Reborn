@@ -17,7 +17,7 @@ namespace ShibaGTGenesisReborn.Menu
         {
             new ButtonInfo[]
             { // Main Mods [ ALWAYS KEEP THIS FIRST NO MATTER WHAT ]
-                new ButtonInfo { buttonText = "Save", method =() => mods.Save(), isTogglable = false, toolTip = "Save settings", enabled = false},
+                new ButtonInfo { buttonText = "Save", method =() => Preferences.Save(), isTogglable = false, toolTip = "Save settings", enabled = false},
                 new ButtonInfo { buttonText = "Enabled Mods", method =() => SettingsMods.enablemods(), isTogglable = false, toolTip = "View active mods"},
                 new ButtonInfo { buttonText = "Favourite", method =() => SettingsMods.favouritemods(), isTogglable = false, toolTip = "View favorites"},
                 new ButtonInfo { buttonText = "Room", method =() => SettingsMods.room(), isTogglable = false, toolTip = "Room mods"},
@@ -244,7 +244,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Setting Button", enableMethod =() => SettingsButton = true, disableMethod =() => SettingsButton = false, enabled = SettingsButton, toolTip = "Show settings button"},
                 new ButtonInfo { buttonText = "Folder Button", enableMethod =() => FolderButton = true, disableMethod =() => FolderButton = false, enabled = FolderButton, toolTip = "Show folder button"},
                 new ButtonInfo { buttonText = "Leave Button", enableMethod =() => SettingsMods.EnableDisconnectButton(), disableMethod =() => SettingsMods.DisableDisconnectButton(), enabled = disconnectButton, toolTip = "Show disconnect button"},
-                new ButtonInfo { buttonText = "Remove All Prefs", method =() => mods.Removeprefs(), isTogglable = false, enabled = false, toolTip = "Reset saved preferences"},
+                new ButtonInfo { buttonText = "Remove All Prefs", method =() => Preferences.Reset(), isTogglable = false, enabled = false, toolTip = "Reset saved preferences"},
                 new ButtonInfo { buttonText = "PPos", overlapText = "Menu Layout: ShibaGT", isTogglable = false, method =() => mods.SwitchPagePos(), enabled = false, toolTip = "Switch menu layout"},
                 new ButtonInfo { buttonText = "OutlineMenu", isTogglable = true, enableMethod =() => Main.what3 = true, disableMethod =() => Main.what3 = false, enabled = Main.what3, toolTip = "Toggle menu outline"},
                 new ButtonInfo { buttonText = "Custom Button Audio", isTogglable = true, enableMethod =() => Button.customAudio = true, disableMethod =() => Button.customAudio = false, enabled = Button.customAudio, toolTip = "Use our custom button click audios"},

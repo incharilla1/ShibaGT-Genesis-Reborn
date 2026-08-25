@@ -20,13 +20,13 @@ namespace ShibaGTGenesisReborn
 
         public static Font currentFont = (Resources.GetBuiltinResource(typeof(Font), "Arial.ttf") as Font);
 
-        public static bool fpsCounter = true;
-        public static bool disconnectButton = true;
-        public static bool SettingsButton = true;
-        public static bool FolderButton = true;
-        public static bool rightHanded = true;
-        public static bool disableNotifications = true;
-        public static bool streamerMode = false;
+        [Setting] public static bool fpsCounter = true;
+        [Setting] public static bool disconnectButton = true;
+        [Setting] public static bool SettingsButton = true;
+        [Setting] public static bool FolderButton = true;
+        [Setting] public static bool rightHanded = true;
+        [Setting] public static bool disableNotifications = true;
+        [Setting] public static bool streamerMode = false;
 
         public static KeyCode keyboardButton = KeyCode.Q;
 

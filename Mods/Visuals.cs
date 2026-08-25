@@ -342,7 +342,7 @@ namespace ShibaGTGenesisReborn.Mods
             public bool HasBaseColor;
         }
 
-        private static int cursedIndex = 4;
+        [Setting] private static int cursedIndex = 4;
         private static readonly string[] cursedNames = { "Void", "Glitch", "Blood", "Acid", "Off" };
         private static readonly Dictionary<Material, MaterialState> originalMaterialStates = new Dictionary<Material, MaterialState>();
         private static bool originalFog;
@@ -515,7 +515,7 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        private static int timeOfDayIndex;
+        [Setting] private static int timeOfDayIndex;
         private static readonly string[] timeOfDayNames = { "Morning", "Day", "Evening", "Night", "Default" };
 
         public static void TimeSwitcher()
@@ -557,7 +557,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void WeatherSwitcher() => TimeSwitcher();
 
-        private static int weatherIndex;
+        [Setting] private static int weatherIndex;
         private static readonly string[] weatherNames = { "Rain", "Clear", "Default" };
 
         public static void CycleWeather()

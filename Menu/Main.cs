@@ -37,6 +37,7 @@ namespace ShibaGTGenesisReborn.Menu
             Mods.Custom.BoomboxManager.Initialize();
             Mods.Custom.SoundboardManager.Initialize();
             StreamerMode.EnsureInitialized();
+            Preferences.Load();
         }
 
         private void Update()
@@ -169,9 +170,9 @@ namespace ShibaGTGenesisReborn.Menu
             Instance = null;
         }
 
-        public static bool what;
+        [Setting] public static bool what;
         public static Color what2 = Color.blue;
-        public static bool what3;
+        [Setting] public static bool what3;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
         private static ButtonInfo[] GetAllButtons()
@@ -354,7 +355,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             RectTransform recct1 = homeImg.GetComponent<RectTransform>();
 
-            recct1.localPosition = new Vector3(0.064f, -0.134f, -0.217f);
+            recct1.localPosition = new Vector3(0.064f, -0.135f, -0.218f);
             recct1.sizeDelta = new Vector2(0.024f, 0.024f);
             recct1.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
@@ -391,7 +392,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 RectTransform recct = settingsImg.GetComponent<RectTransform>();
 
-                recct.localPosition = new Vector3(0.064f, -0.087f, -0.217f);
+                recct.localPosition = new Vector3(0.064f, -0.087f, -0.218f);
                 recct.sizeDelta = new Vector2(0.024f, 0.024f);
                 recct.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
@@ -428,7 +429,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 RectTransform folderRect = folderImg.GetComponent<RectTransform>();
 
-                folderRect.localPosition = new Vector3(0.064f, -0.04f, -0.217f);
+                folderRect.localPosition = new Vector3(0.064f, -0.039f, -0.218f);
                 folderRect.sizeDelta = new Vector2(0.024f, 0.024f);
                 folderRect.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
@@ -651,29 +652,22 @@ namespace ShibaGTGenesisReborn.Menu
             RectTransform component = text.GetComponent<RectTransform>();
             component.localPosition = Vector3.zero;
             component.sizeDelta = new Vector2(.2f, .03f);
-            component.localPosition = new Vector3(.064f, 0.03f, 0.0935f - offset / 2.68f);
+            component.localPosition = new Vector3(.064f, 0.03f, 0.095625f - offset * 0.3825f);
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
-            Text text1 = new GameObject
+            RawImage heartImg = new GameObject
             {
                 transform =
                 {
                     parent = canvasObject.transform
                 }
-            }.AddComponent<Text>();
-            text1.font = currentFont;
-            text1.text = "\u2764";
-            text1.supportRichText = true;
-            text1.fontSize = 1;
-            text1.color = method.isFavorite ? Color.yellow : Color.white;
-            text1.alignment = TextAnchor.MiddleCenter;
-            text1.fontStyle = FontStyle.Bold;
-            text1.resizeTextForBestFit = true;
-            text1.resizeTextMinSize = 0;
-            RectTransform component1 = text1.GetComponent<RectTransform>();
+            }.AddComponent<RawImage>();
+            heartImg.texture = ModsLib.GetHeartTexture();
+            heartImg.color = method.isFavorite ? Color.yellow : Color.white;
+            RectTransform component1 = heartImg.GetComponent<RectTransform>();
             component1.localPosition = Vector3.zero;
-            component1.sizeDelta = new Vector2(.2f, .03f);
-            component1.localPosition = new Vector3(.064f, -0.105f, 0.0935f - offset / 2.68f);
+            component1.sizeDelta = new Vector2(0.022f, 0.022f);
+            component1.localPosition = new Vector3(.064f, -0.105f, 0.095625f - offset * 0.3825f);
             component1.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
         }
 

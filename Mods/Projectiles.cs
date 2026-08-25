@@ -33,9 +33,9 @@ namespace ShibaGTGenesisReborn.Mods
             Dynamic
         }
 
-        public static bool biig;
-        public static bool rainbowProjectiles;
-        public static int projectileSpeedIndex;
+        [Setting] public static bool biig;
+        [Setting] public static bool rainbowProjectiles;
+        [Setting] public static int projectileSpeedIndex;
         private static readonly float[] projectileDelays = { 0.60f, 0.30f, 0.20f, 0.10f };
         private static readonly string[] projectileSpeedNames = { "Normal", "Fast", "Quick", "Insane" };
 

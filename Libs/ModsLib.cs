@@ -54,6 +54,7 @@ namespace ShibaGTGenesisReborn.Libs
         private static Texture2D folderTexture;
         private static Texture2D settingsTexture;
         private static Texture2D homeTexture;
+        private static Texture2D heartTexture;
 
         public static Texture2D LoadTextureResource(string fileName)
         {
@@ -253,6 +254,17 @@ namespace ShibaGTGenesisReborn.Libs
 
             homeTexture = LoadTextureResource("home.png");
             return homeTexture;
+        }
+
+        public static Texture2D GetHeartTexture()
+        {
+            if (heartTexture != null)
+            {
+                return heartTexture;
+            }
+
+            heartTexture = LoadTextureResource("heart.png");
+            return heartTexture;
         }
 
         public static GameObject CreatePearlVisual(string objectName, Vector3 initialPosition, float scale = 0.14f)

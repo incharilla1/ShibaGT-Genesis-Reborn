@@ -1,18 +1,21 @@
 using ExitGames.Client.Photon;
 using GorillaNetworking;
+using Newtonsoft.Json;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        public static int OutlineIndex;
+        [Setting] public static int OutlineIndex;
         public static Color[] outlines =
         {
             Color.blue,
@@ -55,88 +58,6 @@ namespace ShibaGTGenesisReborn.Mods
             "Sky",
         };
 
-        public static float notifcooldown;
-
-        public static void Save()
-        {
-            string prefsPath = Path.Combine(ModsLib.GenesisDirectory, "Genesis_Saved_Prefs.txt");
-            List<string> list = new List<string>();
-
-            foreach (ButtonInfo[] buttonList in Buttons.buttons)
-            {
-                foreach (ButtonInfo btn in buttonList)
-                {
-                    if (btn.enabled || btn.isFavorite)
-                    {
-                        list.Add(btn.isFavorite ? "fav" + btn.buttonText : btn.buttonText);
-                    }
-                }
-            }
-
-            if (Main.what)
-            {
-                list.Add("SideMagfoar");
-            }
-
-            Directory.CreateDirectory(ModsLib.GenesisDirectory);
-            File.WriteAllLines(prefsPath, list);
-        }
-
-        public static void Load()
-        {
-            string prefsPath = Path.Combine(ModsLib.GenesisDirectory, "Genesis_Saved_Prefs.txt");
-            if (File.Exists(prefsPath))
-            {
-                string[] shit = File.ReadAllLines(prefsPath);
-                foreach (ButtonInfo[] info in Buttons.buttons)
-                {
-                    foreach (ButtonInfo info1 in info)
-                    {
-                        if (info1.enabled)
-                        {
-                            info1.enabled = false;
-                            info1?.disableMethod?.Invoke();
-                        }
-                    }
-                }
-                foreach (string shit2 in shit)
-                {
-                    foreach (ButtonInfo[] info in Buttons.buttons)
-                    {
-                        foreach (ButtonInfo info1 in info)
-                        {
-                            if (info1.buttonText == shit2 && !info1.enabled)
-                            {
-                                info1.enabled = true;
-                                info1?.enableMethod?.Invoke();
-                                info1?.method?.Invoke();
-                            }
-                            if ("fav" + info1.buttonText == shit2 && !info1.isFavorite)
-                            {
-                                info1.isFavorite = true;
-                                Main.favoriteButtons.Add(info1);
-                                Main.UpdateFavoritesCategory();
-                            }
-                        }
-                        if (shit2.Contains("SideMagfoar"))
-                        {
-                            Main.GetIndex("PPos").overlapText = "Menu Layout: Sides";
-                            Main.what = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        public static void Removeprefs()
-        {
-            string prefsPath = Path.Combine(ModsLib.GenesisDirectory, "Genesis_Saved_Prefs.txt");
-            if (File.Exists(prefsPath))
-            {
-                File.Delete(prefsPath);
-            }
-        }
-
         public static void SwitchPagePos()
         {
             Main.what = !Main.what ? true : false;
@@ -150,30 +71,26 @@ namespace ShibaGTGenesisReborn.Mods
             Main.what2 = outlines[OutlineIndex];
         }
 
+        private static float notifcooldown;
         public static void AntiReport()
         {
-            if (!NetworkSystem.Instance.InRoom || NetworkSystem.Instance.LocalPlayer == null) return;
-
-            NetPlayer localPlayer = NetworkSystem.Instance.LocalPlayer;
-
-            foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines)
+            foreach (GorillaPlayerScoreboardLine boardline in GorillaScoreboardTotalUpdater.allScoreboardLines)
             {
-                if (line?.linePlayer == null || (line.linePlayer != localPlayer && line.playerActorNumber != localPlayer.ActorNumber && line.linePlayer.UserId != localPlayer.UserId)) continue;
-
-                if (line.reportInProgress || (line.reportButton != null && line.reportButton.isOn) || (line.reportButtons != null && line.reportButtons.activeInHierarchy))
-                    Disconnect();
-
-                if (line.reportButton == null || !line.reportButton.gameObject.activeInHierarchy) continue;
-
-                Vector3 target = line.reportButton.transform.position;
-                foreach (VRRig rig in VRRigCache.ActiveRigs)
+                if (boardline.linePlayer != NetworkSystem.Instance.LocalPlayer || boardline.reportButton == null)
                 {
-                    if (rig == null || rig.isOfflineVRRig || rig.isMyPlayer || rig == GorillaTagger.Instance.offlineVRRig) continue;
-
-                    if ((rig.rightHandTransform != null && (rig.rightHandTransform.position - target).sqrMagnitude < 0.75f) ||
-                        (rig.leftHandTransform != null && (rig.leftHandTransform.position - target).sqrMagnitude < 0.75f) ||
-                        (rig.transform.position - target).sqrMagnitude < 1f)
-                        Disconnect();
+                    Transform transform = boardline.reportButton.gameObject.transform;
+                    foreach (VRRig vrrig in VRRigCache.ActiveRigs)
+                    {
+                        if (vrrig == null || vrrig != GorillaTagger.Instance.offlineVRRig)
+                        {
+                            if (Vector3.Distance(vrrig.rightHandTransform.position, transform.position) < 0.4 || Vector3.Distance(vrrig.leftHandTransform.position, transform.position) < 0.4 && Time.time > notifcooldown + 0.5f)
+                            {
+                                notifcooldown = Time.time;
+                                NetworkSystem.Instance.ReturnToSinglePlayer();
+                                return;
+                            }
+                        }
+                    }
                 }
             }
         }
