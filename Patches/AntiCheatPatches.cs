@@ -126,8 +126,8 @@ namespace ShibaGTGenesisReborn.Patches
                 false;
         }
 
-        [HarmonyPatch(typeof(GorillaNetworkPublicTestJoin2), "PostTick")]
-        public class NoPostTick2
+        [HarmonyPatch(typeof(GorillaNetworkPublicTestJoin2), nameof(GorillaNetworkPublicTestJoin2.LateUpdate))]
+        public class NoLateUpdate2
         {
             private static bool Prefix() =>
                 false;
