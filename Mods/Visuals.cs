@@ -247,22 +247,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void InfectionTwoDBoxESP() => TwoDBoxESP(true);
 
-        public static string GetPlayerPlatform(NetPlayer player)
-        {
-            if (player == null || NetworkSystem.Instance == null) return string.Empty;
-            return NetworkSystem.Instance.GetPlayerPlatform(player) ?? string.Empty;
-        }
-
-        public static bool IsSteamUser(NetPlayer player)
-        {
-            return GetPlayerPlatform(player).IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        public static bool IsSteamUser(VRRig rig)
-        {
-            return IsSteamUser(rig?.creator);
-        }
-
         public static void NameAndDistanceTags()
         {
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
@@ -293,7 +277,7 @@ namespace ShibaGTGenesisReborn.Mods
                 tm.anchor = TextAnchor.MiddleCenter;
                 tm.color = rig.playerColor;
 
-                bool isSteam = IsSteamUser(netPlayer);
+                bool isSteam = ModsLib.IsSteamUser(netPlayer);
                 Material platformMat = isSteam ? ModsLib.GetSteamMaterial() : ModsLib.GetMetaMaterial();
 
                 if (platformMat != null)
@@ -565,8 +549,12 @@ namespace ShibaGTGenesisReborn.Mods
         private static HashSet<string> savedPlayerOwnedCosmetics = new HashSet<string>();
         private static HashSet<string> savedOfflinePlayerOwnedCosmetics = new HashSet<string>();
 
+        public static bool cosmetXEnabled;
+        public static bool disableQuitbox = true;
+
         public static void EnableCosmetX()
         {
+            cosmetXEnabled = true;
             CosmeticsController controller = CosmeticsController.instance;
             if (controller == null) return;
 
@@ -672,11 +660,12 @@ namespace ShibaGTGenesisReborn.Mods
             controller.OnCosmeticsUpdated?.Invoke();
             VRRig.LocalRig?.RefreshCosmetics();
             GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
-            SyncCosmeticsToNetwork();
+            ModsLib.SyncCosmeticsToNetwork();
         }
 
         public static void DisableCosmetX()
         {
+            cosmetXEnabled = false;
             CosmeticsController controller = CosmeticsController.instance;
             if (controller == null) return;
 
@@ -749,27 +738,86 @@ namespace ShibaGTGenesisReborn.Mods
             controller.OnOutfitsUpdated?.Invoke();
             VRRig.LocalRig?.RefreshCosmetics();
             GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
-            SyncCosmeticsToNetwork();
+            ModsLib.SyncCosmeticsToNetwork();
         }
 
-        public static string GetLocalCosmeticString()
+        private static GameObject debugOverlayObj;
+        private static UnityEngine.UI.Text debugOverlayText;
+
+        public static void DebugInfo()
         {
-            if (VRRig.LocalRig == null || VRRig.LocalRig.cosmeticSet == null || VRRig.LocalRig.cosmeticSet.items == null) return string.Empty;
-            List<string> items = new List<string>();
-            for (int i = 0; i < VRRig.LocalRig.cosmeticSet.items.Length; i++)
+            if (debugOverlayObj == null)
             {
-                var item = VRRig.LocalRig.cosmeticSet.items[i];
-                items.Add((!item.isNullItem && !string.IsNullOrEmpty(item.itemName)) ? item.itemName : "null");
+                debugOverlayObj = new GameObject("DebugInfo");
+                Canvas canvas = debugOverlayObj.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 999;
+
+                GameObject textObj = new GameObject("Text");
+                textObj.transform.SetParent(debugOverlayObj.transform, false);
+                debugOverlayText = textObj.AddComponent<UnityEngine.UI.Text>();
+                debugOverlayText.font = Settings.currentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+                debugOverlayText.fontSize = 13;
+                debugOverlayText.color = Color.white;
+                debugOverlayText.alignment = TextAnchor.UpperRight;
+                debugOverlayText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                debugOverlayText.verticalOverflow = VerticalWrapMode.Overflow;
+
+                UnityEngine.UI.Outline outline = textObj.AddComponent<UnityEngine.UI.Outline>();
+                outline.effectColor = Color.black;
+                outline.effectDistance = new Vector2(1, -1);
+
+                RectTransform rect = textObj.GetComponent<RectTransform>();
+                rect.anchorMin = Vector2.one;
+                rect.anchorMax = Vector2.one;
+                rect.pivot = Vector2.one;
+                rect.anchoredPosition = new Vector2(-15, -15);
+                rect.sizeDelta = new Vector2(500, 300);
             }
-            return string.Join(",", items);
+
+            Vector3 pos = GTPlayer.Instance != null ? GTPlayer.Instance.transform.position : (VRRig.LocalRig != null ? VRRig.LocalRig.transform.position : Vector3.zero);
+            Vector3 vel = GTPlayer.Instance != null ? GTPlayer.Instance.currentVelocity : Vector3.zero;
+            Vector3 vrCam = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+
+            Camera tpc = Main.TPC ?? GameObject.Find("Shoulder Camera")?.GetComponent<Camera>();
+            Vector3 tpcPos = tpc != null ? tpc.transform.position : Vector3.zero;
+
+            GameObject shoulder = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera") ?? GameObject.Find("Shoulder Camera");
+            Vector3 shoulderPos = shoulder != null ? shoulder.transform.position : Vector3.zero;
+
+            GameObject vcam = shoulder != null ? shoulder.transform.Find("CM vcam1")?.gameObject : GameObject.Find("CM vcam1");
+            Vector3 vcamPos = vcam != null ? vcam.transform.position : Vector3.zero;
+            bool vcamActive = vcam != null && vcam.activeInHierarchy;
+
+            int fps = Mathf.CeilToInt(1f / Mathf.Max(Time.unscaledDeltaTime, 0.0001f));
+            long ram = GC.GetTotalMemory(false) / (1024 * 1024);
+            bool inRoom = PhotonNetwork.InRoom;
+            string room = inRoom ? $"{PhotonNetwork.CurrentRoom.Name} ({PhotonNetwork.CurrentRoom.PlayerCount}/{PhotonNetwork.CurrentRoom.MaxPlayers})" : "Offline";
+            string ping = inRoom ? $"{PhotonNetwork.GetPing()} ms" : "N/A";
+            string zone = !string.IsNullOrEmpty(lastmap) ? lastmap : (GorillaComputer.instance?.currentQueue ?? "forest");
+
+            debugOverlayText.text =
+                $"FPS: {fps} ({(Time.unscaledDeltaTime * 1000f):F1} ms)\n" +
+                $"RAM: {ram} MB\n" +
+                $"Pos: ({pos.x:F2}, {pos.y:F2}, {pos.z:F2})\n" +
+                $"Vel: {vel.magnitude:F2} m/s\n" +
+                $"VR Cam: ({vrCam.x:F2}, {vrCam.y:F2}, {vrCam.z:F2})\n" +
+                $"TPC: ({tpcPos.x:F2}, {tpcPos.y:F2}, {tpcPos.z:F2})\n" +
+                $"Shoulder: ({shoulderPos.x:F2}, {shoulderPos.y:F2}, {shoulderPos.z:F2})\n" +
+                $"VCam1: ({vcamPos.x:F2}, {vcamPos.y:F2}, {vcamPos.z:F2}) [{(vcamActive ? "Active" : "Disabled")}]\n" +
+                $"Room: {room}\n" +
+                $"Ping: {ping}\n" +
+                $"Zone: {zone}";
         }
 
-        public static void SyncCosmeticsToNetwork()
+        public static void DisableDebugInfo()
         {
-            if (VRRig.LocalRig == null || NetworkingLibrary.Instance == null || !NetworkingLibrary.Instance.NetworkEnabled) return;
-            string cosmeticString = GetLocalCosmeticString();
-            if (!string.IsNullOrEmpty(cosmeticString))
-                NetworkingLibrary.Instance.SendCosmeticUpdate(cosmeticString);
+            if (debugOverlayObj != null)
+            {
+                Object.Destroy(debugOverlayObj);
+                debugOverlayObj = null;
+                debugOverlayText = null;
+            }
         }
     }
 }

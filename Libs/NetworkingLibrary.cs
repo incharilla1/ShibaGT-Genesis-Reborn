@@ -517,9 +517,9 @@ namespace ShibaGTGenesisReborn.Libs
                     SendEventToActor(VapeSmokeEvent, player.ActorNumber, kvp.Key, Vape.isExhaling);
             }
 
-            if (VRRig.LocalRig != null && Main.GetIndex("CosmetX")?.enabled == true)
+            if (VRRig.LocalRig != null && mods.cosmetXEnabled)
             {
-                string cosmeticStr = mods.GetLocalCosmeticString();
+                string cosmeticStr = ModsLib.GetLocalCosmeticString();
                 if (!string.IsNullOrEmpty(cosmeticStr))
                     SendEventToActor(CosmeticSyncEvent, player.ActorNumber, GetLocalPlayerId(), cosmeticStr);
             }

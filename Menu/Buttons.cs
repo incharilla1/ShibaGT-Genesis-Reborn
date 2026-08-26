@@ -36,8 +36,9 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Movement", method =() => SettingsMods.moveset(), toolTip = "Move settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Projectiles", method =() => SettingsMods.projset(), toolTip = "Proj settings", isTogglable = false},
                 new ButtonInfo { buttonText = "Anti Report", method =() => mods.AntiReport(), toolTip = "Block reports", isTogglable = true, enabled = true},
-                new ButtonInfo { buttonText = "Disable Quitbox", isTogglable = true, enabled = true, toolTip = "Prevent quitbox triggers from quitting the game"},
+                new ButtonInfo { buttonText = "Disable Quitbox", enableMethod =() => mods.disableQuitbox = true, disableMethod =() => mods.disableQuitbox = false, isTogglable = true, enabled = true, toolTip = "Prevent quitbox triggers from quitting the game"},
                 new ButtonInfo { buttonText = "Filled ESP", enableMethod =() => mods.filledESP = true, disableMethod =() => mods.filledESP = false, isTogglable = true, enabled = false, toolTip = "Toggle filled 2D and 3D box ESP"},
+                new ButtonInfo { buttonText = "Debug Info", method =() => mods.DebugInfo(), disableMethod =() => mods.DisableDebugInfo(), isTogglable = true, toolTip = "Show player position, camera positions, and stats in top right"},
             },
 
             new ButtonInfo[]

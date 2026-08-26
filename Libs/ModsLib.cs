@@ -1,5 +1,8 @@
 using BepInEx;
 using GorillaLocomotion;
+using GorillaNetworking;
+using Photon.Realtime;
+using ShibaGTGenesisReborn.Classes;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -558,6 +561,44 @@ namespace ShibaGTGenesisReborn.Libs
             else nn.Add(Vector3.up);
 
             t.Add(nv.Count - 1);
+        }
+        #endregion
+
+        #region Platform & Cosmetic Utilities
+        public static string GetPlayerPlatform(NetPlayer player)
+        {
+            if (player == null || NetworkSystem.Instance == null) return string.Empty;
+            return NetworkSystem.Instance.GetPlayerPlatform(player) ?? string.Empty;
+        }
+
+        public static bool IsSteamUser(NetPlayer player)
+        {
+            return GetPlayerPlatform(player).IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        public static bool IsSteamUser(VRRig rig)
+        {
+            return IsSteamUser(rig?.creator);
+        }
+
+        public static string GetLocalCosmeticString()
+        {
+            if (VRRig.LocalRig == null || VRRig.LocalRig.cosmeticSet == null || VRRig.LocalRig.cosmeticSet.items == null) return string.Empty;
+            List<string> items = new List<string>();
+            for (int i = 0; i < VRRig.LocalRig.cosmeticSet.items.Length; i++)
+            {
+                var item = VRRig.LocalRig.cosmeticSet.items[i];
+                items.Add((!item.isNullItem && !string.IsNullOrEmpty(item.itemName)) ? item.itemName : "null");
+            }
+            return string.Join(",", items);
+        }
+
+        public static void SyncCosmeticsToNetwork()
+        {
+            if (VRRig.LocalRig == null || NetworkingLibrary.Instance == null || !NetworkingLibrary.Instance.NetworkEnabled) return;
+            string cosmeticString = GetLocalCosmeticString();
+            if (!string.IsNullOrEmpty(cosmeticString))
+                NetworkingLibrary.Instance.SendCosmeticUpdate(cosmeticString);
         }
         #endregion
     }
