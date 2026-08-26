@@ -46,20 +46,30 @@ namespace ShibaGTGenesisReborn.Menu
             
             try
             {
-                bool toOpen = (!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton);
+                bool toOpen = ControllerInputPoller.instance != null && ((!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton));
                 bool keyboardOpen = UnityInput.Current.GetKey(keyboardButton);
-                InputHandler.Instance.RightGrip.IsPressed = Mouse.current.rightButton.isPressed ? Mouse.current.leftButton.isPressed : ControllerInputPoller.instance.rightGrab;
+                try
+                {
+                    bool rightMouse = Mouse.current != null && Mouse.current.rightButton.isPressed;
+                    bool leftMouse = Mouse.current != null && Mouse.current.leftButton.isPressed;
+                    bool rightGrab = ControllerInputPoller.instance != null && ControllerInputPoller.instance.rightGrab;
+                    if (InputHandler.Instance != null)
+                    {
+                        InputHandler.Instance.RightGrip.IsPressed = rightMouse ? leftMouse : rightGrab;
+                    }
+                }
+                catch { }
 
                 if (menu == null)
                 {
                     if (toOpen || keyboardOpen)
                     {
                         CreateMenu();
-                        RecenterMenu(rightHanded, keyboardOpen);
                         if (reference == null)
                         {
                             CreateReference(rightHanded);
                         }
+                        RecenterMenu(rightHanded, keyboardOpen);
                     }
                 }
                 else
@@ -429,10 +439,6 @@ namespace ShibaGTGenesisReborn.Menu
             if (disconnectButton)
             {
                 GameObject disconnectbutton = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                if (!UnityInput.Current.GetKey(KeyCode.Q))
-                {
-                    disconnectbutton.layer = 2;
-                }
                 UnityEngine.Object.Destroy(disconnectbutton.GetComponent<Rigidbody>());
                 disconnectbutton.GetComponent<BoxCollider>().isTrigger = true;
                 disconnectbutton.transform.parent = menu.transform;
@@ -469,10 +475,6 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (!UnityInput.Current.GetKey(KeyCode.Q))
-            {
-                gameObject.layer = 2;
-            }
             UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
             gameObject.GetComponent<BoxCollider>().isTrigger = true;
             gameObject.transform.parent = menu.transform;
@@ -507,10 +509,6 @@ namespace ShibaGTGenesisReborn.Menu
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
             gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (!UnityInput.Current.GetKey(KeyCode.Q))
-            {
-                gameObject.layer = 2;
-            }
             UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
             gameObject.GetComponent<BoxCollider>().isTrigger = true;
             gameObject.transform.parent = menu.transform;
@@ -564,10 +562,6 @@ namespace ShibaGTGenesisReborn.Menu
         public static void CreateButton(float offset, ButtonInfo method)
         {
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (!UnityInput.Current.GetKey(KeyCode.Q))
-            {
-                gameObject.layer = 2;
-            }
             UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
             gameObject.GetComponent<BoxCollider>().isTrigger = true;
             gameObject.transform.parent = menu.transform;
@@ -584,10 +578,6 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             GameObject gameObject1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (!UnityInput.Current.GetKey(KeyCode.Q))
-            {
-                gameObject1.layer = 2;
-            }
             UnityEngine.Object.Destroy(gameObject1.GetComponent<Rigidbody>());
             gameObject1.GetComponent<BoxCollider>().isTrigger = true;
             gameObject1.transform.parent = menu.transform;
@@ -698,10 +688,23 @@ namespace ShibaGTGenesisReborn.Menu
                 {
                     if (cachedTPC == null)
                     {
-                        GameObject shoulderCam = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera");
+                        GameObject shoulderCam = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera") ?? GameObject.Find("Shoulder Camera");
                         if (shoulderCam != null)
                         {
                             cachedTPC = shoulderCam.GetComponent<Camera>();
+                            shoulderCamera = shoulderCam;
+                        }
+                        if (cachedTPC == null)
+                        {
+                            foreach (Camera cam in Camera.allCameras)
+                            {
+                                if (cam != null && (cam.name.Contains("Shoulder") || cam.name.Contains("Third Person")))
+                                {
+                                    cachedTPC = cam;
+                                    shoulderCamera = cam.gameObject;
+                                    break;
+                                }
+                            }
                         }
                     }
                     TPC = cachedTPC;
@@ -710,44 +713,152 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (shoulderCamera != null)
                 {
-                    shoulderCamera.transform.Find("CM vcam1").gameObject.SetActive(false);
+                    Transform vcam = shoulderCamera.transform.Find("CM vcam1");
+                    if (vcam != null)
+                    {
+                        vcam.gameObject.SetActive(false);
+                    }
                 }
 
                 if (TPC != null)
                 {
                     TPC.transform.position = new Vector3(-999f, -999f, -999f);
                     TPC.transform.rotation = Quaternion.identity;
-                    GameObject bg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    bg.transform.localScale = new Vector3(10f, 10f, 0.01f);
-                    bg.transform.transform.position = TPC.transform.position + TPC.transform.forward;
-                    bg.GetComponent<Renderer>().material.color = new Color32((byte)(backgroundColor.colors[0].color.r * 100), (byte)(backgroundColor.colors[0].color.g * 50), (byte)(backgroundColor.colors[0].color.b * 50), 255);
-                    GameObject.Destroy(bg, Time.deltaTime);
                     menu.transform.parent = TPC.transform;
                     menu.transform.position = (TPC.transform.position + (Vector3.Scale(TPC.transform.forward, new Vector3(0.5f, 0.5f, 0.5f)))) + (Vector3.Scale(TPC.transform.up, new Vector3(-0.02f, -0.02f, -0.02f)));
                     Vector3 rot = TPC.transform.rotation.eulerAngles;
                     rot = new Vector3(rot.x - 90, rot.y + 90, rot.z);
                     menu.transform.rotation = Quaternion.Euler(rot);
 
-                    if (reference != null)
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+
+                    bool isClick = false;
+                    try
                     {
-                        bool isClick = (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) || UnityInput.Current.GetMouseButtonDown(0);
-                        if (isClick)
+                        if (Mouse.current != null)
                         {
-                            Vector2 mousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : (Vector2)UnityInput.Current.mousePosition;
-                            Ray ray = TPC.ScreenPointToRay(mousePos);
-                            if (Physics.Raycast(ray, out RaycastHit hit, 100))
+                            isClick = Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.leftButton.isPressed;
+                        }
+                    }
+                    catch { }
+
+                    if (!isClick)
+                    {
+                        try
+                        {
+                            isClick = UnityInput.Current.GetMouseButtonDown(0) || UnityInput.Current.GetMouseButton(0) || Input.GetMouseButtonDown(0) || Input.GetMouseButton(0);
+                        }
+                        catch { }
+                    }
+
+                    if (isClick && menu != null)
+                    {
+                        Vector2 mousePos = Vector2.zero;
+                        try { mousePos = Input.mousePosition; } catch { }
+                        if (mousePos == Vector2.zero)
+                        {
+                            try { mousePos = (Vector2)UnityInput.Current.mousePosition; } catch { }
+                        }
+                        if (mousePos == Vector2.zero && Mouse.current != null)
+                        {
+                            try { mousePos = Mouse.current.position.ReadValue(); } catch { }
+                        }
+
+                        Classes.Button clickedButton = null;
+
+                        Classes.Button[] allButtons = menu.GetComponentsInChildren<Classes.Button>();
+                        if (allButtons != null && allButtons.Length > 0)
+                        {
+                            foreach (Classes.Button btn in allButtons)
                             {
-                                Classes.Button collide = hit.transform.gameObject.GetComponent<Classes.Button>();
-                                if (collide != null)
+                                if (btn == null) continue;
+                                Renderer rend = btn.GetComponent<Renderer>();
+                                if (rend == null) continue;
+
+                                Vector3 c = rend.bounds.center;
+                                Vector3 e = rend.bounds.extents;
+                                Vector3[] corners = new Vector3[]
                                 {
-                                    collide.OnTriggerEnter(buttonCollider);
+                                    TPC.WorldToScreenPoint(new Vector3(c.x - e.x, c.y - e.y, c.z - e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x + e.x, c.y - e.y, c.z - e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x - e.x, c.y + e.y, c.z - e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x + e.x, c.y + e.y, c.z - e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x - e.x, c.y - e.y, c.z + e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x + e.x, c.y - e.y, c.z + e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x - e.x, c.y + e.y, c.z + e.z)),
+                                    TPC.WorldToScreenPoint(new Vector3(c.x + e.x, c.y + e.y, c.z + e.z)),
+                                };
+
+                                float minX = float.MaxValue, minY = float.MaxValue;
+                                float maxX = float.MinValue, maxY = float.MinValue;
+                                for (int k = 0; k < corners.Length; k++)
+                                {
+                                    if (corners[k].z > 0)
+                                    {
+                                        if (corners[k].x < minX) minX = corners[k].x;
+                                        if (corners[k].x > maxX) maxX = corners[k].x;
+                                        if (corners[k].y < minY) minY = corners[k].y;
+                                        if (corners[k].y > maxY) maxY = corners[k].y;
+                                    }
+                                }
+
+                                if (mousePos.x >= minX - 4f && mousePos.x <= maxX + 4f && mousePos.y >= minY - 4f && mousePos.y <= maxY + 4f)
+                                {
+                                    clickedButton = btn;
+                                    break;
                                 }
                             }
                         }
-                        else if (Mouse.current == null || !Mouse.current.leftButton.isPressed)
+
+                        if (clickedButton == null)
                         {
-                            reference.transform.position = new Vector3(999f, -999f, -999f);
+                            Ray ray = TPC.ScreenPointToRay(mousePos);
+                            RaycastHit[] hits = Physics.RaycastAll(ray, 100f, ~0, QueryTriggerInteraction.Collide);
+                            if (hits != null && hits.Length > 0)
+                            {
+                                Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+                                foreach (RaycastHit hit in hits)
+                                {
+                                    Classes.Button collide = hit.transform.GetComponent<Classes.Button>() ?? hit.transform.GetComponentInParent<Classes.Button>();
+                                    if (collide != null)
+                                    {
+                                        clickedButton = collide;
+                                        break;
+                                    }
+                                }
+                            }
                         }
+
+                        if (clickedButton == null && Screen.width > 0 && Screen.height > 0)
+                        {
+                            float vx = mousePos.x / Screen.width;
+                            float vy = mousePos.y / Screen.height;
+                            Ray vpRay = TPC.ViewportPointToRay(new Vector3(vx, vy, 0));
+                            RaycastHit[] vpHits = Physics.RaycastAll(vpRay, 100f, ~0, QueryTriggerInteraction.Collide);
+                            if (vpHits != null && vpHits.Length > 0)
+                            {
+                                Array.Sort(vpHits, (a, b) => a.distance.CompareTo(b.distance));
+                                foreach (RaycastHit hit in vpHits)
+                                {
+                                    Classes.Button collide = hit.transform.GetComponent<Classes.Button>() ?? hit.transform.GetComponentInParent<Classes.Button>();
+                                    if (collide != null)
+                                    {
+                                        clickedButton = collide;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (clickedButton != null)
+                        {
+                            clickedButton.Click();
+                        }
+                    }
+                    else if (reference != null && (Mouse.current == null || !Mouse.current.leftButton.isPressed))
+                    {
+                        reference.transform.position = new Vector3(999f, -999f, -999f);
                     }
                 }
             }

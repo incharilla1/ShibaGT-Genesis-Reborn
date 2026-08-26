@@ -565,12 +565,8 @@ namespace ShibaGTGenesisReborn.Mods
         private static HashSet<string> savedPlayerOwnedCosmetics = new HashSet<string>();
         private static HashSet<string> savedOfflinePlayerOwnedCosmetics = new HashSet<string>();
 
-        public static bool cosmetXEnabled;
-        public static bool disableQuitbox = true;
-
         public static void EnableCosmetX()
         {
-            cosmetXEnabled = true;
             CosmeticsController controller = CosmeticsController.instance;
             if (controller == null) return;
 
@@ -754,7 +750,6 @@ namespace ShibaGTGenesisReborn.Mods
             VRRig.LocalRig?.RefreshCosmetics();
             GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
             SyncCosmeticsToNetwork();
-            cosmetXEnabled = false;
         }
 
         public static string GetLocalCosmeticString()

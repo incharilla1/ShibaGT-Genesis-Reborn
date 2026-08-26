@@ -40,7 +40,7 @@ namespace ShibaGTGenesisReborn.Patches
     [HarmonyPatch(typeof(GorillaQuitBox), nameof(GorillaQuitBox.OnBoxTriggered))]
     public class NoQuitBoxPatch
     {
-        private static bool Prefix() => !mods.disableQuitbox;
+        private static bool Prefix() => Main.GetIndex("Disable Quitbox")?.enabled != true;
     }
 
     [HarmonyPatch(typeof(GorillaLocomotion.GTPlayer), nameof(GorillaLocomotion.GTPlayer.SetScaleMultiplier))]

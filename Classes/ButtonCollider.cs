@@ -17,20 +17,39 @@ namespace ShibaGTGenesisReborn.Classes
 
         private static void plaything()
         {
-            if (customAudio)
-                MenuAudio.PlayClickSound();
-            else
-                VRRig.LocalRig.PlayHandTapLocal((int)mods.num, rightHanded, 0.4f);
+            try
+            {
+                if (customAudio)
+                    MenuAudio.PlayClickSound();
+                else if (VRRig.LocalRig != null)
+                    VRRig.LocalRig.PlayHandTapLocal((int)mods.num, rightHanded, 0.4f);
+            }
+            catch { }
+        }
+
+        public void Click()
+        {
+            if (Time.time > buttonCooldown && menu != null)
+            {
+                buttonCooldown = Time.time + 0.15f;
+                if (GorillaTagger.Instance != null)
+                {
+                    try
+                    {
+                        GorillaTagger.Instance.StartVibration(rightHanded, GorillaTagger.Instance.tagHapticStrength / 2f, GorillaTagger.Instance.tagHapticDuration / 2f);
+                    }
+                    catch { }
+                }
+                plaything();
+                Toggle(this.relatedText, this.buttonInfo);
+            }
         }
 
         public void OnTriggerEnter(Collider collider)
         {
-            if (Time.time > buttonCooldown && collider == buttonCollider && menu != null)
+            if (collider == buttonCollider || collider == null || buttonCollider == null)
             {
-                buttonCooldown = Time.time + 0.15f;
-                GorillaTagger.Instance.StartVibration(rightHanded, GorillaTagger.Instance.tagHapticStrength / 2f, GorillaTagger.Instance.tagHapticDuration / 2f);
-                plaything();
-                Toggle(this.relatedText, this.buttonInfo);
+                Click();
             }
         }
     }

@@ -1,6 +1,6 @@
 using GorillaNetworking;
 using HarmonyLib;
-using ShibaGTGenesisReborn.Mods;
+using ShibaGTGenesisReborn.Menu;
 
 namespace ShibaGTGenesisReborn.Patches
 {
@@ -9,7 +9,7 @@ namespace ShibaGTGenesisReborn.Patches
     {
         private static bool Prefix(ref bool __result)
         {
-            if (mods.cosmetXEnabled)
+            if (Main.GetIndex("CosmetX")?.enabled == true)
             {
                 __result = true;
                 return false;
@@ -23,7 +23,7 @@ namespace ShibaGTGenesisReborn.Patches
     {
         private static bool Prefix(ref bool __result)
         {
-            if (mods.cosmetXEnabled)
+            if (Main.GetIndex("CosmetX")?.enabled == true)
             {
                 __result = true;
                 return false;
@@ -37,7 +37,7 @@ namespace ShibaGTGenesisReborn.Patches
     {
         private static bool Prefix(ref bool __result)
         {
-            if (mods.cosmetXEnabled)
+            if (Main.GetIndex("CosmetX")?.enabled == true)
             {
                 __result = true;
                 return false;
