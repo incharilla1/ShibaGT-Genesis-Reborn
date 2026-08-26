@@ -277,13 +277,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null)
                 {
-                    if (VRRig.LocalRig != null)
-                    {
-                        VRRig.LocalRig.enabled = false;
-                        VRRig.LocalRig.transform.position = GunLib.LockedPlayer.transform.position;
-                    }
-                    if (GorillaTagger.Instance.offlineVRRig != null)
-                        GorillaTagger.Instance.offlineVRRig.enabled = false;
+                    bypasstp(GunLib.LockedPlayer.transform.position, true);
 
                     Vector3 launchPos = GunLib.LockedPlayer.transform.position - new Vector3(0f, 0.4f, 0f);
                     Vector3 upVel = Vector3.up * 45f;
