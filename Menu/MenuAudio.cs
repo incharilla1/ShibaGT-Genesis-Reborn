@@ -74,9 +74,7 @@ namespace ShibaGTGenesisReborn.Menu
         public static void CycleClickSound()
         {
             selectedSoundIndex = (selectedSoundIndex % 8) + 1;
-            var btn = Main.GetIndex("Cycle Button Audio");
-            if (btn != null)
-                btn.overlapText = $"Click Audio: Sound {selectedSoundIndex}";
+            Main.GetIndex("Cycle Button Audio").overlapText = $"Click Audio: Sound {selectedSoundIndex}";
 
             if (clickClips[selectedSoundIndex - 1] == null)
                 RunCoroutine(LoadAndPlay(selectedSoundIndex));

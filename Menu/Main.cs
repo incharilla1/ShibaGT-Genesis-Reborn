@@ -1,23 +1,16 @@
 using BepInEx;
-using HarmonyLib;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
-using ShibaGTGenesisReborn.Menu;
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
-using ShibaGTGenesisReborn.Mods;
-using static ShibaGTGenesisReborn.Libs.GunLib;
 using static ShibaGTGenesisReborn.Menu.Buttons;
-using static ShibaGTGenesisReborn.Mods.mods;
 using static ShibaGTGenesisReborn.Settings;
-using Oculus.Interaction.DebugTree;
 
 namespace ShibaGTGenesisReborn.Menu
 {
@@ -1098,39 +1091,18 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static ButtonInfo GetIndex(string buttonText)
         {
-            if (string.IsNullOrEmpty(buttonText))
-            {
-                return null;
-            }
+            if (string.IsNullOrEmpty(buttonText)) return null;
 
-            if (buttonsType >= 0 && buttonsType < Buttons.buttons.Length && Buttons.buttons[buttonsType] != null)
+            for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                foreach (ButtonInfo button in Buttons.buttons[buttonsType])
-                {
-                    if (button != null && (button.buttonText == buttonText || button.overlapText == buttonText ||
-                        string.Equals(button.buttonText, buttonText, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(button.overlapText, buttonText, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        return button;
-                    }
-                }
-            }
+                ButtonInfo[] list = Buttons.buttons[i];
+                if (list == null) continue;
 
-            foreach (ButtonInfo[] buttonList in Buttons.buttons)
-            {
-                if (buttonList == null)
+                for (int j = 0; j < list.Length; j++)
                 {
-                    continue;
-                }
-
-                foreach (ButtonInfo button in buttonList)
-                {
-                    if (button != null && (button.buttonText == buttonText || button.overlapText == buttonText ||
-                        string.Equals(button.buttonText, buttonText, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(button.overlapText, buttonText, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        return button;
-                    }
+                    ButtonInfo btn = list[j];
+                    if (btn != null && (btn.buttonText == buttonText || btn.overlapText == buttonText))
+                        return btn;
                 }
             }
 

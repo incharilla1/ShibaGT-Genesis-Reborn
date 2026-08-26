@@ -743,6 +743,10 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static GameObject debugOverlayObj;
         private static UnityEngine.UI.Text debugOverlayText;
+        private static float debugUpdateTimer;
+        private static GameObject cachedShoulder;
+        private static GameObject cachedVCam;
+        private static Camera cachedTpc;
 
         public static void DebugInfo()
         {
@@ -775,19 +779,25 @@ namespace ShibaGTGenesisReborn.Mods
                 rect.sizeDelta = new Vector2(500, 300);
             }
 
+            if (Time.unscaledTime < debugUpdateTimer) return;
+            debugUpdateTimer = Time.unscaledTime + 0.1f;
+
             Vector3 pos = GTPlayer.Instance != null ? GTPlayer.Instance.transform.position : (VRRig.LocalRig != null ? VRRig.LocalRig.transform.position : Vector3.zero);
             Vector3 vel = GTPlayer.Instance != null ? GTPlayer.Instance.currentVelocity : Vector3.zero;
             Vector3 vrCam = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
 
-            Camera tpc = Main.TPC ?? GameObject.Find("Shoulder Camera")?.GetComponent<Camera>();
-            Vector3 tpcPos = tpc != null ? tpc.transform.position : Vector3.zero;
+            if (cachedTpc == null)
+                cachedTpc = Main.TPC ?? GameObject.Find("Shoulder Camera")?.GetComponent<Camera>();
+            Vector3 tpcPos = cachedTpc != null ? cachedTpc.transform.position : Vector3.zero;
 
-            GameObject shoulder = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera") ?? GameObject.Find("Shoulder Camera");
-            Vector3 shoulderPos = shoulder != null ? shoulder.transform.position : Vector3.zero;
+            if (cachedShoulder == null)
+                cachedShoulder = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera") ?? GameObject.Find("Shoulder Camera");
+            Vector3 shoulderPos = cachedShoulder != null ? cachedShoulder.transform.position : Vector3.zero;
 
-            GameObject vcam = shoulder != null ? shoulder.transform.Find("CM vcam1")?.gameObject : GameObject.Find("CM vcam1");
-            Vector3 vcamPos = vcam != null ? vcam.transform.position : Vector3.zero;
-            bool vcamActive = vcam != null && vcam.activeInHierarchy;
+            if (cachedVCam == null && cachedShoulder != null)
+                cachedVCam = cachedShoulder.transform.Find("CM vcam1")?.gameObject ?? GameObject.Find("CM vcam1");
+            Vector3 vcamPos = cachedVCam != null ? cachedVCam.transform.position : Vector3.zero;
+            bool vcamActive = cachedVCam != null && cachedVCam.activeInHierarchy;
 
             int fps = Mathf.CeilToInt(1f / Mathf.Max(Time.unscaledDeltaTime, 0.0001f));
             long ram = GC.GetTotalMemory(false) / (1024 * 1024);
@@ -817,6 +827,9 @@ namespace ShibaGTGenesisReborn.Mods
                 Object.Destroy(debugOverlayObj);
                 debugOverlayObj = null;
                 debugOverlayText = null;
+                cachedShoulder = null;
+                cachedVCam = null;
+                cachedTpc = null;
             }
         }
     }
