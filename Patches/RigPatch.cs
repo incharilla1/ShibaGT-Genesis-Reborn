@@ -12,7 +12,6 @@ namespace ShibaGTGenesisReborn.Patches
         }
     }
 
-    // Thanks nugget for help with patch
     [HarmonyPatch(typeof(VRRigJobManager), "DeregisterVRRig")]
     public static class GhostPatch2
     {
