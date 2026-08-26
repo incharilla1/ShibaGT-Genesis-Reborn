@@ -88,6 +88,8 @@ namespace ShibaGTGenesisReborn
 
             if (ComponentHolder != null && ComponentHolder.GetComponent<InputHandler>() == null)
                 ComponentHolder.AddComponent<InputHandler>();
+
+            Main.UpdateBoardText();
         }
 
         private void OnDestroy()

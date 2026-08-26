@@ -50,18 +50,6 @@ namespace ShibaGTGenesisReborn.Menu
                 bool keyboardOpen = UnityInput.Current.GetKey(keyboardButton);
                 InputHandler.Instance.RightGrip.IsPressed = Mouse.current.rightButton.isPressed ? Mouse.current.leftButton.isPressed : ControllerInputPoller.instance.rightGrab;
 
-                CacheObjects();
-
-                if (cocHeading != null && motdBody != null && cocBody != null && motdHeading != null)
-                {
-                    cocHeading.GetComponent<TMP_Text>().text = $"<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
-                    cocHeading.GetComponent<TMP_Text>().fontSize = 75f;
-                    cocBody.GetComponent<TMP_Text>().richText = true;
-                    cocBody.GetComponent<TMP_Text>().text = $"\nWelcome To ShibaGT Genesis Reborn!\nThis is a Remake of the Longest Lasting Paid Mod Menu Shiba GT Genesis!\nWe currently have {GetAllButtons().Length} total mods right now".ToUpper();
-                    motdHeading.GetComponent<TMP_Text>().text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
-                    motdBody.GetComponent<TMP_Text>().text = "Credits to ShibaGT/TAI for making the original menu!\nThis is just a remake!\n<color=red>We Are Not Responsible For Any Bans Using This Mod Menu!</color>".ToUpper();
-                }
-
                 if (menu == null)
                 {
                     if (toOpen || keyboardOpen)
@@ -123,19 +111,23 @@ namespace ShibaGTGenesisReborn.Menu
                     Loaded = true;
                 }
 
-                ButtonInfo[] activeButtons = GetAllButtons();
-                for (int i = 0; i < activeButtons.Length; i++)
+                for (int i = 0; i < buttons.Length; i++)
                 {
-                    ButtonInfo button = activeButtons[i];
-                    if (button.enabled && button.method != null)
+                    ButtonInfo[] category = buttons[i];
+                    if (category == null) continue;
+                    for (int j = 0; j < category.Length; j++)
                     {
-                        try
+                        ButtonInfo button = category[j];
+                        if (button != null && button.enabled && button.method != null)
                         {
-                            button.method.Invoke();
-                        }
-                        catch (Exception exc)
-                        {
-                            NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with mod {1} at {2}: {3}", PluginInfo.Name, button.buttonText, exc.StackTrace, exc.Message));
+                            try
+                            {
+                                button.method.Invoke();
+                            }
+                            catch (Exception exc)
+                            {
+                                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with mod {1} at {2}: {3}", PluginInfo.Name, button.buttonText, exc.StackTrace, exc.Message));
+                            }
                         }
                     }
                 }
@@ -175,9 +167,9 @@ namespace ShibaGTGenesisReborn.Menu
         [Setting] public static bool showOutline;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
-        private static ButtonInfo[] GetAllButtons()
+        public static int GetTotalButtonCount()
         {
-            System.Collections.Generic.List<ButtonInfo> list = new System.Collections.Generic.List<ButtonInfo>();
+            int count = 0;
             for (int i = 0; i < buttons.Length; i++)
             {
                 ButtonInfo[] category = buttons[i];
@@ -185,10 +177,10 @@ namespace ShibaGTGenesisReborn.Menu
                 for (int j = 0; j < category.Length; j++)
                 {
                     if (category[j] != null)
-                        list.Add(category[j]);
+                        count++;
                 }
             }
-            return list.ToArray();
+            return count;
         }
 
         public static void OutlineObj(GameObject toOut, Color color1, Color color2, bool parentself = false, float thickness = 1)
@@ -1051,6 +1043,32 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             sideEffect?.Invoke();
+        }
+
+        public static void UpdateBoardText()
+        {
+            CacheObjects();
+
+            if (cocHeading != null && motdBody != null && cocBody != null && motdHeading != null)
+            {
+                if (cocHeading.TryGetComponent<TMP_Text>(out var cocHeadText))
+                {
+                    cocHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+                    cocHeadText.fontSize = 75f;
+                }
+
+                if (cocBody.TryGetComponent<TMP_Text>(out var cocBodyText))
+                {
+                    cocBodyText.richText = true;
+                    cocBodyText.text = $"\nWelcome To ShibaGT Genesis Reborn!\nThis is a Remake of the Longest Lasting Paid Mod Menu Shiba GT Genesis!\nWe currently have {GetTotalButtonCount()} total mods right now".ToUpper();
+                }
+
+                if (motdHeading.TryGetComponent<TMP_Text>(out var motdHeadText))
+                    motdHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+
+                if (motdBody.TryGetComponent<TMP_Text>(out var motdBodyText))
+                    motdBodyText.text = "Credits to ShibaGT/TAI for making the original menu!\nThis is just a remake!\n<color=red>We Are Not Responsible For Any Bans Using This Mod Menu!</color>".ToUpper();
+            }
         }
 
         private static void CacheObjects()

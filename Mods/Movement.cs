@@ -157,15 +157,7 @@ namespace ShibaGTGenesisReborn.Mods
                 if (!teleportGunPressed)
                 {
                     Vector3 targetPos = GunLib.GetPointerPos();
-
-                    Noclipistuff(true);
-
-                    GorillaLocomotion.GTPlayer.Instance.transform.position = targetPos;
-                    GorillaTagger.Instance.transform.position = targetPos;
-                    GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-
-                    Noclipistuff(false);
-
+                    bypasstp(targetPos);
                     teleportGunPressed = true;
                 }
 
@@ -788,9 +780,7 @@ namespace ShibaGTGenesisReborn.Mods
                 if (stepDistance > 0.0001f && Physics.Raycast(pearl.Position, pearl.Velocity.normalized, out RaycastHit hit, stepDistance, GunLib.BypassLayers))
                 {
                     Vector3 teleportTarget = hit.point + hit.normal * 0.25f;
-                    GTPlayer.Instance.transform.position = teleportTarget;
-                    GorillaTagger.Instance.transform.position = teleportTarget;
-                    GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
+                    bypasstp(teleportTarget);
 
                     if (NetworkSystem.Instance.InRoom && GorillaTagger.Instance.myVRRig != null)
                     {
