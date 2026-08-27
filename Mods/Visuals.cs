@@ -106,9 +106,7 @@ namespace ShibaGTGenesisReborn.Mods
         public static void RGB(bool strobe = false)
         {
             if (!NetworkSystem.Instance.InRoom) return;
-
             Color c = strobe ? new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) : Color.HSVToRGB(Mathf.Repeat(Time.time * 0.2f, 1f), 1f, 1f);
-
             GorillaTagger.Instance.myVRRig.SendRPC("RPC_InitializeNoobMaterial", RpcTarget.All, c.r, c.g, c.b);
         }
 
@@ -326,8 +324,8 @@ namespace ShibaGTGenesisReborn.Mods
             public bool HasBaseColor;
         }
 
-        [Setting] private static int cursedIndex = 4;
-        private static readonly string[] cursedNames = { "Void", "Glitch", "Blood", "Acid", "Off" };
+        [Setting] public static int cursedIndex = 4;
+        public static readonly string[] cursedNames = { "Void", "Glitch", "Blood", "Acid", "Off" };
         private static readonly Dictionary<Material, MaterialState> originalMaterialStates = new Dictionary<Material, MaterialState>();
         private static bool originalFog;
         private static Color originalFogColor;
@@ -494,8 +492,8 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        [Setting] private static int timeOfDayIndex;
-        private static readonly string[] timeOfDayNames = { "Morning", "Day", "Evening", "Night", "Default" };
+        [Setting] public static int timeOfDayIndex;
+        public static readonly string[] timeOfDayNames = { "Morning", "Day", "Evening", "Night", "Default" };
 
         public static void TimeSwitcher()
         {
@@ -516,8 +514,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void WeatherSwitcher() => TimeSwitcher();
 
-        [Setting] private static int weatherIndex;
-        private static readonly string[] weatherNames = { "Rain", "Clear", "Default" };
+        [Setting] public static int weatherIndex;
+        public static readonly string[] weatherNames = { "Rain", "Clear", "Default" };
 
         public static void CycleWeather()
         {

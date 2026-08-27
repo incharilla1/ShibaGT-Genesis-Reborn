@@ -166,4 +166,16 @@ namespace ShibaGTGenesisReborn.Patches
             }
         }
     }
+
+    [HarmonyPatch(typeof(PlayFabTitleDataTextDisplay), "OnTitleDataRequestComplete")]
+    public class PlayFabTitleDataTextDisplayPatch
+    {
+        private static void Postfix() => Main.UpdateBoardText();
+    }
+
+    [HarmonyPatch(typeof(PlayFabTitleDataTextDisplay), "OnPlayFabError")]
+    public class PlayFabTitleDataErrorPatch
+    {
+        private static void Postfix() => Main.UpdateBoardText();
+    }
 }

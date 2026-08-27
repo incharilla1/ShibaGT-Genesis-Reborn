@@ -184,12 +184,25 @@ namespace ShibaGTGenesisReborn.Menu
             disconnectButton = false;
         }
 
+        public static void playersInRoom()
+        {
+            Mods.PlayerOptionsManager.RefreshPlayerList();
+            buttonsType = 19;
+            pageNumber = 0;
+        }
+
+        public static void playerOptions()
+        {
+            buttonsType = 20;
+            pageNumber = 0;
+        }
+
         public static void UpdateEnabledMods()
         {
             List<ButtonInfo> enabledMods = new List<ButtonInfo>();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14)
+                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19)
                     continue;
 
                 foreach (ButtonInfo mod in Buttons.buttons[i])

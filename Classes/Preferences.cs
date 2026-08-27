@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
@@ -95,51 +96,63 @@ namespace ShibaGTGenesisReborn
 
         public static void Save()
         {
-            var buttons = new Dictionary<string, ButtonState>(32);
-
-            for (int i = 0; i < Buttons.buttons.Length; i++)
+            try
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14) continue;
-                foreach (ButtonInfo btn in Buttons.buttons[i])
-                {
-                    if (btn == null || btn.buttonText == "-" || btn.buttonText == "Save" || btn.buttonText == "Remove All Prefs") continue;
+                var buttons = new Dictionary<string, ButtonState>(32);
 
-                    if (btn.enabled || btn.isFavorite || !string.IsNullOrEmpty(btn.overlapText))
+                for (int i = 0; i < Buttons.buttons.Length; i++)
+                {
+                    if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19) continue;
+                    foreach (ButtonInfo btn in Buttons.buttons[i])
                     {
-                        buttons[btn.buttonText] = new ButtonState
+                        if (btn == null || btn.buttonText == "-" || btn.buttonText == "Save" || btn.buttonText == "Remove All Prefs") continue;
+
+                        if (btn.enabled || btn.isFavorite || !string.IsNullOrEmpty(btn.overlapText))
                         {
-                            Enabled = btn.enabled,
-                            Favorite = btn.isFavorite,
-                            OverlapText = btn.overlapText
-                        };
+                            buttons[btn.buttonText] = new ButtonState
+                            {
+                                Enabled = btn.enabled,
+                                Favorite = btn.isFavorite,
+                                OverlapText = btn.overlapText
+                            };
+                        }
                     }
                 }
-            }
 
-            EnsureAccessors();
-            var settings = new Dictionary<string, object>(_accessors.Length);
-            for (int i = 0; i < _accessors.Length; i++)
-            {
-                ref var acc = ref _accessors[i];
-                settings[acc.Key] = acc.Getter();
-            }
+                EnsureAccessors();
+                var settings = new Dictionary<string, object>(_accessors.Length);
+                for (int i = 0; i < _accessors.Length; i++)
+                {
+                    ref var acc = ref _accessors[i];
+                    settings[acc.Key] = acc.Getter();
+                }
 
-            Directory.CreateDirectory(ModsLib.GenesisDirectory);
-            using StreamWriter sw = new StreamWriter(ConfigPath);
-            using JsonTextWriter jw = new JsonTextWriter(sw);
-            _serializer.Serialize(jw, new SavePayload { Buttons = buttons, Settings = settings });
+                Directory.CreateDirectory(ModsLib.GenesisDirectory);
+                using StreamWriter sw = new StreamWriter(ConfigPath);
+                using JsonTextWriter jw = new JsonTextWriter(sw);
+                _serializer.Serialize(jw, new SavePayload { Buttons = buttons, Settings = settings });
+            }
+            catch { }
         }
 
         public static void Load()
         {
-            if (!File.Exists(ConfigPath)) return;
+            if (!File.Exists(ConfigPath))
+            {
+                SyncSettings();
+                return;
+            }
 
             try
             {
                 using StreamReader sr = new StreamReader(ConfigPath);
                 using JsonTextReader jr = new JsonTextReader(sr);
                 var payload = _serializer.Deserialize<SavePayload>(jr);
-                if (payload == null) return;
+                if (payload == null)
+                {
+                    SyncSettings();
+                    return;
+                }
 
                 EnsureAccessors();
                 if (payload.Settings != null)
@@ -149,7 +162,18 @@ namespace ShibaGTGenesisReborn
                         ref var acc = ref _accessors[i];
                         if (payload.Settings.TryGetValue(acc.Key, out object val) || payload.Settings.TryGetValue(acc.FallbackKey, out val))
                         {
-                            try { acc.Setter(Convert.ChangeType(val, acc.Type)); } catch { }
+                            try
+                            {
+                                if (val is JToken token)
+                                {
+                                    acc.Setter(token.ToObject(acc.Type));
+                                }
+                                else if (val != null)
+                                {
+                                    acc.Setter(Convert.ChangeType(val, acc.Type));
+                                }
+                            }
+                            catch { }
                         }
                     }
                 }
@@ -159,16 +183,14 @@ namespace ShibaGTGenesisReborn
                 {
                     for (int i = 0; i < Buttons.buttons.Length; i++)
                     {
-                        if (i == 10 || i == 11 || i == 13 || i == 14) continue;
+                        if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19) continue;
                         foreach (ButtonInfo btn in Buttons.buttons[i])
                         {
                             if (btn == null || !payload.Buttons.TryGetValue(btn.buttonText, out ButtonState state)) continue;
 
-                            if (!string.IsNullOrEmpty(state.OverlapText) && btn.overlapText != null && btn.method != null && !btn.isTogglable)
+                            if (!string.IsNullOrEmpty(state.OverlapText))
                             {
-                                int safety = 0;
-                                while (btn.overlapText != state.OverlapText && safety++ < 30)
-                                    btn.method.Invoke();
+                                btn.overlapText = state.OverlapText;
                             }
 
                             if (btn.isTogglable && btn.enabled != state.Enabled)
@@ -195,9 +217,34 @@ namespace ShibaGTGenesisReborn
                     }
                 }
 
+                SyncSettings();
                 Main.UpdateFavoritesCategory();
             }
-            catch { }
+            catch
+            {
+                SyncSettings();
+            }
+        }
+
+        public static void SyncSettings()
+        {
+            Mods.mods.ApplyTheme(false);
+
+            if (Mods.mods.OutlineIndex >= 0 && Mods.mods.OutlineIndex < Mods.mods.outnames.Length)
+                Main.outlineColor = Mods.mods.outlines[Mods.mods.OutlineIndex];
+
+            if (Mods.mods.Platcolor >= 0 && Mods.mods.Platcolor < Mods.mods.ColorNames.Length)
+                Mods.mods.PlatColor = Mods.mods.PlatColors[Mods.mods.Platcolor];
+
+            switch (Mods.mods.pullmodeIndex)
+            {
+                case 0: Mods.mods.PullPower = 0.025f; Mods.mods.UpHillPower = 0.02f; break;
+                case 1: Mods.mods.PullPower = 0.07f; Mods.mods.UpHillPower = 0.065f; break;
+                case 2: Mods.mods.PullPower = 0.001f; Mods.mods.UpHillPower = 0.001f; break;
+            }
+
+            if (Main.menu != null)
+                Main.RecreateMenu();
         }
 
         public static void Reset()

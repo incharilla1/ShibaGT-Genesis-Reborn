@@ -14,12 +14,12 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        private static float PullPower = 0.07f;
-        private static float UpHillPower = 0.065f;
+        public static float PullPower = 0.07f;
+        public static float UpHillPower = 0.065f;
         private static bool lastLeftTouch;
         private static bool lastRightTouch;
 
-        private static string[] pullmodes =
+        public static string[] pullmodes =
         {
             "Speed Boost",
             "Legit",

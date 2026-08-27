@@ -43,6 +43,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Room [1]
+                new ButtonInfo { buttonText = "Players in Room", overlapText = "Players in Room (0)", method =() => SettingsMods.playersInRoom(), isTogglable = false, toolTip = "View all players in room"},
                 new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), enabled = false, isTogglable = false, toolTip = "RPC Protection"},
                 new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), enabled = false, isTogglable = false, toolTip = "Experimental RPC Protection"},
                 new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room"},
@@ -257,6 +258,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Outline Menu", isTogglable = true, enableMethod =() => Main.showOutline = true, disableMethod =() => Main.showOutline = false, enabled = Main.showOutline, toolTip = "Toggle menu outline"},
                 new ButtonInfo { buttonText = "Custom Button Audio", isTogglable = true, enableMethod =() => Button.customAudio = true, disableMethod =() => Button.customAudio = false, enabled = Button.customAudio, toolTip = "Use our custom button click audios"},
                 new ButtonInfo { buttonText = "Cycle Button Audio", overlapText = "Click Audio: Sound 1", isTogglable = false, method = () => MenuAudio.CycleClickSound(), toolTip = "Cycle through 8 custom button click sounds"},
+                new ButtonInfo { buttonText = "theme", overlapText = "Theme: Genesis", isTogglable = false, method = () => Main.Change("theme", ref mods.ThemeIndex, mods.ThemeNames, () => mods.ApplyTheme()), toolTip = "Change menu theme"},
                 new ButtonInfo { buttonText = "COC", overlapText = "Outline: Blue", isTogglable = false, method =() => Main.Change("COC", ref mods.OutlineIndex, mods.outnames, () => Main.outlineColor = mods.outlines[mods.OutlineIndex]), enabled = false, toolTip = "Cycle outline color"},
                 new ButtonInfo { buttonText = "Streamer Mode", enableMethod =() => StreamerMode.Enable(), disableMethod =() => StreamerMode.Disable(), enabled = streamerMode, isTogglable = true, toolTip = "Hides menu and all mod visuals from recordings & spectator view"},
                 new ButtonInfo { buttonText = "Panic Button", enableMethod =() => mods.EnablePanic(), disableMethod =() => mods.DisablePanic(), isTogglable = true, toolTip = "Disable all mods and disconnect safely"},
@@ -278,6 +280,28 @@ namespace ShibaGTGenesisReborn.Menu
             new ButtonInfo[]
             {
                 new ButtonInfo { buttonText = "home", method =() => SettingsMods.ReturnHome(), isTogglable = false, toolTip = "Go back"},
+            },
+
+            new ButtonInfo[]
+            { // Players in Room [19]
+            },
+
+            new ButtonInfo[]
+            { // Player Options [20]
+                new ButtonInfo { buttonText = "Back to Players", method = () => SettingsMods.playersInRoom(), isTogglable = false, toolTip = "Return to player list" },
+                new ButtonInfo { buttonText = "Copy Player Position", method = () => PlayerOptionsManager.CopyPlayerPosition(), isTogglable = false, toolTip = "Copy X,Y,Z position to clipboard" },
+                new ButtonInfo { buttonText = "Copy Player ID", method = () => PlayerOptionsManager.CopyPlayerID(), isTogglable = false, toolTip = "Copy player network ID" },
+                new ButtonInfo { buttonText = "Copy Player Name", method = () => PlayerOptionsManager.CopyPlayerName(), isTogglable = false, toolTip = "Copy player username" },
+                new ButtonInfo { buttonText = "Piggyback Player", enableMethod = () => PlayerOptionsManager.IsPiggybacking = true, disableMethod = () => PlayerOptionsManager.IsPiggybacking = false, isTogglable = true, toolTip = "Ride on player's back" },
+                new ButtonInfo { buttonText = "Spectate Player", enableMethod = () => PlayerOptionsManager.IsSpectating = true, disableMethod = () => PlayerOptionsManager.IsSpectating = false, isTogglable = true, toolTip = "Spectate player in third-person" },
+                new ButtonInfo { buttonText = "Teleport to Player", method = () => PlayerOptionsManager.TeleportToPlayer(), isTogglable = false, toolTip = "Teleport to player" },
+                new ButtonInfo { buttonText = "Follow Player", enableMethod = () => PlayerOptionsManager.IsFollowing = true, disableMethod = () => PlayerOptionsManager.IsFollowing = false, isTogglable = true, toolTip = "Follow behind player" },
+                new ButtonInfo { buttonText = "Player ESP", enableMethod = () => PlayerOptionsManager.IsESPActive = true, disableMethod = () => PlayerOptionsManager.IsESPActive = false, isTogglable = true, toolTip = "Highlight player with beacon" },
+                new ButtonInfo { buttonText = "Player Tracer", enableMethod = () => PlayerOptionsManager.IsTracerActive = true, disableMethod = () => PlayerOptionsManager.IsTracerActive = false, isTogglable = true, toolTip = "Draw line to player" },
+                new ButtonInfo { buttonText = "Copy Player Info", method = () => PlayerOptionsManager.CopyPlayerInfo(), isTogglable = false, toolTip = "Copy comprehensive player details" },
+                new ButtonInfo { buttonText = "Distance From Player", overlapText = "Distance: N/A", isTogglable = false, method = () => PlayerOptionsManager.UpdateDistanceDisplay(), toolTip = "Current distance from player" },
+                new ButtonInfo { buttonText = "Lag Mode", overlapText = "Lag Power: Weak", method = () => Main.Change("Lag Mode", ref PlayerOptionsManager.selectedPlayerLagIndex, mods.lagnames), isTogglable = false, toolTip = "Change lag power for selected player" },
+                new ButtonInfo { buttonText = "Lag Player", enableMethod = () => PlayerOptionsManager.IsLagging = true, disableMethod = () => PlayerOptionsManager.IsLagging = false, isTogglable = true, toolTip = "Lag selected player" },
             },
         };
     }

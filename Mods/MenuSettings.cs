@@ -58,6 +58,90 @@ namespace ShibaGTGenesisReborn.Mods
             "Sky",
         };
 
+        public struct ThemeInfo
+        {
+            public Color bg;
+            public Color btnOff;
+            public Color btnOn;
+            public Color textOff;
+            public Color textOn;
+            public Color outline;
+            public bool rainbow;
+            public bool rig;
+        }
+
+        [Setting] public static int ThemeIndex;
+
+        public static readonly string[] ThemeNames =
+        {
+            "Genesis",
+            "Blue",
+            "Green",
+            "Red",
+            "Yellow",
+            "Cyan",
+            "Magenta",
+            "White",
+            "Black",
+            "Dark Grey",
+            "Orange",
+            "Pink",
+            "Purple",
+            "Brown",
+            "Lime",
+            "Mint",
+            "Coral",
+            "Sky",
+            "Rainbow",
+            "Rig Match"
+        };
+
+        public static readonly ThemeInfo[] Themes =
+        {
+            new ThemeInfo { bg = Color.black, btnOff = new Color(0.06f, 0.06f, 0.06f), textOff = Color.white, textOn = Color.magenta, outline = Color.blue },
+            new ThemeInfo { bg = new Color(0f, 0f, 0.65f), btnOff = new Color(0f, 0f, 0.4f), textOff = Color.white, textOn = Color.yellow, outline = Color.blue },
+            new ThemeInfo { bg = new Color(0f, 0.6f, 0f), btnOff = new Color(0f, 0.38f, 0f), textOff = Color.white, textOn = Color.yellow, outline = Color.green },
+            new ThemeInfo { bg = new Color(0.65f, 0f, 0f), btnOff = new Color(0.42f, 0f, 0f), textOff = Color.white, textOn = Color.yellow, outline = Color.red },
+            new ThemeInfo { bg = new Color(0.7f, 0.64f, 0.01f), btnOff = new Color(0.48f, 0.44f, 0.01f), textOff = Color.white, textOn = Color.cyan, outline = Color.yellow },
+            new ThemeInfo { bg = new Color(0f, 0.65f, 0.65f), btnOff = new Color(0f, 0.42f, 0.42f), textOff = Color.white, textOn = Color.yellow, outline = Color.cyan },
+            new ThemeInfo { bg = new Color(0.65f, 0f, 0.65f), btnOff = new Color(0.42f, 0.42f, 0.42f), textOff = Color.white, textOn = Color.yellow, outline = Color.magenta },
+            new ThemeInfo { bg = new Color(0.82f, 0.82f, 0.85f), btnOff = new Color(0.65f, 0.65f, 0.68f), textOff = Color.black, textOn = new Color(0f, 0.45f, 1f), outline = Color.white },
+            new ThemeInfo { bg = new Color(0.04f, 0.04f, 0.04f), btnOff = new Color(0.09f, 0.09f, 0.09f), textOff = Color.white, textOn = Color.yellow, outline = new Color(0.35f, 0.35f, 0.35f) },
+            new ThemeInfo { bg = new Color(0.12f, 0.12f, 0.12f), btnOff = new Color(0.06f, 0.06f, 0.06f), textOff = Color.white, textOn = Color.cyan, outline = new Color(0.45f, 0.45f, 0.45f) },
+            new ThemeInfo { bg = new Color(0.7f, 0.35f, 0f), btnOff = new Color(0.46f, 0.23f, 0f), textOff = Color.white, textOn = Color.yellow, outline = new Color(1f, 0.5f, 0f) },
+            new ThemeInfo { bg = new Color(0.7f, 0.28f, 0.49f), btnOff = new Color(0.46f, 0.18f, 0.32f), textOff = Color.white, textOn = Color.yellow, outline = new Color(1f, 0.4f, 0.7f) },
+            new ThemeInfo { bg = new Color(0.35f, 0f, 0.7f), btnOff = new Color(0.23f, 0f, 0.46f), textOff = Color.white, textOn = Color.cyan, outline = new Color(0.5f, 0f, 1f) },
+            new ThemeInfo { bg = new Color(0.42f, 0.21f, 0f), btnOff = new Color(0.28f, 0.14f, 0f), textOff = Color.white, textOn = Color.yellow, outline = new Color(0.6f, 0.3f, 0f) },
+            new ThemeInfo { bg = new Color(0.42f, 0.7f, 0f), btnOff = new Color(0.28f, 0.46f, 0f), textOff = Color.white, textOn = Color.yellow, outline = new Color(0.6f, 1f, 0f) },
+            new ThemeInfo { bg = new Color(0.14f, 0.7f, 0.35f), btnOff = new Color(0.09f, 0.46f, 0.23f), textOff = Color.white, textOn = Color.yellow, outline = new Color(0.2f, 1f, 0.5f) },
+            new ThemeInfo { bg = new Color(0.7f, 0.14f, 0.14f), btnOff = new Color(0.46f, 0.09f, 0.09f), textOff = Color.white, textOn = Color.yellow, outline = new Color(1f, 0.2f, 0.2f) },
+            new ThemeInfo { bg = new Color(0.21f, 0.56f, 0.7f), btnOff = new Color(0.14f, 0.37f, 0.46f), textOff = Color.white, textOn = Color.yellow, outline = new Color(0.3f, 0.8f, 1f) },
+            new ThemeInfo { bg = Color.black, btnOff = new Color(0.06f, 0.06f, 0.06f), textOff = Color.white, textOn = Color.yellow, outline = Color.magenta, rainbow = true },
+            new ThemeInfo { bg = Color.black, btnOff = new Color(0.06f, 0.06f, 0.06f), textOff = Color.white, textOn = Color.yellow, outline = Color.blue, rig = true }
+        };
+
+        public static void ApplyTheme(bool updateOutline = true)
+        {
+            if (ThemeIndex < 0 || ThemeIndex >= Themes.Length) ThemeIndex = 0;
+            ThemeInfo t = Themes[ThemeIndex];
+            Settings.backgroundColor = new ExtGradient { colors = Main.GetSolidGradient(t.bg), isRainbow = t.rainbow, copyRigColors = t.rig };
+            Settings.buttonColors = new ExtGradient[]
+            {
+                new ExtGradient { colors = Main.GetSolidGradient(t.btnOff), isRainbow = t.rainbow, copyRigColors = t.rig },
+                new ExtGradient { colors = Main.GetSolidGradient(t.btnOff), isRainbow = t.rainbow, copyRigColors = t.rig }
+            };
+            Settings.textColors = new Color[] { t.textOff, t.textOn };
+            if (updateOutline)
+            {
+                Main.outlineColor = t.outline;
+                OutlineIndex = ThemeIndex;
+                ButtonInfo cocBtn = Main.GetIndex("COC");
+                if (cocBtn != null && OutlineIndex >= 0 && OutlineIndex < outnames.Length)
+                    cocBtn.overlapText = "Outline: " + outnames[OutlineIndex];
+            }
+            if (Main.menu != null) Main.RecreateMenu();
+        }
+
         public static void SwitchPagePos()
         {
             Main.sideLayout = !Main.sideLayout;
@@ -103,7 +187,7 @@ namespace ShibaGTGenesisReborn.Mods
             panicSavedMods.Clear();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11)
+                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 15 || i == 19)
                     continue;
 
                 foreach (ButtonInfo btn in Buttons.buttons[i])

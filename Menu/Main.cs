@@ -30,7 +30,18 @@ namespace ShibaGTGenesisReborn.Menu
             Mods.Custom.BoomboxManager.Initialize();
             Mods.Custom.SoundboardManager.Initialize();
             StreamerMode.EnsureInitialized();
+            Mods.PlayerOptionsManager.Initialize();
             Preferences.Load();
+        }
+
+        private void OnDisable()
+        {
+            Preferences.Save();
+        }
+
+        private void OnApplicationQuit()
+        {
+            Preferences.Save();
         }
 
         private void Update()
@@ -134,6 +145,9 @@ namespace ShibaGTGenesisReborn.Menu
                         }
                     }
                 }
+
+                Mods.PlayerOptionsManager.Update();
+                if (Time.frameCount % 240 == 0) UpdateBoardText();
             }
             catch (Exception exc)
             {
@@ -200,6 +214,12 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.transform.localScale = toOut.transform.localScale + new Vector3(-0.01f / thickness, 0.01f * thickness, 0.0075f * thickness);
             Renderer r = gameObject.GetComponent<Renderer>();
             r.material.color = color1;
+            if (buttonColors[1].isRainbow || buttonColors[1].copyRigColors)
+            {
+                ColorChanger cc = gameObject.AddComponent<ColorChanger>();
+                cc.colorInfo = buttonColors[1];
+                cc.Start();
+            }
         }
 
         public static void OpenGenesisFolder()
@@ -249,7 +269,9 @@ namespace ShibaGTGenesisReborn.Menu
             menuBackground.transform.localScale = menuSize;
             menuBackground.GetComponent<Renderer>().material.color = backgroundColor.colors[0].color;
             menuBackground.transform.position = new Vector3(0.05f, 0f, 0f);
-            menuBackground.GetComponent<Renderer>().material.color = Color.black;
+            ColorChanger bgChanger = menuBackground.AddComponent<ColorChanger>();
+            bgChanger.colorInfo = backgroundColor;
+            bgChanger.Start();
             if (showOutline) OutlineObj(menuBackground, outlineColor, outlineColor, false, 3);
 
             canvasObject = new GameObject();
@@ -329,7 +351,10 @@ namespace ShibaGTGenesisReborn.Menu
             But1.transform.localScale = new Vector3(0.05f, 0.1f, 0.08f);
             But1.transform.localPosition = new Vector3(0.56f, -0.45f, -0.57f);
 
-            But1.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
+            But1.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+            ColorChanger ccHome = But1.AddComponent<ColorChanger>();
+            ccHome.colorInfo = buttonColors[0];
+            ccHome.Start();
             if (showOutline)
             {
                 OutlineObj(But1, outlineColor, outlineColor, false);
@@ -366,7 +391,10 @@ namespace ShibaGTGenesisReborn.Menu
 
                 But.transform.localPosition = new Vector3(0.56f, -0.29f, -0.57f);
 
-                But.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
+                But.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+                ColorChanger ccSettings = But.AddComponent<ColorChanger>();
+                ccSettings.colorInfo = buttonColors[0];
+                ccSettings.Start();
                 if (showOutline)
                 {
                     OutlineObj(But, outlineColor, outlineColor, false);
@@ -403,7 +431,10 @@ namespace ShibaGTGenesisReborn.Menu
                 folderBtn.transform.localScale = new Vector3(0.05f, 0.1f, 0.08f);
                 folderBtn.transform.localPosition = new Vector3(0.56f, -0.13f, -0.57f);
 
-                folderBtn.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
+                folderBtn.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+                ColorChanger ccFolder = folderBtn.AddComponent<ColorChanger>();
+                ccFolder.colorInfo = buttonColors[0];
+                ccFolder.Start();
                 if (showOutline)
                 {
                     OutlineObj(folderBtn, outlineColor, outlineColor, false);
@@ -438,7 +469,10 @@ namespace ShibaGTGenesisReborn.Menu
                 disconnectbutton.transform.rotation = Quaternion.identity;
                 disconnectbutton.transform.localScale = new Vector3(0.09f, 0.4f, 0.09f);
                 disconnectbutton.transform.localPosition = new Vector3(0.56f, 0f, 0.57f);
-                disconnectbutton.GetComponent<Renderer>().material.color = Color.black;
+                disconnectbutton.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+                ColorChanger ccDisc = disconnectbutton.AddComponent<ColorChanger>();
+                ccDisc.colorInfo = buttonColors[0];
+                ccDisc.Start();
                 if (showOutline)
                 {
                     OutlineObj(disconnectbutton, outlineColor, outlineColor, false, 3);
@@ -474,7 +508,10 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.transform.rotation = Quaternion.identity;
             gameObject.transform.localScale = sideLayout ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
             gameObject.transform.localPosition = sideLayout ? new Vector3(0.56f, 0.657f, 0.0063f) : new Vector3(0.56f, -0.37f, 0.555f);
-            gameObject.GetComponent<Renderer>().material.color = Color.black;
+            gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+            ColorChanger ccNext = gameObject.AddComponent<ColorChanger>();
+            ccNext.colorInfo = buttonColors[0];
+            ccNext.Start();
             gameObject.AddComponent<Classes.Button>().relatedText = "NextPage";
             if (showOutline)
             {
@@ -508,7 +545,10 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.transform.rotation = Quaternion.identity;
             gameObject.transform.localScale = sideLayout ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
             gameObject.transform.localPosition = sideLayout ? new Vector3(0.56f, -0.657f, 0.0063f) : new Vector3(0.56f, 0.37f, 0.555f);
-            gameObject.GetComponent<Renderer>().material.color = Color.black;
+            gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+            ColorChanger ccPrev = gameObject.AddComponent<ColorChanger>();
+            ccPrev.colorInfo = buttonColors[0];
+            ccPrev.Start();
             if (showOutline)
             {
                 OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
@@ -564,7 +604,7 @@ namespace ShibaGTGenesisReborn.Menu
             Classes.Button btn = gameObject.AddComponent<Classes.Button>();
             btn.relatedText = method.buttonText;
             btn.buttonInfo = method;
-            gameObject.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
+            gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
             if (showOutline)
             {
                 OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
@@ -580,7 +620,10 @@ namespace ShibaGTGenesisReborn.Menu
             Classes.Button favBtn = gameObject1.AddComponent<Classes.Button>();
             favBtn.relatedText = "fav_" + method.buttonText;
             favBtn.buttonInfo = method;
-            gameObject1.GetComponent<Renderer>().material.color = new Color(0.06f, 0.06f, 0.06f);
+            gameObject1.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+            ColorChanger ccFav = gameObject1.AddComponent<ColorChanger>();
+            ccFav.colorInfo = buttonColors[0];
+            ccFav.Start();
             if (showOutline)
             {
                 OutlineObj(gameObject1, outlineColor, outlineColor, false, 3);
@@ -1130,51 +1173,53 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void UpdateBoardText()
         {
-            CacheObjects();
+            if (cocHeading == null)
+                cocHeading = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/CodeOfConductHeadingText") ?? GameObject.Find("CodeOfConductHeadingText");
 
-            if (cocHeading != null && motdBody != null && cocBody != null && motdHeading != null)
+            if (cocBody == null)
+                cocBody = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/COCBodyText_TitleData") ?? GameObject.Find("COCBodyText_TitleData");
+
+            if (motdHeading == null)
+                motdHeading = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/motdHeadingText") ?? GameObject.Find("motdHeadingText");
+
+            if (motdBody == null)
+                motdBody = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/motdBodyText") ?? GameObject.Find("motdBodyText");
+
+            if (shoulderCamera == null)
+                shoulderCamera = GameObject.Find("Shoulder Camera");
+
+            if (cocHeading != null && cocHeading.TryGetComponent<TMP_Text>(out var cocHeadText))
             {
-                if (cocHeading.TryGetComponent<TMP_Text>(out var cocHeadText))
-                {
-                    cocHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
-                    cocHeadText.fontSize = 75f;
-                }
+                cocHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+                cocHeadText.fontSize = 75f;
+            }
+
+            if (cocBody != null)
+            {
+                if (cocBody.TryGetComponent<PlayFabTitleDataTextDisplay>(out var cocDisplay))
+                    cocDisplay.enabled = false;
 
                 if (cocBody.TryGetComponent<TMP_Text>(out var cocBodyText))
                 {
                     cocBodyText.richText = true;
                     cocBodyText.text = $"\nWelcome To ShibaGT Genesis Reborn!\nThis is a Remake of the Longest Lasting Paid Mod Menu Shiba GT Genesis!\nWe currently have {GetTotalButtonCount()} total mods right now".ToUpper();
                 }
+            }
 
-                if (motdHeading.TryGetComponent<TMP_Text>(out var motdHeadText))
-                    motdHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+            if (motdHeading != null && motdHeading.TryGetComponent<TMP_Text>(out var motdHeadText))
+            {
+                motdHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+            }
+
+            if (motdBody != null)
+            {
+                if (motdBody.TryGetComponent<PlayFabTitleDataTextDisplay>(out var motdDisplay))
+                    motdDisplay.enabled = false;
 
                 if (motdBody.TryGetComponent<TMP_Text>(out var motdBodyText))
+                {
                     motdBodyText.text = "Credits to ShibaGT/TAI for making the original menu!\nThis is just a remake!\n<color=red>We Are Not Responsible For Any Bans Using This Mod Menu!</color>".ToUpper();
-            }
-        }
-
-        private static void CacheObjects()
-        {
-            if (cocHeading == null)
-            {
-                cocHeading = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/CodeOfConductHeadingText");
-            }
-            if (cocBody == null)
-            {
-                cocBody = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/COCBodyText_TitleData");
-            }
-            if (motdHeading == null)
-            {
-                motdHeading = GameObject.Find("motdHeadingText");
-            }
-            if (motdBody == null)
-            {
-                motdBody = GameObject.Find("motdBodyText");
-            }
-            if (shoulderCamera == null)
-            {
-                shoulderCamera = GameObject.Find("Shoulder Camera");
+                }
             }
         }
 
