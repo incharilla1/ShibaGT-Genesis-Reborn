@@ -3,6 +3,7 @@ using GorillaGameModes;
 using GorillaLocomotion;
 using GorillaNetworking;
 using Photon.Pun;
+using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,10 +33,11 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TagPlayer(VRRig p)
         {
+            if (p == null || VRRig.LocalRig == null) return;
             if (!p.mainSkin.material.name.Contains("fected") && VRRig.LocalRig.mainSkin.material.name.Contains("fected"))
             {
                 bypasstp(p.bodyTransform.position, true);
-                GameMode.ReportTag(PhotonNetwork.CurrentRoom.GetPlayer(p.Creator.ActorNumber));
+                GameMode.ReportTag(RigManager.GetPlayerFromVRRig(p));
             }
         }
 
@@ -172,13 +174,13 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (targetRig == null || targetRig.isOfflineVRRig || targetRig == VRRig.LocalRig) continue;
 
-                if (!targetRig.mainSkin.material.name.Contains("fected") && targetRig.Creator != null)
+                if (!targetRig.mainSkin.material.name.Contains("fected"))
                 {
                     Vector3 targetHead = targetRig.headConstraint != null ? targetRig.headConstraint.position : targetRig.transform.position;
                     if (Vector3.Distance(localHead, targetHead) <= radius)
                     {
                         tagAuraCooldown = Time.time + 0.35f;
-                        GameMode.ReportTag(targetRig.Creator);
+                        GameMode.ReportTag(RigManager.GetPlayerFromVRRig(targetRig));
                         break;
                     }
                 }
@@ -201,7 +203,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (targetRig == null || targetRig.isOfflineVRRig || targetRig == VRRig.LocalRig) continue;
 
-                if (!targetRig.mainSkin.material.name.Contains("fected") && targetRig.Creator != null)
+                if (!targetRig.mainSkin.material.name.Contains("fected"))
                 {
                     Vector3 targetPos = targetRig.headConstraint != null ? targetRig.headConstraint.position : targetRig.transform.position;
                     float distance = Vector3.Distance(localHead, targetPos);
@@ -229,7 +231,7 @@ namespace ShibaGTGenesisReborn.Mods
                 if (closestDistance <= 4.5f && Time.time > tagAssistCooldown)
                 {
                     tagAssistCooldown = Time.time + 0.3f;
-                    GameMode.ReportTag(tagAssistTarget.Creator);
+                    GameMode.ReportTag(RigManager.GetPlayerFromVRRig(tagAssistTarget));
                 }
             }
         }

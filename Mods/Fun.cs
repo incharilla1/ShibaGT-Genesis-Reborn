@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using GorillaLocomotion;
+using GorillaLocomotion.Gameplay;
+using GorillaTagScripts;
 using Photon.Pun;
 using Photon.Voice.Unity;
 using ShibaGTGenesisReborn.Libs;
@@ -6,8 +9,6 @@ using ShibaGTGenesisReborn.Menu;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using CXS;
-using System.Collections.Generic;
-using GorillaTagScripts;
 
 namespace ShibaGTGenesisReborn.Mods
 {
@@ -18,14 +19,93 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void HoverboardSpam()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
-            if (InputHandler.Instance.RightGrip.IsPressed)
+            if (!NetworkSystem.Instance.InRoom || FreeHoverboardManager.instance == null) return;
+            if (InputHandler.Instance.RightGrip.IsPressed && Time.time > delay + 0.3f)
             {
-                if (Time.time > delay + 0.3f)
+                delay = Time.time;
+                Vector3 pos = GorillaTagger.Instance.rightHandTransform.position;
+                Vector3 vel = GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0f, false);
+                FreeHoverboardManager.instance.photonView.RPC("DropBoard_RPC", RpcTarget.All, false,
+                    BitPackUtils.PackWorldPosForNetwork(pos),
+                    BitPackUtils.PackQuaternionForNetwork(Quaternion.identity),
+                    BitPackUtils.PackWorldPosForNetwork(vel),
+                    BitPackUtils.PackWorldPosForNetwork(vel),
+                    BitPackUtils.PackColorForNetwork(Color.black));
+            }
+        }
+
+        public static void SpawnBoard()
+        {
+            if (GTPlayer.Instance == null || VRRig.LocalRig == null) return;
+            GTPlayer.Instance.SetHoverAllowed(true, true);
+            GTPlayer.Instance.GrabPersonalHoverboard(false, Vector3.zero, Quaternion.identity, VRRig.LocalRig.playerColor);
+            GTPlayer.Instance.SetHoverActive(true);
+        }
+
+        public static void DisableBoard()
+        {
+            if (GTPlayer.Instance == null) return;
+            GTPlayer.Instance.SetHoverActive(false);
+            GTPlayer.Instance.SetHoverAllowed(false, true);
+            if (VRRig.LocalRig?.hoverboardVisual != null)
+                VRRig.LocalRig.hoverboardVisual.SetNotHeld();
+        }
+
+        public static void CollideableMonkeys()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+
+                Transform head = rig.headConstraint != null ? rig.headConstraint : rig.transform;
+                SphereCollider headCol = head.GetComponent<SphereCollider>();
+                if (headCol == null)
                 {
-                    delay = Time.time;
-                    FreeHoverboardManager.instance.SendDropBoardRPC(GorillaTagger.Instance.rightHandTransform.position, Quaternion.identity, GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0f, false), GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0f, false), Color.black);
+                    headCol = head.gameObject.AddComponent<SphereCollider>();
+                    headCol.radius = 0.25f;
+                    headCol.isTrigger = false;
+                    head.gameObject.layer = 0;
                 }
+                else
+                {
+                    headCol.enabled = true;
+                    headCol.isTrigger = false;
+                }
+
+                CapsuleCollider bodyCol = rig.GetComponent<CapsuleCollider>();
+                if (bodyCol == null)
+                {
+                    bodyCol = rig.gameObject.AddComponent<CapsuleCollider>();
+                    bodyCol.radius = 0.32f;
+                    bodyCol.height = 0.75f;
+                    bodyCol.center = new Vector3(0f, -0.1f, 0f);
+                    bodyCol.isTrigger = false;
+                    rig.gameObject.layer = 0;
+                }
+                else
+                {
+                    bodyCol.enabled = true;
+                    bodyCol.isTrigger = false;
+                }
+            }
+        }
+
+        public static void DisableCollideableMonkeys()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+
+                if (rig.headConstraint != null)
+                {
+                    SphereCollider headCol = rig.headConstraint.GetComponent<SphereCollider>();
+                    if (headCol != null)
+                        Object.Destroy(headCol);
+                }
+
+                CapsuleCollider bodyCol = rig.GetComponent<CapsuleCollider>();
+                if (bodyCol != null)
+                    Object.Destroy(bodyCol);
             }
         }
 
@@ -314,6 +394,66 @@ namespace ShibaGTGenesisReborn.Mods
         {
             Quaternion rot = GorillaTagger.Instance.rightHandTransform.rotation * GorillaLocomotion.GTPlayer.Instance.RightHand.handRotOffset;
             return (GorillaTagger.Instance.rightHandTransform.position + GorillaTagger.Instance.rightHandTransform.rotation * GorillaLocomotion.GTPlayer.Instance.RightHand.handOffset, rot, rot * Vector3.up, rot * Vector3.forward, rot * Vector3.right);
+        }
+
+        private static void FlingRope(GorillaRopeSwing rope)
+        {
+            if (rope == null) return;
+            VRRig rig = VRRig.LocalRig;
+            Vector3 pos = rig != null ? rig.transform.position : Vector3.zero;
+            if (rig != null)
+                rig.transform.position = rope.transform.position;
+
+            Vector3 vel = new Vector3(Random.Range(-50f, 50f), 99f, Random.Range(-50f, 50f));
+            RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, rope.ropeId, 1, vel, true);
+
+            if (rig != null && pos != Vector3.zero)
+                rig.transform.position = pos;
+        }
+
+        public static List<GorillaRopeSwing> ropes => GorillaRopeSwingUpdateManager.allGorillaRopeSwings;
+
+        public static void FlingAllRopes()
+        {
+            if (RopeSwingManager.instance == null || !NetworkSystem.Instance.InRoom || Time.time <= delay) return;
+            RPCProt();
+            for (int i = 0; i < ropes.Count; i++)
+                FlingRope(ropes[i]);
+            delay = Time.time + 0.1f;
+        }
+
+        public static void FlingRopeGun()
+        {
+            GunLib.StartGun(() =>
+            {
+                if (RopeSwingManager.instance == null || GunLib.spherepointer == null || Time.time <= delay) return;
+                RPCProt();
+                GorillaRopeSwing target = null;
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.grabbedRopeIndex >= 0)
+                    RopeSwingManager.instance.TryGetRope(GunLib.LockedPlayer.grabbedRopeIndex, out target);
+
+                if (target == null)
+                {
+                    float minSq = 144f;
+                    Vector3 ptr = GunLib.spherepointer.transform.position;
+                    for (int i = 0; i < ropes.Count; i++)
+                    {
+                        if (ropes[i] == null) continue;
+                        float sq = (ptr - ropes[i].transform.position).sqrMagnitude;
+                        if (sq < minSq)
+                        {
+                            minSq = sq;
+                            target = ropes[i];
+                        }
+                    }
+                }
+
+                if (target != null)
+                {
+                    FlingRope(target);
+                    delay = Time.time + 0.1f;
+                }
+            }, false);
         }
     }
 }

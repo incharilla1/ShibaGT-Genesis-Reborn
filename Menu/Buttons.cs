@@ -39,6 +39,8 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Disable Quitbox", enableMethod =() => mods.disableQuitbox = true, disableMethod =() => mods.disableQuitbox = false, isTogglable = true, enabled = true, toolTip = "Prevent quitbox triggers from quitting the game"},
                 new ButtonInfo { buttonText = "Filled ESP", enableMethod =() => mods.filledESP = true, disableMethod =() => mods.filledESP = false, isTogglable = true, enabled = false, toolTip = "Toggle filled 2D and 3D box ESP"},
                 new ButtonInfo { buttonText = "Debug Info", method =() => mods.DebugInfo(), disableMethod =() => mods.DisableDebugInfo(), isTogglable = true, toolTip = "Show player position, camera positions, and stats in top right"},
+                new ButtonInfo { buttonText = "Room Info", method =() => mods.RoomInfo(), disableMethod =() => mods.DisableRoomInfo(), isTogglable = true, toolTip = "Show detailed room, host, region, and player count overlay"},
+                new ButtonInfo { buttonText = "Version Check", method =() => VersionChecker.CheckVersion(true), isTogglable = false},
             },
 
             new ButtonInfo[]
@@ -133,7 +135,11 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // fun [5]
+                new ButtonInfo { buttonText = "Fling All Ropes", method =() => mods.FlingAllRopes(), isTogglable = true, toolTip = "Launch all ropes at extreme velocity to fling players"},
+                new ButtonInfo { buttonText = "Fling Rope Gun", method =() => mods.FlingRopeGun(), isTogglable = true, toolTip = "Shoot a rope or player on rope to launch it at extreme speed"},
                 new ButtonInfo { buttonText = "Board Spam", method =() => mods.HoverboardSpam(), isTogglable = true, toolTip = "Hold RG to spam hoverboards"},
+                new ButtonInfo { buttonText = "Spawn Board", enableMethod =() => mods.SpawnBoard(), disableMethod =() => mods.DisableBoard(), isTogglable = true, toolTip = "Equip and ride usable hoverboard"},
+                new ButtonInfo { buttonText = "Collideable Monkeys", method =() => mods.CollideableMonkeys(), disableMethod =() => mods.DisableCollideableMonkeys(), isTogglable = true, toolTip = "Enable solid collisions on other monkeys to walk and stand on them"},
                 new ButtonInfo { buttonText = "Loud Microphone", method =() => mods.LoudMicrophone(), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Boost microphone volume (25x)"},
                 new ButtonInfo { buttonText = "Earrape Mic", method =() => mods.LoudMicrophone(25f), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Extreme microphone volume boost (100x)"},
                 new ButtonInfo { buttonText = "Mute Microphone", method =() => mods.MuteMicrophone(), disableMethod =() => mods.UnmuteMicrophone(), isTogglable = true, toolTip = "Mute local microphone transmission"},
@@ -160,7 +166,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Match Color Bracelet", method =() => mods.CustomColorBracelet(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Match bracelet beads to monkey color"},
                 new ButtonInfo { buttonText = "Gold Bracelet", method =() => mods.GoldBracelet(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Golden friendship bracelet beads"},
                 new ButtonInfo { buttonText = "Party With Room", method =() => mods.PartyWithRoom(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Display friendship beads matching every player in the lobby"},
-                new ButtonInfo { buttonText = "Networking Library", enableMethod = () => { if (NetworkingLibrary.Instance != null) NetworkingLibrary.Instance.NetworkEnabled = true; }, disableMethod = () => { if (NetworkingLibrary.Instance != null) NetworkingLibrary.Instance.NetworkEnabled = false; }, isTogglable = true, toolTip = "Toggle custom networking", enabled = NetworkingLibrary.Instance?.NetworkEnabled ?? true },
+                new ButtonInfo { buttonText = "Networking Library", enableMethod = () => NetworkingLibrary.Instance.NetworkEnabled = true, disableMethod = () => NetworkingLibrary.Instance.NetworkEnabled = false, isTogglable = true, toolTip = "Toggle custom networking", enabled = NetworkingLibrary.Instance?.NetworkEnabled ?? true },
                 new ButtonInfo { buttonText = "Boombox", method = () => BoomboxManager.BoomboxLoop("https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/boombox.obj", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/boomboxmesh.png"), disableMethod = () => BoomboxManager.Kill(), isTogglable = true, toolTip = "Spawn boombox"},
                 new ButtonInfo { buttonText = "Boombox Audios", method = () => SettingsMods.boomboxAudios(), isTogglable = false, toolTip = "Choose audio from Genesis/boombox folder"},
                 new ButtonInfo { buttonText = "Soundboard", method = () => SettingsMods.soundboardAudios(), isTogglable = false, toolTip = "Play sounds through in-game microphone"},
@@ -219,6 +225,8 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "lagpwr", overlapText = "Lag Power: Weak", method =() => Main.Change("lagpwr", ref mods.lagindex, mods.lagnames), isTogglable = false, toolTip = "Lag target player with events"},
                 new ButtonInfo { buttonText = "Lag Gun", method =() => mods.LagGun(), isTogglable = true, toolTip = "Lag target player with events"},
                 new ButtonInfo { buttonText = "Lag All", method =() => mods.LagAll(), isTogglable = true, toolTip = "Lag all players in room"},
+                new ButtonInfo { buttonText = "Destroy Gun (Detected)", method =() => mods.DestroyGun(), isTogglable = true, toolTip = "i dunno"},
+                new ButtonInfo { buttonText = "Destroy All (Detected)", method =() => mods.DestroyAll(), isTogglable = true, toolTip = "i dunno (but better)"},
             },
 
             new ButtonInfo[]

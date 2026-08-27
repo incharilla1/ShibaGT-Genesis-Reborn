@@ -252,11 +252,8 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (rig == null || rig.isOfflineVRRig) continue;
                 
-                NetPlayer netPlayer = rig.creator;
-                Player player = null;
-                if (netPlayer != null)
-                    player = PhotonNetwork.CurrentRoom?.GetPlayer(netPlayer.ActorNumber);
-
+                Player player = RigManager.GetPlayerFromVRRig(rig);
+                NetPlayer netPlayer = RigManager.GetNetPlayerFromVRRig(rig);
                 string name = player != null ? player.NickName : (!string.IsNullOrEmpty(rig.playerNameVisible) ? rig.playerNameVisible : "Player");
                 float dist = Vector3.Distance(GorillaTagger.Instance.bodyCollider.transform.position, rig.transform.position);
                 int fps = rig.fps;
@@ -741,10 +738,18 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static GameObject debugOverlayObj;
         private static UnityEngine.UI.Text debugOverlayText;
+        private static GameObject debugVrObj;
+        private static TextMesh debugVrText;
         private static float debugUpdateTimer;
         private static GameObject cachedShoulder;
         private static GameObject cachedVCam;
         private static Camera cachedTpc;
+
+        private static GameObject roomOverlayObj;
+        private static UnityEngine.UI.Text roomOverlayText;
+        private static GameObject roomVrObj;
+        private static TextMesh roomVrText;
+        private static float roomUpdateTimer;
 
         public static void DebugInfo()
         {
@@ -759,7 +764,7 @@ namespace ShibaGTGenesisReborn.Mods
                 textObj.transform.SetParent(debugOverlayObj.transform, false);
                 debugOverlayText = textObj.AddComponent<UnityEngine.UI.Text>();
                 debugOverlayText.font = Settings.currentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-                debugOverlayText.fontSize = 13;
+                debugOverlayText.fontSize = 12;
                 debugOverlayText.color = Color.white;
                 debugOverlayText.alignment = TextAnchor.UpperRight;
                 debugOverlayText.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -774,7 +779,27 @@ namespace ShibaGTGenesisReborn.Mods
                 rect.anchorMax = Vector2.one;
                 rect.pivot = Vector2.one;
                 rect.anchoredPosition = new Vector2(-15, -15);
-                rect.sizeDelta = new Vector2(500, 300);
+                rect.sizeDelta = new Vector2(500, 350);
+            }
+
+            if (debugVrObj == null)
+            {
+                Camera cam = Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+                if (cam != null)
+                {
+                    debugVrObj = new GameObject("VR_DebugInfo");
+                    debugVrObj.transform.SetParent(cam.transform, false);
+                    debugVrObj.transform.localPosition = new Vector3(0.24f, 0.16f, 0.55f);
+                    debugVrObj.transform.localRotation = Quaternion.identity;
+
+                    debugVrText = debugVrObj.AddComponent<TextMesh>();
+                    debugVrText.font = Settings.currentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+                    debugVrText.fontSize = 22;
+                    debugVrText.characterSize = 0.003f;
+                    debugVrText.alignment = TextAlignment.Right;
+                    debugVrText.anchor = TextAnchor.UpperRight;
+                    debugVrText.color = Color.white;
+                }
             }
 
             if (Time.unscaledTime < debugUpdateTimer) return;
@@ -783,6 +808,10 @@ namespace ShibaGTGenesisReborn.Mods
             Vector3 pos = GTPlayer.Instance != null ? GTPlayer.Instance.transform.position : (VRRig.LocalRig != null ? VRRig.LocalRig.transform.position : Vector3.zero);
             Vector3 vel = GTPlayer.Instance != null ? GTPlayer.Instance.currentVelocity : Vector3.zero;
             Vector3 vrCam = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+            float yaw = Camera.main != null ? Camera.main.transform.eulerAngles.y : 0f;
+
+            Vector3 lHand = GorillaTagger.Instance?.leftHandTransform != null ? GorillaTagger.Instance.leftHandTransform.position : Vector3.zero;
+            Vector3 rHand = GorillaTagger.Instance?.rightHandTransform != null ? GorillaTagger.Instance.rightHandTransform.position : Vector3.zero;
 
             if (cachedTpc == null)
                 cachedTpc = Main.TPC ?? GameObject.Find("Shoulder Camera")?.GetComponent<Camera>();
@@ -803,12 +832,19 @@ namespace ShibaGTGenesisReborn.Mods
             string room = inRoom ? $"{PhotonNetwork.CurrentRoom.Name} ({PhotonNetwork.CurrentRoom.PlayerCount}/{PhotonNetwork.CurrentRoom.MaxPlayers})" : "Offline";
             string ping = inRoom ? $"{PhotonNetwork.GetPing()} ms" : "N/A";
             string zone = !string.IsNullOrEmpty(lastmap) ? lastmap : (GorillaComputer.instance?.currentQueue ?? "forest");
+            bool isGrounded = GTPlayer.Instance != null && (GTPlayer.Instance.IsHandTouching(true) || GTPlayer.Instance.IsHandTouching(false));
+            bool isInfected = VRRig.LocalRig != null && VRRig.LocalRig.mainSkin != null && VRRig.LocalRig.mainSkin.material != null && VRRig.LocalRig.mainSkin.material.name.Contains("fected");
 
-            debugOverlayText.text =
+            string text =
                 $"FPS: {fps} ({(Time.unscaledDeltaTime * 1000f):F1} ms)\n" +
                 $"RAM: {ram} MB\n" +
                 $"Pos: ({pos.x:F2}, {pos.y:F2}, {pos.z:F2})\n" +
                 $"Vel: {vel.magnitude:F2} m/s\n" +
+                $"Yaw: {yaw:F1}°\n" +
+                $"L-Hand: ({lHand.x:F2}, {lHand.y:F2}, {lHand.z:F2})\n" +
+                $"R-Hand: ({rHand.x:F2}, {rHand.y:F2}, {rHand.z:F2})\n" +
+                $"Grounded: {isGrounded}\n" +
+                $"Infected: {isInfected}\n" +
                 $"VR Cam: ({vrCam.x:F2}, {vrCam.y:F2}, {vrCam.z:F2})\n" +
                 $"TPC: ({tpcPos.x:F2}, {tpcPos.y:F2}, {tpcPos.z:F2})\n" +
                 $"Shoulder: ({shoulderPos.x:F2}, {shoulderPos.y:F2}, {shoulderPos.z:F2})\n" +
@@ -816,6 +852,9 @@ namespace ShibaGTGenesisReborn.Mods
                 $"Room: {room}\n" +
                 $"Ping: {ping}\n" +
                 $"Zone: {zone}";
+
+            if (debugOverlayText != null) debugOverlayText.text = text;
+            if (debugVrText != null) debugVrText.text = text;
         }
 
         public static void DisableDebugInfo()
@@ -825,9 +864,124 @@ namespace ShibaGTGenesisReborn.Mods
                 Object.Destroy(debugOverlayObj);
                 debugOverlayObj = null;
                 debugOverlayText = null;
-                cachedShoulder = null;
-                cachedVCam = null;
-                cachedTpc = null;
+            }
+            if (debugVrObj != null)
+            {
+                Object.Destroy(debugVrObj);
+                debugVrObj = null;
+                debugVrText = null;
+            }
+            cachedShoulder = null;
+            cachedVCam = null;
+            cachedTpc = null;
+        }
+
+        public static void RoomInfo()
+        {
+            if (roomOverlayObj == null)
+            {
+                roomOverlayObj = new GameObject("RoomInfo");
+                Canvas canvas = roomOverlayObj.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 999;
+
+                GameObject textObj = new GameObject("Text");
+                textObj.transform.SetParent(roomOverlayObj.transform, false);
+                roomOverlayText = textObj.AddComponent<UnityEngine.UI.Text>();
+                roomOverlayText.font = Settings.currentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+                roomOverlayText.fontSize = 13;
+                roomOverlayText.color = Color.white;
+                roomOverlayText.alignment = TextAnchor.UpperLeft;
+                roomOverlayText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                roomOverlayText.verticalOverflow = VerticalWrapMode.Overflow;
+
+                UnityEngine.UI.Outline outline = textObj.AddComponent<UnityEngine.UI.Outline>();
+                outline.effectColor = Color.black;
+                outline.effectDistance = new Vector2(1, -1);
+
+                RectTransform rect = textObj.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                rect.anchoredPosition = new Vector2(15, -15);
+                rect.sizeDelta = new Vector2(500, 300);
+            }
+
+            if (roomVrObj == null)
+            {
+                Camera cam = Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+                if (cam != null)
+                {
+                    roomVrObj = new GameObject("VR_RoomInfo");
+                    roomVrObj.transform.SetParent(cam.transform, false);
+                    roomVrObj.transform.localPosition = new Vector3(-0.24f, 0.16f, 0.55f);
+                    roomVrObj.transform.localRotation = Quaternion.identity;
+
+                    roomVrText = roomVrObj.AddComponent<TextMesh>();
+                    roomVrText.font = Settings.currentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+                    roomVrText.fontSize = 22;
+                    roomVrText.characterSize = 0.003f;
+                    roomVrText.alignment = TextAlignment.Left;
+                    roomVrText.anchor = TextAnchor.UpperLeft;
+                    roomVrText.color = Color.white;
+                }
+            }
+
+            if (Time.unscaledTime < roomUpdateTimer) return;
+            roomUpdateTimer = Time.unscaledTime + 0.1f;
+
+            bool inRoom = PhotonNetwork.InRoom;
+            string roomName = inRoom ? PhotonNetwork.CurrentRoom.Name : "Offline";
+            bool isPrivate = inRoom && !PhotonNetwork.CurrentRoom.IsVisible;
+            string gameMode = GorillaComputer.instance?.currentGameMode?.Value ?? "None";
+            string queue = GorillaComputer.instance?.currentQueue ?? "default";
+            int playerCount = inRoom ? PhotonNetwork.CurrentRoom.PlayerCount : 0;
+            int maxPlayers = inRoom ? PhotonNetwork.CurrentRoom.MaxPlayers : 10;
+            string hostName = inRoom && PhotonNetwork.MasterClient != null ? PhotonNetwork.MasterClient.NickName : "None";
+            int hostActor = inRoom && PhotonNetwork.MasterClient != null ? PhotonNetwork.MasterClient.ActorNumber : 0;
+            string region = inRoom ? PhotonNetwork.CloudRegion : "N/A";
+            string ping = inRoom ? $"{PhotonNetwork.GetPing()} ms" : "N/A";
+            string zone = !string.IsNullOrEmpty(lastmap) ? lastmap : (GorillaComputer.instance?.currentQueue ?? "forest");
+
+            int infectedCount = 0;
+            int survivorCount = 0;
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isOfflineVRRig) continue;
+                if (rig.mainSkin != null && rig.mainSkin.material != null && rig.mainSkin.material.name.Contains("fected"))
+                    infectedCount++;
+                else
+                    survivorCount++;
+            }
+
+            string text =
+                $"Room: {roomName}\n" +
+                $"Status: {(inRoom ? (isPrivate ? "Private" : "Public") : "Offline")}\n" +
+                $"Mode: {gameMode}\n" +
+                $"Queue: {queue}\n" +
+                $"Players: {playerCount}/{maxPlayers} (Infected: {infectedCount}, Survivors: {survivorCount})\n" +
+                $"Host: {hostName} [Actor #{hostActor}]\n" +
+                $"Region: {region}\n" +
+                $"Ping: {ping}\n" +
+                $"Zone: {zone}";
+
+            if (roomOverlayText != null) roomOverlayText.text = text;
+            if (roomVrText != null) roomVrText.text = text;
+        }
+
+        public static void DisableRoomInfo()
+        {
+            if (roomOverlayObj != null)
+            {
+                Object.Destroy(roomOverlayObj);
+                roomOverlayObj = null;
+                roomOverlayText = null;
+            }
+            if (roomVrObj != null)
+            {
+                Object.Destroy(roomVrObj);
+                roomVrObj = null;
+                roomVrText = null;
             }
         }
     }

@@ -3,7 +3,6 @@ using Photon.Pun;
 using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
-using ShibaGTGenesisReborn.Menu;
 using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Mods
@@ -79,6 +78,23 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 "ello"
             }, o, SendOptions.SendUnreliable);
+        }
+
+        public static void DestroyGun()
+        {
+           GunLib.StartGun(() =>
+            {
+                if (GunLib.LockedPlayer != null)
+                {
+                    PhotonNetwork.OpRemoveCompleteCacheOfPlayer(RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer).ActorNumber);
+                }
+            }, true);
+        }
+
+        public static void DestroyAll()
+        {
+            foreach (Player player in PhotonNetwork.PlayerListOthers)
+                PhotonNetwork.OpRemoveCompleteCacheOfPlayer(player.ActorNumber);
         }
     }
 }

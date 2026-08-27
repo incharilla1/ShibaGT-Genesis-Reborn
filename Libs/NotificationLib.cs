@@ -42,9 +42,6 @@ namespace ShibaGTGenesisReborn.Libs
 
         private bool _hasInitialized;
 
-        private float _fadeAlpha = 1f;
-        private bool _isFading;
-
         public static bool inRoom;
         public static bool RoomNotifications = true;
 
@@ -68,6 +65,9 @@ namespace ShibaGTGenesisReborn.Libs
 
         public static NotificationLib Instance { get; private set; }
         public GameObject RootHUD => _hudObj2;
+
+        private CanvasGroup _canvasGroup;
+        private Coroutine _fadeCoroutine;
 
         private void Awake()
         {
@@ -105,6 +105,9 @@ namespace ShibaGTGenesisReborn.Libs
             Canvas canvas = _hudObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.worldCamera = _mainCamera.GetComponent<Camera>();
+
+            _canvasGroup = _hudObj.AddComponent<CanvasGroup>();
+            _canvasGroup.alpha = 0f;
 
             CanvasScaler scaler = _hudObj.AddComponent<CanvasScaler>();
             scaler.dynamicPixelsPerUnit = 10f;
@@ -185,10 +188,23 @@ namespace ShibaGTGenesisReborn.Libs
                     remove.Add(notification.Key);
             }
 
-            foreach (string text in remove)
-                _notificationTimestamps.Remove(text);
+            if (remove.Count > 0)
+            {
+                foreach (string text in remove)
+                    _notificationTimestamps.Remove(text);
 
-            UpdateNotificationText();
+                if (_notificationTimestamps.Count == 0)
+                {
+                    StartFade(0f, FADE_DURATION, () =>
+                    {
+                        UpdateNotificationText();
+                    });
+                }
+                else
+                {
+                    UpdateNotificationText();
+                }
+            }
         }
 
         private void UpdateNotificationText()
@@ -197,35 +213,30 @@ namespace ShibaGTGenesisReborn.Libs
                 _notificationText.text = string.Join(Environment.NewLine, _notificationTimestamps.Keys);
         }
 
-        private void UpdateTextAlpha()
+        private IEnumerator FadeCanvas(float targetAlpha, float duration, Action onComplete = null)
         {
-            if (_notificationText == null)
-                return;
-
-            Color color = _notificationText.color;
-            color.a = _fadeAlpha;
-            _notificationText.color = color;
-        }
-
-        private IEnumerator FadeInNotification()
-        {
-            if (_isFading)
-                yield break;
-
-            _isFading = true;
+            if (_canvasGroup == null) yield break;
+            float startAlpha = _canvasGroup.alpha;
             float elapsed = 0f;
 
-            while (elapsed < FADE_DURATION)
+            while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                _fadeAlpha = Mathf.Lerp(0f, 1f, elapsed / FADE_DURATION);
-                UpdateTextAlpha();
+                _canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, elapsed / duration);
                 yield return null;
             }
 
-            _fadeAlpha = 1f;
-            UpdateTextAlpha();
-            _isFading = false;
+            _canvasGroup.alpha = targetAlpha;
+            onComplete?.Invoke();
+            _fadeCoroutine = null;
+        }
+
+        private void StartFade(float targetAlpha, float duration, Action onComplete = null)
+        {
+            if (_fadeCoroutine != null)
+                StopCoroutine(_fadeCoroutine);
+
+            _fadeCoroutine = StartCoroutine(FadeCanvas(targetAlpha, duration, onComplete));
         }
 
         public static void SendNotification(NotificationType type, string content, float duration = DEFAULT_NOTIFICATION_TIME)
@@ -238,14 +249,14 @@ namespace ShibaGTGenesisReborn.Libs
 
             string text = string.Format("<color={0}>{1}</color> : {2}", color, type.ToString(), content);
 
-            if (text == PreviousNotification)
+            if (text == PreviousNotification && _notificationTimestamps.ContainsKey(text))
                 return;
 
             _notificationTimestamps[text] = Time.time + duration;
             PreviousNotification = text;
 
             Instance.UpdateNotificationText();
-            Instance.StartCoroutine(Instance.FadeInNotification());
+            Instance.StartFade(1f, FADE_DURATION);
         }
 
         public static void ClearAllNotifications()
@@ -253,7 +264,12 @@ namespace ShibaGTGenesisReborn.Libs
             _notificationTimestamps.Clear();
 
             if (Instance != null)
-                Instance.UpdateNotificationText();
+            {
+                Instance.StartFade(0f, FADE_DURATION, () =>
+                {
+                    Instance.UpdateNotificationText();
+                });
+            }
         }
     }
 }

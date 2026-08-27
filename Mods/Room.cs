@@ -199,14 +199,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
                 {
-                    NetPlayer player = GunLib.LockedPlayer.Creator;
-                    if (player == null)
-                    {
-                        var photonPlayer = RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer);
-                        if (photonPlayer != null)
-                            player = NetworkSystem.Instance.GetPlayer(photonPlayer.ActorNumber);
-                    }
-
+                    NetPlayer player = RigManager.GetNetPlayerFromVRRig(GunLib.LockedPlayer);
                     if (player != null)
                     {
                         lbaction(GorillaPlayerLineButton.ButtonType.Mute, player, state: true);
@@ -222,14 +215,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
                 {
-                    NetPlayer player = GunLib.LockedPlayer.Creator;
-                    if (player == null)
-                    {
-                        var photonPlayer = RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer);
-                        if (photonPlayer != null)
-                            player = NetworkSystem.Instance.GetPlayer(photonPlayer.ActorNumber);
-                    }
-
+                    NetPlayer player = RigManager.GetNetPlayerFromVRRig(GunLib.LockedPlayer);
                     if (player != null)
                     {
                         lbaction(GorillaPlayerLineButton.ButtonType.Mute, player, state: false);
@@ -606,14 +592,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
                 {
-                    NetPlayer player = GunLib.LockedPlayer.Creator;
-                    if (player == null)
-                    {
-                        var photonPlayer = RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer);
-                        if (photonPlayer != null)
-                            player = NetworkSystem.Instance.GetPlayer(photonPlayer.ActorNumber);
-                    }
-
+                    NetPlayer player = RigManager.GetNetPlayerFromVRRig(GunLib.LockedPlayer);
                     if (player != null)
                     {
                         lbaction(GorillaPlayerLineButton.ButtonType.Cheating, player);

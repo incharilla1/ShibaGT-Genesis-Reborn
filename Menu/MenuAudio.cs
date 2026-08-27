@@ -38,9 +38,7 @@ namespace ShibaGTGenesisReborn.Menu
             if (Main.Instance != null)
                 Main.Instance.StartCoroutine(routine);
             else if (Plugin.Instance != null)
-                CoroutineManager.RunCoroutine(routine);
-            else if (CoroutineManager.instance != null)
-                CoroutineManager.RunCoroutine(routine);
+                Plugin.Instance.StartCoroutine(routine);
         }
 
         private static IEnumerator LoadAudio(int index)

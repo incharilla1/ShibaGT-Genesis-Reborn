@@ -1014,7 +1014,7 @@ namespace ShibaGTGenesisReborn.Menu
             else if (buttonText.Equals("Disconnect", StringComparison.OrdinalIgnoreCase))
             {
                 PhotonNetwork.Disconnect();
-                NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Disconnected from network");
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Disconnected");
             }
             else if (buttonText == "Settings")
             {
@@ -1079,7 +1079,7 @@ namespace ShibaGTGenesisReborn.Menu
                                 try
                                 {
                                     target.method.Invoke();
-                                    NotificationLib.SendNotification(NotificationLib.NotificationType.Info, displayName);
+                                    NotificationLib.SendNotification(NotificationLib.NotificationType.Enabled, displayName);
                                 }
                                 catch { }
                             }

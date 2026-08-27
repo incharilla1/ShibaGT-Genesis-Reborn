@@ -14,6 +14,8 @@
 	  <EmbeddedResource Include="Resources\heart.png" />
 	  <Compile Remove="ascs\**" />
 	  <None Remove="ascs\**" /> <!-- assembly csharp decompiled for newest version so i can see what they changed -->
+	  <Compile Remove="Loader\**" />
+	  <None Remove="Loader\**" />
 	</ItemGroup>
 
 	<!-- AssemblyPublicizer usage inspired from GorillaShirts -->
