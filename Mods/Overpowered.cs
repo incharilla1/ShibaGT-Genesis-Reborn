@@ -27,9 +27,9 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static float[] lagcooldowns =
         {
-            0.5f,
-            3f,
-            8f
+            0.35f,
+            2.7f,
+            7.6f
         };
 
         public static float tagTimer;
@@ -43,6 +43,7 @@ namespace ShibaGTGenesisReborn.Mods
                 {
                     if (Time.time > CDown)
                     {
+                        RPCProt();
                         for (int i = 0; i < lagthings[lagindex]; i++)
                         {
                             SendOPRaiseEvent202(GunLib.LockedPlayer);
@@ -57,11 +58,11 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (Time.time > CDown)
             {
+                RPCProt();
                 for (int i = 0; i < lagthings[lagindex]; i++)
                 {
                     SendOPRaiseEvent202();
                 }
-                PhotonNetwork.NetworkingClient.LoadBalancingPeer.SendOutgoingCommands();
                 CDown = Time.time + lagcooldowns[lagindex];
             }
         }
@@ -78,7 +79,6 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 "ello"
             }, o, SendOptions.SendUnreliable);
-            RPCProt();
         }
     }
 }

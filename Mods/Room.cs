@@ -69,6 +69,9 @@ namespace ShibaGTGenesisReborn.Mods
                 PhotonNetwork.MaxResendsBeforeDisconnect = int.MaxValue;
                 PhotonNetwork.QuickResends = int.MaxValue;
 
+                PhotonNetwork.NetworkingClient.LoadBalancingPeer.SendOutgoingCommands();
+                PhotonNetwork.SendAllOutgoingCommands();
+
                 if (experimental)
                 {
                     MonkeAgent.instance.logErrorCount = 0;
