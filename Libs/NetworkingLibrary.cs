@@ -39,6 +39,8 @@ namespace ShibaGTGenesisReborn.Libs
         private int syncCount;
         private readonly Dictionary<string, AudioClip> audioClipCache = new Dictionary<string, AudioClip>();
         private bool isSubscribed;
+        private float lastCosmeticCheck;
+        private string lastSyncedCosmetics;
         
         private class NetworkedObject
         {
@@ -100,7 +102,21 @@ namespace ShibaGTGenesisReborn.Libs
 
         void Update()
         {
-            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true || trackedObjects.Count == 0) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true) 
+                return;
+
+            if (VRRig.LocalRig != null && mods.cosmetXEnabled && Time.time - lastCosmeticCheck >= 0.25f)
+            {
+                lastCosmeticCheck = Time.time;
+                string currentStr = ModsLib.GetLocalCosmeticString();
+                if (currentStr != lastSyncedCosmetics)
+                {
+                    lastSyncedCosmetics = currentStr;
+                    SendCosmeticUpdate(currentStr);
+                }
+            }
+
+            if (trackedObjects.Count == 0)
                 return;
             
             if (Time.time - lastSyncTime >= syncInterval)
@@ -254,7 +270,7 @@ namespace ShibaGTGenesisReborn.Libs
             VRRig targetRig = null;
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig != null && !rig.isOfflineVRRig && rig.Creator != null && rig.Creator.ActorNumber == senderActorNumber)
+                if (rig != null && !rig.isLocal && rig.Creator != null && rig.Creator.ActorNumber == senderActorNumber)
                 {
                     targetRig = rig;
                     break;
@@ -284,6 +300,7 @@ namespace ShibaGTGenesisReborn.Libs
                     }
                 }
                 targetRig.SetCosmeticsActive(false);
+                targetRig.RefreshCosmetics();
             }
         }
 

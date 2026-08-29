@@ -3,6 +3,7 @@ using Photon.Pun;
 using ShibaGTGenesisReborn.Menu;
 using ShibaGTGenesisReborn.Mods;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Patches
@@ -104,6 +105,9 @@ namespace ShibaGTGenesisReborn.Patches
     {
         private static float robotPhase;
         private static float stutterPhase;
+        private static float harmonizerPhase1;
+        private static float harmonizerPhase2;
+        private static float cleanHp;
         private static float lowPassFilter;
         private static float radioLow;
         private static float radioHigh;
@@ -164,6 +168,63 @@ namespace ShibaGTGenesisReborn.Patches
                     if (stutterPhase > 2f * Mathf.PI) stutterPhase -= 2f * Mathf.PI;
                 }
             }
+
+            if (mods.harmonizerMic)
+            {
+                const float carrier1 = 2f * Mathf.PI * 220f / 16000f;
+                const float carrier2 = 2f * Mathf.PI * 330f / 16000f;
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    harmonizerPhase1 += carrier1;
+                    harmonizerPhase2 += carrier2;
+                    if (harmonizerPhase1 > 2f * Mathf.PI) harmonizerPhase1 -= 2f * Mathf.PI;
+                    if (harmonizerPhase2 > 2f * Mathf.PI) harmonizerPhase2 -= 2f * Mathf.PI;
+                    float harm = 0.35f * Mathf.Sin(harmonizerPhase1) + 0.25f * Mathf.Sin(harmonizerPhase2);
+                    buffer[i] = Mathf.Clamp(buffer[i] * 0.7f + buffer[i] * harm * 0.6f, -1f, 1f);
+                }
+            }
+
+            if (mods.cleanMic)
+            {
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    cleanHp += 0.035f * (buffer[i] - cleanHp);
+                    float s = buffer[i] - cleanHp;
+                    float abs = Mathf.Abs(s);
+                    float gain = abs > 0.4f ? 1.0f / (1.0f + (abs - 0.4f) * 2.5f) : 1.35f;
+                    buffer[i] = Mathf.Clamp(s * gain, -0.95f, 0.95f);
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(VRRig), "PlayHandTapLocal")]
+    public class AntiEarrapeSoundPatch
+    {
+        private static readonly Dictionary<int, Queue<float>> soundTimestamps = new Dictionary<int, Queue<float>>();
+
+        private static bool Prefix(VRRig __instance, int audioClipIndex, bool isLeftHand, float tapVolume)
+        {
+            if (!mods.antiEarrape || __instance == null || __instance.isLocal || __instance == VRRig.LocalRig)
+                return true;
+
+            int key = (__instance.Creator != null ? __instance.Creator.ActorNumber : __instance.GetInstanceID()) * 1000 + audioClipIndex;
+            float now = Time.time;
+
+            if (!soundTimestamps.TryGetValue(key, out var queue))
+            {
+                queue = new Queue<float>();
+                soundTimestamps[key] = queue;
+            }
+
+            while (queue.Count > 0 && now - queue.Peek() > 1.0f)
+                queue.Dequeue();
+
+            if (queue.Count >= 10)
+                return false;
+
+            queue.Enqueue(now);
+            return true;
         }
     }
 

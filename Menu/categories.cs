@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using static ShibaGTGenesisReborn.Menu.Main;
@@ -90,6 +91,13 @@ namespace ShibaGTGenesisReborn.Menu
         
         public static void adminmods()
         {
+            if (!CXS.ServerData.IsLocalAdmin())
+            {
+                Libs.NotificationLib.SendNotification(Libs.NotificationLib.NotificationType.Alert, "<color=purple>CXS</color>\nAccess Denied.", 3f);
+                return;
+            }
+
+            Mods.mods.SetupAdminButtons();
             buttonsType = 12;
             pageNumber = 0;
         }
@@ -197,12 +205,19 @@ namespace ShibaGTGenesisReborn.Menu
             pageNumber = 0;
         }
 
+        public static void presets()
+        {
+            Preferences.RefreshPresets(false);
+            buttonsType = 21;
+            pageNumber = 0;
+        }
+
         public static void UpdateEnabledMods()
         {
             List<ButtonInfo> enabledMods = new List<ButtonInfo>();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19)
+                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21)
                     continue;
 
                 foreach (ButtonInfo mod in Buttons.buttons[i])

@@ -16,8 +16,30 @@ namespace ShibaGTGenesisReborn.Classes
 
             foreach (VRRig vrrig in VRRigCache.ActiveRigs)
             {
-                if (vrrig == null || vrrig.isOfflineVRRig || vrrig.isLocal) continue;
+                if (vrrig == null || vrrig.isLocal || vrrig.isLocal) continue;
                 float d = Vector3.Distance(localPos, vrrig.transform.position);
+                if (d < min)
+                {
+                    min = d;
+                    outRig = vrrig;
+                }
+            }
+            return outRig;
+        }
+
+        public static VRRig GetClosestUntaggedVRRig(float maxDistance = float.MaxValue)
+        {
+            float min = maxDistance;
+            VRRig outRig = null;
+            Vector3 localPos = GorillaTagger.Instance != null ? GorillaTagger.Instance.headCollider.transform.position : (VRRig.LocalRig != null ? VRRig.LocalRig.transform.position : Vector3.zero);
+
+            foreach (VRRig vrrig in VRRigCache.ActiveRigs)
+            {
+                if (vrrig == null || vrrig.isLocal || vrrig == VRRig.LocalRig) continue;
+                if (vrrig.mainSkin != null && vrrig.mainSkin.material != null && vrrig.mainSkin.material.name.Contains("fected")) continue;
+
+                Vector3 targetPos = vrrig.headConstraint != null ? vrrig.headConstraint.position : vrrig.transform.position;
+                float d = Vector3.Distance(localPos, targetPos);
                 if (d < min)
                 {
                     min = d;
@@ -44,7 +66,7 @@ namespace ShibaGTGenesisReborn.Classes
             if (includeSelf)
                 return VRRigCache.ActiveRigs[UnityEngine.Random.Range(0, VRRigCache.ActiveRigs.Count)];
 
-            var others = VRRigCache.ActiveRigs.Where(r => r != null && !r.isOfflineVRRig && r != VRRig.LocalRig).ToList();
+            var others = VRRigCache.ActiveRigs.Where(r => r != null && !r.isLocal && r != VRRig.LocalRig).ToList();
             return others.Count > 0 ? others[UnityEngine.Random.Range(0, others.Count)] : null;
         }
 

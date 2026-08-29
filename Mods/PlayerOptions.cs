@@ -1,6 +1,4 @@
 using GorillaLocomotion;
-using Photon.Pun;
-using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
@@ -37,10 +35,7 @@ namespace ShibaGTGenesisReborn.Mods
             isSubscribed = true;
         }
 
-        private static void OnPlayerJoined(NetPlayer player)
-        {
-            RefreshPlayerList();
-        }
+        private static void OnPlayerJoined(NetPlayer player) => RefreshPlayerList();
 
         private static void OnPlayerLeft(NetPlayer player)
         {
@@ -73,24 +68,23 @@ namespace ShibaGTGenesisReborn.Mods
                 return;
             }
 
-            var list = new List<ButtonInfo>();
+            List<ButtonInfo> list = new List<ButtonInfo>();
             NetPlayer[] players = NetworkSystem.Instance.AllNetPlayers;
             if (players != null)
             {
                 foreach (NetPlayer p in players)
                 {
                     if (p == null) continue;
-                    NetPlayer targetPlayer = p;
-                    string name = targetPlayer.NickName;
-                    if (string.IsNullOrEmpty(name)) name = "Player " + targetPlayer.ActorNumber;
-                    if (targetPlayer.IsLocal) name += " (You)";
+                    string name = p.NickName;
+                    if (string.IsNullOrEmpty(name)) name = "Player " + p.ActorNumber;
+                    if (p.IsLocal) name += " (You)";
 
                     list.Add(new ButtonInfo
                     {
                         buttonText = name,
-                        toolTip = $"Options for {targetPlayer.NickName}",
+                        toolTip = $"Options for {p.NickName}",
                         isTogglable = false,
-                        method = () => SelectPlayer(targetPlayer)
+                        method = () => SelectPlayer(p)
                     });
                 }
             }
@@ -157,15 +151,15 @@ namespace ShibaGTGenesisReborn.Mods
             VRRig rig = ResolveRig(SelectedPlayer);
             if (rig == null) return;
 
-            if (IsPiggybacking && !rig.isOfflineVRRig)
+            if (IsPiggybacking && !rig.isLocal)
             {
                 Vector3 ridePos = rig.transform.position + Vector3.up * 0.65f - rig.transform.forward * 0.25f;
                 GTPlayer.Instance.transform.position = ridePos;
-                if (GTPlayer.Instance.GetComponent<Rigidbody>() != null)
-                    GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
+                Rigidbody rb = GTPlayer.Instance.GetComponent<Rigidbody>();
+                if (rb != null) rb.linearVelocity = Vector3.zero;
             }
 
-            if (IsSpectating && !rig.isOfflineVRRig)
+            if (IsSpectating && !rig.isLocal)
             {
                 Transform headTarget = rig.head.rigTarget != null ? rig.head.rigTarget.transform : rig.transform;
                 Vector3 camPos = headTarget.position - headTarget.forward * 1.5f + Vector3.up * 0.35f;
@@ -177,15 +171,15 @@ namespace ShibaGTGenesisReborn.Mods
                 }
             }
 
-            if (IsFollowing && !rig.isOfflineVRRig)
+            if (IsFollowing && !rig.isLocal)
             {
                 Vector3 targetPos = rig.transform.position - rig.transform.forward * 1.5f + Vector3.up * 0.1f;
                 GTPlayer.Instance.transform.position = Vector3.MoveTowards(GTPlayer.Instance.transform.position, targetPos, 18f * Time.deltaTime);
-                if (GTPlayer.Instance.GetComponent<Rigidbody>() != null)
-                    GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
+                Rigidbody rb = GTPlayer.Instance.GetComponent<Rigidbody>();
+                if (rb != null) rb.linearVelocity = Vector3.zero;
             }
 
-            if (IsESPActive && !rig.isOfflineVRRig)
+            if (IsESPActive && !rig.isLocal)
             {
                 GameObject obj = new GameObject("PlayerESPBeacon");
                 LineRenderer line = obj.AddComponent<LineRenderer>();
@@ -198,10 +192,10 @@ namespace ShibaGTGenesisReborn.Mods
                 line.positionCount = 2;
                 line.SetPosition(0, rig.transform.position);
                 line.SetPosition(1, rig.transform.position + Vector3.up * 500f);
-                Object.Destroy(obj, Time.deltaTime);
+                Object.Destroy(obj, Time.deltaTime * 2f);
             }
 
-            if (IsTracerActive && !rig.isOfflineVRRig)
+            if (IsTracerActive && !rig.isLocal)
             {
                 GameObject g = new GameObject("PlayerTracer");
                 LineRenderer l = g.AddComponent<LineRenderer>();
@@ -214,10 +208,10 @@ namespace ShibaGTGenesisReborn.Mods
                 l.material.shader = Shader.Find("GUI/Text Shader");
                 l.startColor = rig.playerColor;
                 l.endColor = rig.playerColor;
-                Object.Destroy(g, Time.deltaTime);
+                Object.Destroy(g, Time.deltaTime * 2f);
             }
 
-            if (IsLagging && !rig.isOfflineVRRig && Time.time > lagCooldown)
+            if (IsLagging && !rig.isLocal && Time.time > lagCooldown)
             {
                 for (int i = 0; i < mods.lagthings[selectedPlayerLagIndex]; i++)
                     mods.SendOPRaiseEvent202(rig);
@@ -234,8 +228,9 @@ namespace ShibaGTGenesisReborn.Mods
             VRRig rig = ResolveRig(SelectedPlayer);
             if (rig == null) { NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Player not found"); return; }
             Vector3 pos = rig.transform.position;
-            GUIUtility.systemCopyBuffer = $"{pos.x:F3}, {pos.y:F3}, {pos.z:F3}";
-            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Copied: {GUIUtility.systemCopyBuffer}");
+            string text = $"{pos.x:F3}, {pos.y:F3}, {pos.z:F3}";
+            GUIUtility.systemCopyBuffer = text;
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Copied: {text}");
         }
 
         public static void CopyPlayerID()

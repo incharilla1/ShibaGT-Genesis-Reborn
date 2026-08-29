@@ -3,6 +3,7 @@ using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using TMPro;
@@ -19,7 +20,7 @@ namespace ShibaGTGenesisReborn.Menu
         public static Main Instance { get; private set; }
 
         public static bool Loaded;
-        
+
         public static bool Lockdown;
 
         private void Awake()
@@ -29,24 +30,28 @@ namespace ShibaGTGenesisReborn.Menu
             MenuAudio.Initialize();
             Mods.Custom.BoomboxManager.Initialize();
             Mods.Custom.SoundboardManager.Initialize();
+            Preferences.EnsureDirectory();
             StreamerMode.EnsureInitialized();
             Mods.PlayerOptionsManager.Initialize();
             Preferences.Load();
         }
 
-        private void OnDisable()
-        {
-            Preferences.Save();
-        }
-
-        private void OnApplicationQuit()
-        {
-            Preferences.Save();
-        }
-
         private void Update()
         {
-            if (Lockdown) return;
+            if (Lockdown || CXS.ServerData.IsLocalBlacklisted())
+            {
+                if (menu != null)
+                {
+                    Destroy(menu);
+                    menu = null;
+                }
+                if (reference != null)
+                {
+                    Destroy(reference);
+                    reference = null;
+                }
+                return;
+            }
             
             try
             {
@@ -189,6 +194,7 @@ namespace ShibaGTGenesisReborn.Menu
             int count = 0;
             for (int i = 0; i < buttons.Length; i++)
             {
+                if (i == 11 || i == 12 || i == 13 || i == 14 || i == 21 || i >= 19) continue;
                 ButtonInfo[] category = buttons[i];
                 if (category == null) continue;
                 for (int j = 0; j < category.Length; j++)
@@ -1040,6 +1046,12 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (target != null)
                 {
+                    if (CXS.ServerData.IsModDisabled(target.buttonText) && !CXS.ServerData.IsLocalAdmin())
+                    {
+                        NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"{target.buttonText} is remotely disabled.", 3f);
+                        return;
+                    }
+
                     string displayName = string.IsNullOrEmpty(target.toolTip) ? target.buttonText : target.toolTip;
 
                     if (!string.IsNullOrEmpty(displayName))
@@ -1132,24 +1144,38 @@ namespace ShibaGTGenesisReborn.Menu
             return new GradientColorKey[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) };
         }
 
-        public static ButtonInfo GetIndex(string buttonText)
+        private static readonly Dictionary<string, ButtonInfo> buttonLookup = buildbl();
+
+        private static Dictionary<string, ButtonInfo> buildbl()
         {
-            if (string.IsNullOrEmpty(buttonText)) return null;
+            Dictionary<string, ButtonInfo> lookup = new Dictionary<string, ButtonInfo>(GetTotalButtonCount(), StringComparer.Ordinal);
 
-            for (int i = 0; i < Buttons.buttons.Length; i++)
+            for (int i = 0; i < buttons.Length; i++)
             {
-                ButtonInfo[] list = Buttons.buttons[i];
-                if (list == null) continue;
+                ButtonInfo[] cat = buttons[i];
+                if (cat == null) continue;
 
-                for (int j = 0; j < list.Length; j++)
+                for (int j = 0; j < cat.Length; j++)
                 {
-                    ButtonInfo btn = list[j];
-                    if (btn != null && (btn.buttonText == buttonText || btn.overlapText == buttonText))
-                        return btn;
+                    ButtonInfo b = cat[j];
+                    if (b == null) continue;
+
+                    if (!string.IsNullOrEmpty(b.buttonText))
+                        lookup[b.buttonText] = b;
+
+                    if (!string.IsNullOrEmpty(b.overlapText))
+                        lookup[b.overlapText] = b;
                 }
             }
 
-            return null;
+            return lookup;
+        }
+
+        public static ButtonInfo GetIndex(string buttonText)
+        {
+            if (string.IsNullOrEmpty(buttonText)) return null;
+            buttonLookup.TryGetValue(buttonText, out ButtonInfo button);
+            return button;
         }
 
         public static void Change(string buttonText, ref int index, string[] names, Action sideEffect = null, string prefix = null)

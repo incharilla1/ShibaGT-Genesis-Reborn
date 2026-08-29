@@ -22,7 +22,7 @@ namespace ShibaGTGenesisReborn.Classes
                 if (customAudio)
                     MenuAudio.PlayClickSound();
                 else if (VRRig.LocalRig != null)
-                    VRRig.LocalRig.PlayHandTapLocal((int)mods.num, rightHanded, 0.4f);
+                    VRRig.LocalRig.PlayHandTapLocal(8, rightHanded, 0.4f);
             }
             catch { }
         }

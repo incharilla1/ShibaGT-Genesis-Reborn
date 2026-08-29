@@ -1,10 +1,10 @@
-﻿namespace ShibaGTGenesisReborn
+namespace ShibaGTGenesisReborn
 {
-    internal class PluginInfo
+    public class PluginInfo
     {
         public const string GUID = "com.incha.gorillatag.ShibaGTGenesisReborn";
         public const string Name = "ShibaGT Genesis Reborn";
-        public const string Description = "continued by incharilla";
-        public const string Version = "1.0.3";
+        public const string Description = "continued by incharilla (originally made by @imudtrust and @gokusgoy__)";
+        public const string Version = "1.0.4";
     }
 }

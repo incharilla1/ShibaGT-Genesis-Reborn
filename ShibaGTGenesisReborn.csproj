@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.1</TargetFramework>
@@ -16,6 +16,8 @@
 	  <None Remove="ascs\**" /> <!-- assembly csharp decompiled for newest version so i can see what they changed -->
 	  <Compile Remove="Loader\**" />
 	  <None Remove="Loader\**" />
+	  <Compile Remove="Worker\**" />
+	  <None Remove="Worker\**" />
 	</ItemGroup>
 
 	<!-- AssemblyPublicizer usage inspired from GorillaShirts -->

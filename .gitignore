@@ -368,3 +368,6 @@ FodyWeavers.xsd
 
 # Genesis Auto-Loader (source will be in the discord or whatever)
 Loader/
+
+# for cxs
+**/Worker/

@@ -20,7 +20,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null &&
                     !GunLib.LockedPlayer.mainSkin.material.name.Contains("fected") &&
-                    !GunLib.LockedPlayer.isOfflineVRRig)
+                    !GunLib.LockedPlayer.isLocal)
                 {
                     if (VRRig.LocalRig.mainSkin.material.name.Contains("fected"))
                     {
@@ -45,7 +45,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig p in VRRigCache.ActiveRigs)
             {
-                if (!p.isOfflineVRRig)
+                if (!p.isLocal)
                 {
                     TagPlayer(p);
                 }
@@ -59,7 +59,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 foreach (VRRig rig in VRRigCache.ActiveRigs)
                 {
-                    if (rig != null && !rig.isOfflineVRRig && rig.mainSkin.material.name.Contains("fected"))
+                    if (rig != null && !rig.isLocal && rig.mainSkin.material.name.Contains("fected"))
                     {
                         bypasstp(rig.bodyTransform.position, true);
                         break;
@@ -170,14 +170,15 @@ namespace ShibaGTGenesisReborn.Mods
             if (Time.time < tagAuraCooldown) return;
 
             Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
+            float effectiveRadius = radius * (hitboxExpander ? hitboxExpanderMultiplier : 1f);
             foreach (VRRig targetRig in VRRigCache.ActiveRigs)
             {
-                if (targetRig == null || targetRig.isOfflineVRRig || targetRig == VRRig.LocalRig) continue;
+                if (targetRig == null || targetRig.isLocal) continue;
 
                 if (!targetRig.mainSkin.material.name.Contains("fected"))
                 {
                     Vector3 targetHead = targetRig.headConstraint != null ? targetRig.headConstraint.position : targetRig.transform.position;
-                    if (Vector3.Distance(localHead, targetHead) <= radius)
+                    if (Vector3.Distance(localHead, targetHead) <= effectiveRadius)
                     {
                         tagAuraCooldown = Time.time + 0.35f;
                         GameMode.ReportTag(RigManager.GetPlayerFromVRRig(targetRig));
@@ -197,11 +198,12 @@ namespace ShibaGTGenesisReborn.Mods
 
             Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
             VRRig closestTarget = null;
-            float closestDistance = assistRange;
+            float effectiveRange = assistRange * (hitboxExpander ? hitboxExpanderMultiplier : 1f);
+            float closestDistance = effectiveRange;
 
             foreach (VRRig targetRig in VRRigCache.ActiveRigs)
             {
-                if (targetRig == null || targetRig.isOfflineVRRig || targetRig == VRRig.LocalRig) continue;
+                if (targetRig == null || targetRig.isLocal || targetRig == VRRig.LocalRig) continue;
 
                 if (!targetRig.mainSkin.material.name.Contains("fected"))
                 {
@@ -228,11 +230,69 @@ namespace ShibaGTGenesisReborn.Mods
                     VRRig.LocalRig.rightHandTransform.position = targetHead;
                 }
 
-                if (closestDistance <= 4.5f && Time.time > tagAssistCooldown)
+                if (closestDistance <= 4.5f * (hitboxExpander ? hitboxExpanderMultiplier : 1f) && Time.time > tagAssistCooldown)
                 {
                     tagAssistCooldown = Time.time + 0.3f;
                     GameMode.ReportTag(RigManager.GetPlayerFromVRRig(tagAssistTarget));
                 }
+            }
+        }
+
+        [Setting] public static bool hitboxExpander;
+        public static float hitboxExpanderMultiplier = 1.75f;
+
+        public static void HitboxExpander()
+        {
+            hitboxExpander = true;
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
+            if (!VRRig.LocalRig.mainSkin.material.name.Contains("fected")) return;
+
+            Vector3 rHand = GorillaTagger.Instance.rightHandTransform.position;
+            Vector3 lHand = GorillaTagger.Instance.leftHandTransform.position;
+            float reach = 0.85f * hitboxExpanderMultiplier;
+
+            foreach (VRRig target in VRRigCache.ActiveRigs)
+            {
+                if (target == null || target.isLocal || target == VRRig.LocalRig) continue;
+                if (target.mainSkin != null && target.mainSkin.material.name.Contains("fected")) continue;
+
+                Vector3 targetPos = target.headConstraint != null ? target.headConstraint.position : target.transform.position;
+                if (Vector3.Distance(rHand, targetPos) <= reach || Vector3.Distance(lHand, targetPos) <= reach)
+                {
+                    GameMode.ReportTag(RigManager.GetPlayerFromVRRig(target));
+                    break;
+                }
+            }
+        }
+
+        public static void DisableHitboxExpander() => hitboxExpander = false;
+
+        public static void SuperSwim(float power = 22f)
+        {
+            if (GTPlayer.Instance == null || GorillaTagger.Instance == null) return;
+            if (GTPlayer.Instance.InWater || GTPlayer.Instance.HeadInWater)
+            {
+                Vector3 vel = GorillaTagger.Instance.rigidbody.linearVelocity;
+                if (vel.sqrMagnitude > 0.05f)
+                {
+                    GorillaTagger.Instance.rigidbody.AddForce(vel.normalized * power, ForceMode.Acceleration);
+                }
+            }
+        }
+
+        public static void TagPull(float range = 7f, float speed = 18f)
+        {
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
+            if (!VRRig.LocalRig.mainSkin.material.name.Contains("fected")) return;
+            if (!InputHandler.Instance.RightTrigger.IsPressed) return;
+
+            VRRig target = RigManager.GetClosestUntaggedVRRig(range);
+            if (target != null)
+            {
+                Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
+                Vector3 targetHead = target.headConstraint != null ? target.headConstraint.position : target.transform.position;
+                Vector3 dir = (targetHead - localHead).normalized;
+                GorillaTagger.Instance.rigidbody.linearVelocity = dir * speed;
             }
         }
     }

@@ -7,6 +7,10 @@ using Photon.Pun;
 using Photon.Realtime;
 using Photon.Voice.Unity;
 using ShibaGTGenesisReborn;
+using ShibaGTGenesisReborn.Classes;
+using ShibaGTGenesisReborn.Libs;
+using ShibaGTGenesisReborn.Menu;
+using ShibaGTGenesisReborn.Mods;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,8 +20,6 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using ShibaGTGenesisReborn.Classes;
-using ShibaGTGenesisReborn.Libs;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -25,19 +27,14 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 using UnityEngine.Video;
-using JoinType = GorillaNetworking.JoinType;
 using Random = UnityEngine.Random;
-using ShibaGTGenesisReborn.Menu;
-using ShibaGTGenesisReborn.Mods;
 
 namespace CXS
 {
     public class CXS : MonoBehaviour
     {
-        #region Configuration
         public static string MenuName = PluginInfo.Name;
         public static string MenuVersion = PluginInfo.Version;
-
         public static string CXSResourceLocation = "CXS";
 
         public static bool DisableMenu
@@ -46,44 +43,32 @@ namespace CXS
             set => Main.Lockdown = value;
         }
 
-        public static void SendNotification(string message, float duration = 3f)
-        {
-            NotificationLib.SendNotification(
-                NotificationLib.NotificationType.Alert,
-                message,
-                duration
-            );
-        }
+        public static void SendNotification(string message, float duration = 3f) =>
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, message, duration);
 
         public static void TeleportPlayer(Vector3 position) => mods.bypasstp(position);
 
-        public static void EnableMod(string mod, bool enable) => Main.GetIndex(mod).enabled = enable;
+        public static void EnableMod(string mod, bool enable)
+        {
+            ButtonInfo btn = Main.GetIndex(mod);
+            if (btn != null) btn.enabled = enable;
+        }
 
         public static void ToggleMod(string mod)
         {
             ButtonInfo button = Main.GetIndex(mod);
-    
             if (button != null)
             {
                 button.enabled = !button.enabled;
-        
-                if (button.enabled)
+                try
                 {
-                    if (button.enableMethod != null)
-                    {
-                        try { button.enableMethod.Invoke(); } 
-                        catch { }
-                    }
+                    if (button.enabled)
+                        button.enableMethod?.Invoke();
+                    else
+                        button.disableMethod?.Invoke();
                 }
-                else
-                {
-                    if (button.disableMethod != null)
-                    {
-                        try { button.disableMethod.Invoke(); } 
-                        catch { }
-                    }
-                }
-        
+                catch { }
+
                 Main.RecreateMenu();
                 SendNotification($"<color=grey>[</color><color=purple>CXS</color><color=grey>]</color> {mod} {(button.enabled ? "enabled" : "disabled")}");
             }
@@ -93,21 +78,22 @@ namespace CXS
             }
         }
 
-        public static IEnumerator JoinRoom(string roomba) // Do not modify this unless needed
+        public static IEnumerator JoinRoom(string roomba)
         {
             PhotonNetwork.Disconnect();
             yield return new WaitForSeconds(5f);
-            PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(roomba, JoinType.Solo);
+            PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(roomba, GorillaNetworking.JoinType.Solo);
         }
 
-        public static void ConfirmUsing(string id, string version, string menuName) { } // Put your code ran on isusing here
+        public static void ConfirmUsing(string id, string version, string menuName)
+        {
+            NetPlayer player = GetPlayerFromID(id);
+            string name = player != null ? player.NickName : id;
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"<color=purple>CXS User</color>\n{name}\n{menuName} v{version}", 6f);
+        }
 
-        public static void Log(string text) => // Method used to log info, replace if using a custom logger
-            Debug.Log(text);
+        public static void Log(string text) => Debug.Log(text);
 
-        #endregion
-
-        #region Events
         public static readonly string CXSVersion = "1.0.2";
         public static CXS instance;
 
@@ -130,21 +116,21 @@ namespace CXS
             if (PlayerPrefs.HasKey(BlockedKey))
                 isBlocked = long.Parse(PlayerPrefs.GetString(BlockedKey));
 
-            if (!Directory.Exists(CXSResourceLocation))
-                Directory.CreateDirectory(CXSResourceLocation);
-
+            Directory.CreateDirectory(CXSResourceLocation);
             instance.StartCoroutine(PreloadAssets());
 
-            (GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset).supportsCameraOpaqueTexture = true;
-            (GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset).supportsCameraDepthTexture = true;
+            if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urp)
+            {
+                urp.supportsCameraOpaqueTexture = true;
+                urp.supportsCameraDepthTexture = true;
+            }
         }
 
-        public static void LoadCXS() =>
-            GorillaTagger.OnPlayerSpawned(() => LoadCXSImmediately());
+        public static void LoadCXS() => GorillaTagger.OnPlayerSpawned(LoadCXSImmediately);
 
         public static bool IsMasterCXS = true;
-
         public const string SyncAssetsEventKey = "%<CXS>%SyncAssets";
+
         public static void CXSAssetCommunication(string eventName, int id)
         {
             if (!eventName.StartsWith(SyncAssetsEventKey)) return;
@@ -155,14 +141,7 @@ namespace CXS
             {
                 case "spawn":
                     if (data.Length >= 6)
-                    {
-                        string assetName = data[2];
-                        string assetBundle = data[3];
-                        string linkObjectName = data[4];
-                        bool addGorillaSurfaceOverride = bool.Parse(data[5]);
-
-                        instance.StartCoroutine(LinkCXSAsset(id, linkObjectName, assetName, assetBundle, addGorillaSurfaceOverride));
-                    }
+                        instance.StartCoroutine(LinkCXSAsset(id, data[4], data[2], data[3], bool.Parse(data[5])));
                     break;
                 case "destroy":
                     CXSAssets.Remove(id);
@@ -214,16 +193,14 @@ namespace CXS
             CXSAssets.Add(id, new CXSAsset(id, finalLink.transform.parent.gameObject, assetName, assetBundle));
         }
 
-        public static GameObject LoadCXSImmediately()
+        public static void LoadCXSImmediately()
         {
-            string CXSGUID = "tidalxyz_CXS";
-            GameObject CXSObject = GameObject.Find(CXSGUID) ?? new GameObject(CXSGUID);
-            CXSObject.AddComponent<CXS>();
+            const string cxsGuid = "tidalxyz_CXS";
+            GameObject cxsObject = GameObject.Find(cxsGuid) ?? new GameObject(cxsGuid);
+            cxsObject.AddComponent<CXS>();
 
             if (ServerData.ServerDataEnabled)
-                CXSObject.AddComponent<ServerData>();
-
-            return CXSObject;
+                cxsObject.AddComponent<ServerData>();
         }
 
         public void OnDisable()
@@ -239,7 +216,6 @@ namespace CXS
                 return null;
 
             string justName = Path.GetFileName(fileName);
-
             return string.IsNullOrWhiteSpace(justName) ? null : Path.GetInvalidFileNameChars().Aggregate(justName, (current, c) => current.Replace(c.ToString(), ""));
         }
 
@@ -248,10 +224,8 @@ namespace CXS
         {
             if (!textures.TryGetValue(url, out Texture2D texture))
             {
-                string fileName = $"{CXSResourceLocation}/{SanitizeFileName(Uri.UnescapeDataString(url.Split("/")[^1]))}";
-
-                if (File.Exists(fileName))
-                    File.Delete(fileName);
+                string fileName = $"{CXSResourceLocation}/{SanitizeFileName(Uri.UnescapeDataString(url.Split('/')[^1]))}";
+                try { File.Delete(fileName); } catch { }
 
                 Log($"Downloading {fileName}");
                 using HttpClient client = new HttpClient();
@@ -262,7 +236,7 @@ namespace CXS
 
                 if (downloadTask.Exception != null)
                 {
-                    Log("Failed to download texture: " + downloadTask.Exception);
+                    Log($"Failed to download texture: {downloadTask.Exception}");
                     yield break;
                 }
 
@@ -274,7 +248,7 @@ namespace CXS
 
                 if (writeTask.Exception != null)
                 {
-                    Log("Failed to save texture: " + writeTask.Exception);
+                    Log($"Failed to save texture: {writeTask.Exception}");
                     yield break;
                 }
 
@@ -284,13 +258,12 @@ namespace CXS
 
                 if (readTask.Exception != null)
                 {
-                    Log("Failed to read texture file: " + readTask.Exception);
+                    Log($"Failed to read texture file: {readTask.Exception}");
                     yield break;
                 }
 
-                byte[] bytes = readTask.Result;
                 texture = new Texture2D(2, 2);
-                texture.LoadImage(bytes);
+                texture.LoadImage(readTask.Result);
             }
 
             textures[url] = texture;
@@ -302,55 +275,50 @@ namespace CXS
         {
             if (!audios.TryGetValue(url, out AudioClip audio))
             {
-                string fileName = $"{CXSResourceLocation}/{SanitizeFileName(Uri.UnescapeDataString(url.Split("/")[^1]))}";
+                string fileName = $"{CXSResourceLocation}/{SanitizeFileName(Uri.UnescapeDataString(url.Split('/')[^1]))}";
+                try { File.Delete(fileName); } catch { }
 
+                Log($"Downloading {fileName}");
+                using HttpClient client = new HttpClient();
+                Task<byte[]> downloadTask = client.GetByteArrayAsync(url);
+
+                while (!downloadTask.IsCompleted)
+                    yield return null;
+
+                if (downloadTask.Exception != null)
                 {
-                    if (File.Exists(fileName))
-                        File.Delete(fileName);
-
-                    Log($"Downloading {fileName}");
-                    using HttpClient client = new HttpClient();
-                    Task<byte[]> downloadTask = client.GetByteArrayAsync(url);
-
-                    while (!downloadTask.IsCompleted)
-                        yield return null;
-
-                    if (downloadTask.Exception != null)
-                    {
-                        Log("Failed to download texture: " + downloadTask.Exception);
-                        yield break;
-                    }
-
-                    byte[] downloadedData = downloadTask.Result;
-                    Task writeTask = File.WriteAllBytesAsync(fileName, downloadedData);
-
-                    while (!writeTask.IsCompleted)
-                        yield return null;
-
-                    if (writeTask.Exception != null)
-                    {
-                        Log("Failed to save texture: " + writeTask.Exception);
-                        yield break;
-                    }
-
-                    string filePath = Assembly.GetExecutingAssembly().Location.Split("BepInEx\\")[0] + fileName;
-
-                    Log($"Loading audio from {filePath}");
-
-                    using UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip(
-                        $"file://{filePath}",
-                        GetAudioType(GetFileExtension(fileName))
-                    );
-                    yield return audioRequest.SendWebRequest();
-
-                    if (audioRequest.result != UnityWebRequest.Result.Success)
-                    {
-                        Log("Failed to load audio: " + audioRequest.error);
-                        yield break;
-                    }
-
-                    audio = DownloadHandlerAudioClip.GetContent(audioRequest);
+                    Log($"Failed to download audio: {downloadTask.Exception}");
+                    yield break;
                 }
+
+                byte[] downloadedData = downloadTask.Result;
+                Task writeTask = File.WriteAllBytesAsync(fileName, downloadedData);
+
+                while (!writeTask.IsCompleted)
+                    yield return null;
+
+                if (writeTask.Exception != null)
+                {
+                    Log($"Failed to save audio: {writeTask.Exception}");
+                    yield break;
+                }
+
+                string filePath = Assembly.GetExecutingAssembly().Location.Split("BepInEx\\")[0] + fileName;
+                Log($"Loading audio from {filePath}");
+
+                using UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip(
+                    $"file://{filePath}",
+                    GetAudioType(GetFileExtension(fileName))
+                );
+                yield return audioRequest.SendWebRequest();
+
+                if (audioRequest.result != UnityWebRequest.Result.Success)
+                {
+                    Log($"Failed to load audio: {audioRequest.error}");
+                    yield break;
+                }
+
+                audio = DownloadHandlerAudioClip.GetContent(audioRequest);
             }
 
             audios[url] = audio;
@@ -359,33 +327,30 @@ namespace CXS
 
         public static IEnumerator PlaySoundMicrophone(AudioClip sound)
         {
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.SourceType = Recorder.InputSourceType.AudioClip;
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.AudioClip = sound;
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.RestartRecording(true);
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.DebugEchoMode = true;
+            Recorder rec = NetworkSystem.Instance.VoiceConnection.PrimaryRecorder;
+            rec.SourceType = Recorder.InputSourceType.AudioClip;
+            rec.AudioClip = sound;
+            rec.RestartRecording(true);
+            rec.DebugEchoMode = true;
 
             yield return new WaitForSeconds(sound.length + 0.4f);
 
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.SourceType = Recorder.InputSourceType.Microphone;
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.AudioClip = null;
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.RestartRecording(true);
-            NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.DebugEchoMode = false;
+            rec.SourceType = Recorder.InputSourceType.Microphone;
+            rec.AudioClip = null;
+            rec.RestartRecording(true);
+            rec.DebugEchoMode = false;
         }
 
-        public static string GetFileExtension(string fileName) =>
-            fileName.ToLower().Split(".")[fileName.Split(".").Length - 1];
+        public static string GetFileExtension(string fileName) => Path.GetExtension(fileName).TrimStart('.').ToLower();
 
-        public static AudioType GetAudioType(string extension)
+        public static AudioType GetAudioType(string extension) => extension.ToLower() switch
         {
-            return extension.ToLower() switch
-            {
-                "mp3" => AudioType.MPEG,
-                "wav" => AudioType.WAV,
-                "ogg" => AudioType.OGGVORBIS,
-                "aiff" => AudioType.AIFF,
-                _ => AudioType.WAV,
-            };
-        }
+            "mp3" => AudioType.MPEG,
+            "wav" => AudioType.WAV,
+            "ogg" => AudioType.OGGVORBIS,
+            "aiff" => AudioType.AIFF,
+            _ => AudioType.WAV
+        };
 
         public static IEnumerator PreloadAssets()
         {
@@ -395,15 +360,12 @@ namespace CXS
             if (request.result != UnityWebRequest.Result.Success) yield break;
             string returnText = request.downloadHandler.text;
 
-            foreach (string assetBundle in returnText.Split("\n"))
-            {
-                if (assetBundle.Length > 0)
-                    instance.StartCoroutine(PreloadAssetBundle(assetBundle));
-            }
+            foreach (string assetBundle in returnText.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                instance.StartCoroutine(PreloadAssetBundle(assetBundle.Trim()));
         }
 
-        public const byte CXSByte = 68; // Do not change this unless you want a local version of CXS only your mod can be used by
-        public const string BlockedKey = "CXSBlocked"; // Do not change this EVER!!!
+        public const byte CXSByte = 68;
+        public const string BlockedKey = "CXSBlocked";
 
         public static bool adminIsScaling;
         public static float adminScale = 1f;
@@ -412,14 +374,12 @@ namespace CXS
 
         public void Update()
         {
-            if (IsMasterCXS)
-                return;
+            if (IsMasterCXS) return;
 
             if (NetworkSystem.Instance != null && NetworkSystem.Instance.InRoom)
             {
                 try
                 {
-                    // Admin serversided scale
                     if (adminIsScaling && adminRigTarget != null)
                     {
                         adminRigTarget.NativeScale = adminScale;
@@ -432,8 +392,9 @@ namespace CXS
 
             SanitizeCXSAssets();
         }
-        // current menus that has CXS
-        private static readonly Dictionary<string, Color> menuColors = new Dictionary<string, Color> {
+
+        private static readonly Dictionary<string, Color> menuColors = new Dictionary<string, Color>
+        {
             { "cxs", Color.gray },
             { "tidalxyz", new Color32(164, 94, 229, 255) },
             { "glink", new Color32(255, 80, 40, 255) },
@@ -442,103 +403,46 @@ namespace CXS
 
         public static void TeleportToMap(string mapName)
         {
-            string MapTrigger = "";
-            string NetworkTrigger = "";
-
-            if (mapName == "Forest")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/TreeRoomSpawnForestZone";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Forest, Tree Exit";
-            }
-            if (mapName == "City")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToCity";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - City Front";
-            }
-            if (mapName == "Canyons")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestCanyonTransition";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Canyon";
-            }
-            if (mapName == "Clouds")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToSkyJungle";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Clouds From Computer";
-            }
-            if (mapName == "Caves")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToCave";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Cave";
-            }
-            if (mapName == "Beach")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/BeachToForest";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Beach for Computer";
-            }
-            if (mapName == "Mountains")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToMountain";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Mountain";
-            }
-            if (mapName == "Basement")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToBasement";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Basement For Computer";
-            }
-            if (mapName == "Metropolis")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/MetropolisOnly";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Metropolis from Computer";
-            }
-            if (mapName == "Arcade")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToArcade";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - City frm Arcade";
-            }
-            if (mapName == "Critters")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityCrittersTransition";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - City from Critters";
-            }
-            if (mapName == "Rotating")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToRotating";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Rotating Map";
-            }
-            if (mapName == "Bayou")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/BayouOnly";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - BayouComputer2";
-            }
             if (mapName == "Virtual Stump")
             {
-                VirtualStumpTeleporter vstumpt = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/VirtualStump_HeadsetTeleporter/TeleporterTrigger").GetComponent<VirtualStumpTeleporter>();
-                vstumpt.gameObject.transform.parent.parent.parent.parent.parent.parent.gameObject.SetActive(true);
-                vstumpt.gameObject.transform.parent.parent.parent.parent.gameObject.SetActive(true);
-                vstumpt.TeleportPlayer();
+                VirtualStumpTeleporter vstumpt = GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/VirtualStump_HeadsetTeleporter/TeleporterTrigger")?.GetComponent<VirtualStumpTeleporter>();
+                if (vstumpt != null)
+                {
+                    vstumpt.transform.parent?.parent?.parent?.parent?.parent?.parent?.gameObject.SetActive(true);
+                    vstumpt.transform.parent?.parent?.parent?.parent?.gameObject.SetActive(true);
+                    vstumpt.TeleportPlayer();
+                }
                 return;
             }
 
-            if (mapName == "Lava Forest")
+            (string mapTrigger, string networkTrigger) = mapName switch
             {
-                MapTrigger = "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/VIMForestLavaElevator/Triggers/VIMExp1_SetZoneTrigger";
-            }
+                "Forest" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/TreeRoomSpawnForestZone", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Forest, Tree Exit"),
+                "City" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToCity", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - City Front"),
+                "Canyons" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestCanyonTransition", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Canyon"),
+                "Clouds" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToSkyJungle", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Clouds From Computer"),
+                "Caves" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToCave", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Cave"),
+                "Beach" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/BeachToForest", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Beach for Computer"),
+                "Mountains" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToMountain", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Mountain"),
+                "Basement" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToBasement", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Basement For Computer"),
+                "Metropolis" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/MetropolisOnly", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Metropolis from Computer"),
+                "Arcade" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToArcade", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - City frm Arcade"),
+                "Critters" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityCrittersTransition", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - City from Critters"),
+                "Rotating" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/CityToRotating", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Rotating Map"),
+                "Bayou" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/BayouOnly", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - BayouComputer2"),
+                "Lava Forest" => ("Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/VIMForestLavaElevator/Triggers/VIMExp1_SetZoneTrigger", null),
+                "Skate Park" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToHoverboard", "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Hoverboard from Forest"),
+                "Monke Blocks" => ("Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/MonkeBlocksElevatorExit", "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/MonkeBlocksElevator/Triggers/JoinRoomTrigger"),
+                _ => (null, null)
+            };
 
-            if (mapName == "Skate Park")
+            if (mapTrigger != null)
             {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToHoverboard";
-                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Hoverboard from Forest";
+                GameObject mapObj = GameObject.Find(mapTrigger);
+                mapObj?.GetComponent<GorillaSetZoneTrigger>()?.OnBoxTriggered();
+                if (networkTrigger != null) GameObject.Find(networkTrigger)?.SetActive(false);
+                TeleportPlayer(mapObj != null ? mapObj.transform.position : VRRig.LocalRig.transform.position);
             }
-
-            if (mapName == "Monke Blocks")
-            {
-                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/MonkeBlocksElevatorExit";
-                NetworkTrigger = "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/MonkeBlocksElevator/Triggers/JoinRoomTrigger";
-            }
-
-            GameObject.Find(MapTrigger)?.GetComponent<GorillaSetZoneTrigger>()?.OnBoxTriggered();
-            GameObject.Find(NetworkTrigger)?.SetActive(false);
-            TeleportPlayer(GameObject.Find(MapTrigger)?.transform.position ?? VRRig.LocalRig.transform.position);
         }
 
         public static readonly int TransparentFX = LayerMask.NameToLayer("TransparentFX");
@@ -553,7 +457,7 @@ namespace CXS
             ~(1 << TransparentFX | 1 << IgnoreRaycast | 1 << Zone | 1 << GorillaTrigger | 1 << GorillaBoundary | 1 << GorillaCosmetics | 1 << GorillaParticle);
 
         public static Color GetMenuTypeName(string type) =>
-            menuColors.TryGetValue(type, out var typeName) ? typeName : Color.red;
+            menuColors.TryGetValue(type, out Color typeName) ? typeName : Color.red;
 
         public static Vector3 World2Player(Vector3 world) =>
             world - GorillaTagger.Instance.bodyCollider.transform.position + GorillaTagger.Instance.transform.position;
@@ -564,12 +468,38 @@ namespace CXS
         public static NetPlayer GetPlayerFromID(string id) =>
             PhotonNetwork.PlayerList.FirstOrDefault(player => player.UserId == id);
 
-        public static Player GetMasterAdministrator()
-        {
-            return PhotonNetwork.PlayerList
+        public static Player GetMasterAdministrator() =>
+            PhotonNetwork.PlayerList
                 .Where(player => ServerData.Administrators.ContainsKey(player.UserId))
                 .OrderBy(player => player.ActorNumber)
                 .FirstOrDefault();
+
+        public static void ApplyFog(Color targetColor, float fogDensity, float start = 0f, float end = 12f)
+        {
+            if (ZoneShaderSettings.activeInstance != null)
+                ZoneShaderSettings.activeInstance.SetGroundFogValue(targetColor, fogDensity, start, end);
+            RenderSettings.fog = true;
+            RenderSettings.fogColor = targetColor;
+            RenderSettings.fogDensity = fogDensity;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            Shader.SetGlobalColor("_GroundFogColor", targetColor);
+            Shader.SetGlobalFloat("_GroundFogDensity", fogDensity);
+        }
+
+        public static void RestoreFog()
+        {
+            if (ZoneShaderSettings.activeInstance != null)
+            {
+                if (ZoneShaderSettings.defaultsInstance != null)
+                    ZoneShaderSettings.activeInstance.CopySettings(ZoneShaderSettings.defaultsInstance);
+                else
+                    ZoneShaderSettings.activeInstance.SetGroundFogValue(Color.clear, 0f, 0f, 0f);
+            }
+            RenderSettings.fog = false;
+            RenderSettings.fogDensity = 0f;
+            Shader.SetGlobalColor("_GroundFogColor", Color.clear);
+            Shader.SetGlobalFloat("_GroundFogDensity", 0f);
+            BetterDayNightManager.instance?.SetFixedWeather(BetterDayNightManager.WeatherType.None, false);
         }
 
         public static void LightningStrike(Vector3 position)
@@ -578,102 +508,104 @@ namespace CXS
 
             GameObject line = new GameObject("LightningOuter");
             LineRenderer liner = line.AddComponent<LineRenderer>();
-            liner.startColor = color; liner.endColor = color; liner.startWidth = 0.25f; liner.endWidth = 0.25f; liner.positionCount = 5; liner.useWorldSpace = true;
-            Vector3 victim = position;
-            for (int i = 0; i < 5; i++)
+            liner.startColor = color; liner.endColor = color; liner.startWidth = 0.35f; liner.endWidth = 0.35f; liner.positionCount = 6; liner.useWorldSpace = true;
+            Vector3 current = position;
+            for (int i = 0; i < 6; i++)
             {
-                VRRig.LocalRig.PlayHandTapLocal(68, false, 0.25f);
-                VRRig.LocalRig.PlayHandTapLocal(68, true, 0.25f);
-
-                liner.SetPosition(i, victim);
-                victim += new Vector3(Random.Range(-5f, 5f), 5f, Random.Range(-5f, 5f));
+                liner.SetPosition(i, current);
+                current += new Vector3(Random.Range(-3f, 3f), 4.5f, Random.Range(-3f, 3f));
             }
             liner.material.shader = Shader.Find("GUI/Text Shader");
-            Destroy(line, 2f);
+            Destroy(line, 1.5f);
 
             GameObject line2 = new GameObject("LightningInner");
             LineRenderer liner2 = line2.AddComponent<LineRenderer>();
-            liner2.startColor = Color.white; liner2.endColor = Color.white; liner2.startWidth = 0.15f; liner2.endWidth = 0.15f; liner2.positionCount = 5; liner2.useWorldSpace = true;
-            for (int i = 0; i < 5; i++)
+            liner2.startColor = Color.white; liner2.endColor = Color.white; liner2.startWidth = 0.2f; liner2.endWidth = 0.2f; liner2.positionCount = 6; liner2.useWorldSpace = true;
+            for (int i = 0; i < 6; i++)
                 liner2.SetPosition(i, liner.GetPosition(i));
 
             liner2.material.shader = Shader.Find("GUI/Text Shader");
-            liner2.material.renderQueue = liner.material.renderQueue + 1;
-            Destroy(line2, 2f);
+            liner2.material.renderQueue++;
+            Destroy(line2, 1.5f);
+
+            if (VRRig.LocalRig != null)
+            {
+                VRRig.LocalRig.PlayHandTapLocal(68, false, 1f);
+                VRRig.LocalRig.PlayHandTapLocal(68, true, 1f);
+            }
         }
 
         public static Coroutine laserCoroutine;
         public static IEnumerator RenderLaser(bool rightHand, VRRig rigTarget)
         {
-            float stoplasar = Time.time + 0.2f;
-            while (Time.time < stoplasar)
+            float stopLaser = Time.time + 0.2f;
+            while (Time.time < stopLaser)
             {
                 rigTarget.PlayHandTapLocal(18, !rightHand, 99999f);
+                Transform handTransform = rightHand ? rigTarget.rightHandTransform : rigTarget.leftHandTransform;
+                Vector3 startPos = handTransform.position + handTransform.up * 0.1f;
+                Vector3 dir = rightHand ? handTransform.right : -handTransform.right;
+                Vector3 endPos = Physics.Raycast(startPos + dir / 3f, dir, out RaycastHit ray, 512f, NoInvisLayerMask()) ? ray.point : startPos + dir * 512f;
+
                 GameObject line = new GameObject("LaserOuter");
                 LineRenderer liner = line.AddComponent<LineRenderer>();
-                liner.startColor = Color.red; liner.endColor = Color.red; liner.startWidth = 0.15f + Mathf.Sin(Time.time * 5f) * 0.01f; liner.endWidth = liner.startWidth; liner.positionCount = 2; liner.useWorldSpace = true;
-                Vector3 startPos = (rightHand ? rigTarget.rightHandTransform.position : rigTarget.leftHandTransform.position) + (rightHand ? rigTarget.rightHandTransform.up : rigTarget.leftHandTransform.up) * 0.1f;
-                Vector3 endPos = Vector3.zero;
-                Vector3 dir = rightHand ? rigTarget.rightHandTransform.right : -rigTarget.leftHandTransform.right;
-                try
-                {
-                    Physics.Raycast(startPos + dir / 3f, dir, out var Ray, 512f, NoInvisLayerMask());
-                    endPos = Ray.point;
-                    if (endPos == Vector3.zero)
-                        endPos = startPos + dir * 512f;
-                }
-                catch { }
+                liner.startColor = Color.red; liner.endColor = Color.red;
+                liner.startWidth = 0.15f + Mathf.Sin(Time.time * 5f) * 0.01f; liner.endWidth = liner.startWidth;
+                liner.positionCount = 2; liner.useWorldSpace = true;
                 liner.SetPosition(0, startPos + dir * 0.1f);
                 liner.SetPosition(1, endPos);
                 liner.material.shader = Shader.Find("GUI/Text Shader");
-                Destroy(line, Time.deltaTime);
+                Destroy(line, Time.deltaTime * 2f);
 
                 GameObject line2 = new GameObject("LaserInner");
                 LineRenderer liner2 = line2.AddComponent<LineRenderer>();
-                liner2.startColor = Color.white; liner2.endColor = Color.white; liner2.startWidth = 0.1f; liner2.endWidth = 0.1f; liner2.positionCount = 2; liner2.useWorldSpace = true;
+                liner2.startColor = Color.white; liner2.endColor = Color.white;
+                liner2.startWidth = 0.1f; liner2.endWidth = 0.1f;
+                liner2.positionCount = 2; liner2.useWorldSpace = true;
                 liner2.SetPosition(0, startPos + dir * 0.1f);
                 liner2.SetPosition(1, endPos);
                 liner2.material.shader = Shader.Find("GUI/Text Shader");
-                liner2.material.renderQueue = liner.material.renderQueue + 1;
-                Destroy(line2, Time.deltaTime);
+                liner2.material.renderQueue++;
+                Destroy(line2, Time.deltaTime * 2f);
 
-                GameObject whiteParticle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                Destroy(whiteParticle, 2f);
-                Destroy(whiteParticle.GetComponent<Collider>());
-                whiteParticle.GetComponent<Renderer>().material.color = Color.yellow;
-                whiteParticle.AddComponent<Rigidbody>().linearVelocity = new Vector3(Random.Range(-7.5f, 7.5f), Random.Range(0f, 7.5f), Random.Range(-7.5f, 7.5f));
-                whiteParticle.transform.position = endPos + new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f));
-                whiteParticle.transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
+                GameObject particle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Destroy(particle.GetComponent<Collider>());
+                particle.GetComponent<Renderer>().material.color = Color.yellow;
+                particle.AddComponent<Rigidbody>().linearVelocity = new Vector3(Random.Range(-7.5f, 7.5f), Random.Range(0f, 7.5f), Random.Range(-7.5f, 7.5f));
+                particle.transform.position = endPos + new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f));
+                particle.transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
+                Destroy(particle, 2f);
                 yield return null;
             }
         }
 
-        public static IEnumerator ControllerPress(string buttton, float value, float duration)
+        public static IEnumerator ControllerPress(string button, float value, float duration)
         {
             float stop = Time.time + duration;
+            ControllerInputPoller poller = ControllerInputPoller.instance;
             while (Time.time < stop)
             {
-                switch (buttton)
+                switch (button)
                 {
-                    case "lGrip": ControllerInputPoller.instance.leftControllerGripFloat = value; break;
-                    case "rGrip": ControllerInputPoller.instance.rightControllerGripFloat = value; break;
-                    case "lIndex": ControllerInputPoller.instance.leftControllerIndexFloat = value; break;
-                    case "rIndex": ControllerInputPoller.instance.rightControllerIndexFloat = value; break;
+                    case "lGrip": poller.leftControllerGripFloat = value; break;
+                    case "rGrip": poller.rightControllerGripFloat = value; break;
+                    case "lIndex": poller.leftControllerIndexFloat = value; break;
+                    case "rIndex": poller.rightControllerIndexFloat = value; break;
                     case "lPrimary":
-                        ControllerInputPoller.instance.leftControllerPrimaryButtonTouch = value > 0.33f;
-                        ControllerInputPoller.instance.leftControllerPrimaryButton = value > 0.66f;
+                        poller.leftControllerPrimaryButtonTouch = value > 0.33f;
+                        poller.leftControllerPrimaryButton = value > 0.66f;
                         break;
                     case "lSecondary":
-                        ControllerInputPoller.instance.leftControllerSecondaryButtonTouch = value > 0.33f;
-                        ControllerInputPoller.instance.leftControllerSecondaryButton = value > 0.66f;
+                        poller.leftControllerSecondaryButtonTouch = value > 0.33f;
+                        poller.leftControllerSecondaryButton = value > 0.66f;
                         break;
                     case "rPrimary":
-                        ControllerInputPoller.instance.rightControllerPrimaryButtonTouch = value > 0.33f;
-                        ControllerInputPoller.instance.rightControllerPrimaryButton = value > 0.66f;
+                        poller.rightControllerPrimaryButtonTouch = value > 0.33f;
+                        poller.rightControllerPrimaryButton = value > 0.66f;
                         break;
                     case "rSecondary":
-                        ControllerInputPoller.instance.rightControllerSecondaryButtonTouch = value > 0.33f;
-                        ControllerInputPoller.instance.rightControllerSecondaryButton = value > 0.66f;
+                        poller.rightControllerSecondaryButtonTouch = value > 0.33f;
+                        poller.rightControllerSecondaryButton = value > 0.66f;
                         break;
                 }
                 yield return null;
@@ -689,7 +621,6 @@ namespace CXS
             {
                 TeleportPlayer(Vector3.Lerp(startPosition, position, (Time.time - startTime) / time));
                 GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
-
                 yield return null;
             }
 
@@ -699,10 +630,8 @@ namespace CXS
         public static IEnumerator AssetSmoothTeleport(CXSAsset asset, Vector3? position, Quaternion? rotation, float time)
         {
             float startTime = Time.time;
-
             Vector3 startPosition = asset.assetObject.transform.position;
             Quaternion startRotation = asset.assetObject.transform.rotation;
-
             Vector3 targetPosition = position ?? startPosition;
             Quaternion targetRotation = rotation ?? startRotation;
 
@@ -718,18 +647,51 @@ namespace CXS
         public static IEnumerator Shake(float strength, float time, bool constant)
         {
             float startTime = Time.time;
+            Transform headTransform = GorillaTagger.Instance?.mainCamera?.transform;
+            Vector3 originalLocalPos = headTransform != null ? headTransform.localPosition : Vector3.zero;
+            Quaternion originalLocalRot = headTransform != null ? headTransform.localRotation : Quaternion.identity;
+
             while (Time.time < startTime + time)
             {
                 float shakePower = constant ? strength : strength * (1f - (Time.time - startTime) / time);
-                TeleportPlayer(GorillaTagger.Instance.bodyCollider.transform.position + new Vector3(Random.Range(-shakePower, shakePower), Random.Range(-shakePower, shakePower), Random.Range(-shakePower, shakePower)));
+                float rotPower = shakePower * 8f;
+
+                if (headTransform != null)
+                {
+                    headTransform.localPosition = originalLocalPos + new Vector3(
+                        Random.Range(-shakePower * 0.1f, shakePower * 0.1f),
+                        Random.Range(-shakePower * 0.1f, shakePower * 0.1f),
+                        Random.Range(-shakePower * 0.1f, shakePower * 0.1f)
+                    );
+                    headTransform.localRotation = originalLocalRot * Quaternion.Euler(
+                        Random.Range(-rotPower, rotPower),
+                        Random.Range(-rotPower, rotPower),
+                        Random.Range(-rotPower, rotPower)
+                    );
+                }
+
+                if (GorillaTagger.Instance != null && GorillaTagger.Instance.offlineVRRig != null)
+                {
+                    GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset = new Vector3(
+                        Random.Range(-rotPower, rotPower),
+                        Random.Range(-rotPower, rotPower),
+                        Random.Range(-rotPower, rotPower)
+                    );
+                }
 
                 yield return null;
             }
 
+            if (headTransform != null)
+            {
+                headTransform.localPosition = originalLocalPos;
+                headTransform.localRotation = originalLocalRot;
+            }
+            if (GorillaTagger.Instance != null && GorillaTagger.Instance.offlineVRRig != null)
+                GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset = Vector3.zero;
+
             shakeCoroutine = null;
         }
-
-        public static float IndicatorDelay = 0f;
 
         public static long isBlocked;
         public static void BlockedCheck()
@@ -749,10 +711,9 @@ namespace CXS
         {
             try
             {
-                if (data.Code != CXSByte) return; // Admin mods, before you try anything yes it's player ID locked
+                if (data.Code != CXSByte) return;
                 Player sender = PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(data.Sender);
-
-                object[] args = data.CustomData == null ? new object[] { } : (object[])data.CustomData;
+                object[] args = data.CustomData is object[] arr ? arr : Array.Empty<object>();
                 string command = args.Length > 0 ? (string)args[0] : "";
 
                 BlockedCheck();
@@ -763,28 +724,21 @@ namespace CXS
 
         private static void HandleCXSEvent(Player sender, object[] args, string command)
         {
-            if (ServerData.Administrators.TryGetValue(sender.UserId, out var administrator))
+            if (ServerData.Administrators.TryGetValue(sender.UserId, out _))
             {
                 NetPlayer target;
-
                 switch (command)
                 {
                     case "kick":
                         target = GetPlayerFromID((string)args[1]);
                         LightningStrike(GetVRRigFromPlayer(target).headMesh.transform.position);
-                        if (allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId))
-                        {
-                            if ((string)args[1] == PhotonNetwork.LocalPlayer.UserId)
-                                NetworkSystem.Instance.ReturnToSinglePlayer();
-                        }
+                        if ((allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId)) && (string)args[1] == PhotonNetwork.LocalPlayer.UserId)
+                            NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
                     case "silkick":
                         target = GetPlayerFromID((string)args[1]);
-                        if (allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId))
-                        {
-                            if ((string)args[1] == PhotonNetwork.LocalPlayer.UserId)
-                                NetworkSystem.Instance.ReturnToSinglePlayer();
-                        }
+                        if ((allowKickSelf || !ServerData.Administrators.ContainsKey(target.UserId)) && (string)args[1] == PhotonNetwork.LocalPlayer.UserId)
+                            NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
                     case "join":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
@@ -798,11 +752,10 @@ namespace CXS
                             NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
                     case "block":
-                        long blockDur = (long)args[1];
-                        blockDur = Math.Clamp(blockDur, 1L, 36000L);
-                        PlayerPrefs.SetString(BlockedKey, (DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur).ToString());
-                        PlayerPrefs.Save();
+                        long blockDur = Math.Clamp((long)args[1], 1L, 36000L);
                         isBlocked = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur;
+                        PlayerPrefs.SetString(BlockedKey, isBlocked.ToString());
+                        PlayerPrefs.Save();
                         NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
                     case "crash":
@@ -814,33 +767,19 @@ namespace CXS
                     case "sleep":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             Thread.Sleep((int)args[1]);
-
                         break;
                     case "vibrate":
-                        switch ((int)args[1])
-                        {
-                            case 1:
-                                GorillaTagger.Instance.StartVibration(true, GorillaTagger.Instance.tagHapticStrength, Mathf.Clamp((float)args[2], 0f, 10f));
-                                break;
-                            case 2:
-                                GorillaTagger.Instance.StartVibration(false, GorillaTagger.Instance.tagHapticStrength, Mathf.Clamp((float)args[2], 0f, 10f));
-                                break;
-                            case 3:
-                                GorillaTagger.Instance.StartVibration(true, GorillaTagger.Instance.tagHapticStrength, Mathf.Clamp((float)args[2], 0f, 10f));
-                                GorillaTagger.Instance.StartVibration(false, GorillaTagger.Instance.tagHapticStrength, Mathf.Clamp((float)args[2], 0f, 10f));
-                                break;
-                        }
+                        float vibDuration = Mathf.Clamp((float)args[2], 0f, 10f);
+                        if ((int)args[1] == 1 || (int)args[1] == 3)
+                            GorillaTagger.Instance.StartVibration(true, GorillaTagger.Instance.tagHapticStrength, vibDuration);
+                        if ((int)args[1] == 2 || (int)args[1] == 3)
+                            GorillaTagger.Instance.StartVibration(false, GorillaTagger.Instance.tagHapticStrength, vibDuration);
                         break;
                     case "forceenable":
-                        string ForceMod = (string)args[1];
-                        bool EnableValue = (bool)args[2];
-
-                        EnableMod(ForceMod, EnableValue);
-
+                        EnableMod((string)args[1], (bool)args[2]);
                         break;
                     case "toggle":
-                        string Mod = (string)args[1];
-                        ToggleMod(Mod);
+                        ToggleMod((string)args[1]);
                         break;
                     case "togglemenu":
                         DisableMenu = (bool)args[1];
@@ -853,11 +792,22 @@ namespace CXS
                     case "map":
                         TeleportToMap((string)args[1]);
                         break;
+                    case "bring":
+                        {
+                            string targetRoom = (string)args[1];
+                            string currentRoom = PhotonNetwork.CurrentRoom?.Name ?? NetworkSystem.Instance?.RoomName;
+                            if (!string.Equals(currentRoom, targetRoom, StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (NetworkSystem.Instance != null && NetworkSystem.Instance.InRoom)
+                                    NetworkSystem.Instance.ReturnToSinglePlayer();
+                                PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(targetRoom, GorillaNetworking.JoinType.Solo);
+                            }
+                        }
+                        break;
                     case "nocone":
                         break;
                     case "vel":
-                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                            break;
+                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId)) break;
                         GorillaTagger.Instance.rigidbody.linearVelocity = (Vector3)args[1];
                         break;
                     case "controller":
@@ -867,14 +817,12 @@ namespace CXS
                     case "smoothtp":
                         if (smoothTeleportCoroutine != null)
                             instance.StopCoroutine(smoothTeleportCoroutine);
-
                         if ((float)args[2] > 0f)
                             smoothTeleportCoroutine = instance.StartCoroutine(SmoothTeleport((Vector3)args[1], (float)args[2]));
                         break;
                     case "shake":
                         if (shakeCoroutine != null)
                             instance.StopCoroutine(shakeCoroutine);
-
                         shakeCoroutine = instance.StartCoroutine(Shake((float)args[1], (float)args[2], (bool)args[3]));
                         break;
                     case "tpnv":
@@ -884,9 +832,8 @@ namespace CXS
                         GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
                         break;
                     case "scale":
-                        VRRig player = GetVRRigFromPlayer(sender);
                         adminIsScaling = true;
-                        adminRigTarget = player;
+                        adminRigTarget = GetVRRigFromPlayer(sender);
                         adminScale = (float)args[1];
                         break;
                     case "cosmetic":
@@ -904,19 +851,13 @@ namespace CXS
                     case "laser":
                         if (laserCoroutine != null)
                             instance.StopCoroutine(laserCoroutine);
-
                         if ((bool)args[1])
                             laserCoroutine = instance.StartCoroutine(RenderLaser((bool)args[2], GetVRRigFromPlayer(sender)));
-
                         break;
                     case "notify":
                         SendNotification("<color=grey>[</color><color=red>ANNOUNCE</color><color=grey>]</color> " + (string)args[1], 5000);
                         break;
                     case "lr":
-                        // 1, 2, 3, 4 : r, g, b, a
-                        // 5 : width
-                        // 6, 7 : start pos, end pos
-                        // 8 : time
                         GameObject lines = new GameObject("Line");
                         LineRenderer liner = lines.AddComponent<LineRenderer>();
                         Color thecolor = new Color((float)args[1], (float)args[2], (float)args[3], (float)args[4]);
@@ -938,588 +879,373 @@ namespace CXS
                                 platform.GetComponent<Renderer>().material.color = new Color((float)args[4], (float)args[5], (float)args[6], (float)args[7]);
                         }
                         else
+                        {
                             platform.GetComponent<Renderer>().material.color = Color.black;
+                        }
 
                         platform.transform.position = (Vector3)args[1];
                         platform.transform.rotation = args.Length > 3 ? Quaternion.Euler((Vector3)args[3]) : Quaternion.identity;
                         platform.transform.localScale = args.Length > 2 ? (Vector3)args[2] : new Vector3(1f, 0.1f, 1f);
-
                         break;
                     case "muteall":
-                        foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => !line.playerVRRig.muted && !ServerData.Administrators.ContainsKey(line.linePlayer.UserId)))
+                        foreach (GorillaPlayerScoreboardLine line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => !line.playerVRRig.muted && !ServerData.Administrators.ContainsKey(line.linePlayer.UserId)))
                             line.PressButton(true, GorillaPlayerLineButton.ButtonType.Mute);
-
                         break;
                     case "unmuteall":
-                        foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => line.playerVRRig.muted))
+                        foreach (GorillaPlayerScoreboardLine line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => line.playerVRRig.muted))
                             line.PressButton(false, GorillaPlayerLineButton.ButtonType.Mute);
-
                         break;
                     case "mute":
-                        foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => !line.playerVRRig.muted && !ServerData.Administrators.ContainsKey(line.linePlayer.UserId) && line.playerVRRig.Creator.UserId == (string)args[1]))
+                        foreach (GorillaPlayerScoreboardLine line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => !line.playerVRRig.muted && !ServerData.Administrators.ContainsKey(line.linePlayer.UserId) && line.playerVRRig.Creator.UserId == (string)args[1]))
                             line.PressButton(true, GorillaPlayerLineButton.ButtonType.Mute);
-
                         break;
                     case "unmute":
-                        foreach (var line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => line.playerVRRig.muted && line.playerVRRig.Creator.UserId == (string)args[1]))
+                        foreach (GorillaPlayerScoreboardLine line in GorillaScoreboardTotalUpdater.allScoreboardLines.Where(line => line.playerVRRig.muted && line.playerVRRig.Creator.UserId == (string)args[1]))
                             line.PressButton(false, GorillaPlayerLineButton.ButtonType.Mute);
-
                         break;
                     case "rigposition":
                         VRRig.LocalRig.enabled = (bool)args[1];
+                        object[] rigTransform = (object[])args[2];
+                        object[] leftTransform = (object[])args[3];
+                        object[] rightTransform = (object[])args[4];
 
-                        object[] RigTransform = (object[])args[2];
-                        object[] LeftTransform = (object[])args[3];
-                        object[] RightTransform = (object[])args[4];
-
-                        if (RigTransform != null)
+                        if (rigTransform != null)
                         {
-                            VRRig.LocalRig.transform.position = (Vector3)RigTransform[0];
-                            VRRig.LocalRig.transform.rotation = (Quaternion)RigTransform[1];
-
-                            VRRig.LocalRig.head.rigTarget.transform.rotation = (Quaternion)RigTransform[2];
+                            VRRig.LocalRig.transform.position = (Vector3)rigTransform[0];
+                            VRRig.LocalRig.transform.rotation = (Quaternion)rigTransform[1];
+                            VRRig.LocalRig.head.rigTarget.transform.rotation = (Quaternion)rigTransform[2];
                         }
 
-                        if (LeftTransform != null)
+                        if (leftTransform != null)
                         {
-                            VRRig.LocalRig.leftHand.rigTarget.transform.position = (Vector3)LeftTransform[0];
-                            VRRig.LocalRig.leftHand.rigTarget.transform.rotation = (Quaternion)LeftTransform[1];
+                            VRRig.LocalRig.leftHand.rigTarget.transform.position = (Vector3)leftTransform[0];
+                            VRRig.LocalRig.leftHand.rigTarget.transform.rotation = (Quaternion)leftTransform[1];
                         }
 
-                        if (RightTransform != null)
+                        if (rightTransform != null)
                         {
-                            VRRig.LocalRig.rightHand.rigTarget.transform.position = (Vector3)RightTransform[0];
-                            VRRig.LocalRig.rightHand.rigTarget.transform.rotation = (Quaternion)RightTransform[1];
+                            VRRig.LocalRig.rightHand.rigTarget.transform.position = (Vector3)rightTransform[0];
+                            VRRig.LocalRig.rightHand.rigTarget.transform.rotation = (Quaternion)rightTransform[1];
                         }
-
                         break;
-
                     case "sb":
-                        instance.StartCoroutine(GetSoundResource((string)args[1], audio =>
-                        { instance.StartCoroutine(PlaySoundMicrophone(audio)); }));
+                        instance.StartCoroutine(GetSoundResource((string)args[1], audio => instance.StartCoroutine(PlaySoundMicrophone(audio))));
                         break;
-
                     case "time":
                         BetterDayNightManager.instance.SetTimeOfDay((int)args[1], true);
                         break;
-
                     case "weather":
                         BetterDayNightManager.instance.SetFixedWeather((BetterDayNightManager.WeatherType)args[1], true);
-
                         break;
-
                     case "setfog":
-                        Color targetColor = new Color((float)args[1], (float)args[2], (float)args[3], (float)args[4]);
-                        ZoneShaderSettings.activeInstance.SetGroundFogValue(targetColor, (float)args[5], (float)args[6], (float)args[7]);
+                        ApplyFog(new Color((float)args[1], (float)args[2], (float)args[3], (float)args[4]), (float)args[5], (float)args[6], (float)args[7]);
                         break;
-
                     case "resetfog":
-                        ZoneShaderSettings.activeInstance.CopySettings(ZoneShaderSettings.defaultsInstance);
+                        RestoreFog();
                         break;
-
                     case "spatial":
                         AudioSource voiceAudio = Traverse.Create(GetVRRigFromPlayer(sender)).Field("voiceAudio").GetValue<AudioSource>();
                         voiceAudio.spatialBlend = (bool)args[1] ? 1f : 0.9f;
                         voiceAudio.maxDistance = (bool)args[1] ? float.MaxValue : 500f;
                         break;
-
                     case "setmaterial":
                         VRRig rig = GetVRRigFromPlayer(PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer((int)args[1]));
                         rig.ChangeMaterialLocal((int)args[2]);
                         break;
-
-                    // New assets
                     case "asset-spawn":
-                        string AssetBundle = (string)args[1];
-                        string AssetName = (string)args[2];
-                        int SpawnAssetId = (int)args[3];
-                        bool addGorillaSurfaceOverride = args.Length > 4 && (bool)args[4];
-
+                        string assetBundle = (string)args[1];
+                        string assetName = (string)args[2];
+                        int spawnAssetId = (int)args[3];
+                        bool addSurfaceOverride = args.Length > 4 && (bool)args[4];
                         string uniqueKey = Guid.NewGuid().ToString();
-                        CommunicateCXS("spawn", SpawnAssetId, AssetName, AssetBundle, uniqueKey, addGorillaSurfaceOverride);
-
-                        instance.StartCoroutine(
-                            SpawnCXSAsset(AssetBundle, AssetName, SpawnAssetId, uniqueKey, addGorillaSurfaceOverride)
-                        );
+                        CommunicateCXS("spawn", spawnAssetId, assetName, assetBundle, uniqueKey, addSurfaceOverride);
+                        instance.StartCoroutine(SpawnCXSAsset(assetBundle, assetName, spawnAssetId, uniqueKey, addSurfaceOverride));
                         break;
-
                     case "asset-destroy":
-                        int DestroyAssetId = (int)args[1];
-
-                        CommunicateCXS("destroy", DestroyAssetId);
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(DestroyAssetId,
-                            asset => asset.DestroyObject())
-                        );
+                        int destroyAssetId = (int)args[1];
+                        CommunicateCXS("destroy", destroyAssetId);
+                        instance.StartCoroutine(ModifyCXSAsset(destroyAssetId, asset => asset.DestroyObject()));
                         break;
-
                     case "asset-destroychild":
-                        int DestroyAssetChildId = (int)args[1];
-                        string AssetChildName = (string)args[2];
-
-                        instance.StartCoroutine(
-                                ModifyCXSAsset(DestroyAssetChildId,
-                                        asset => asset.assetObject.transform.Find(AssetChildName).gameObject.Destroy())
-                        );
+                        int destroyChildId = (int)args[1];
+                        string childName = (string)args[2];
+                        instance.StartCoroutine(ModifyCXSAsset(destroyChildId, asset => Destroy(asset.assetObject.transform.Find(childName)?.gameObject)));
                         break;
-
                     case "asset-destroycolliders":
-                        int DestroyAssetColliderId = (int)args[1];
-
-                        instance.StartCoroutine(
-                                ModifyCXSAsset(DestroyAssetColliderId,
-                                        asset => DestroyColliders(asset.assetObject))
-                        );
+                        int destroyColliderId = (int)args[1];
+                        instance.StartCoroutine(ModifyCXSAsset(destroyColliderId, asset => DestroyColliders(asset.assetObject)));
                         break;
-
                     case "asset-setposition":
-                        int PositionAssetId = (int)args[1];
-                        Vector3 TargetPosition = (Vector3)args[2];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(PositionAssetId,
-                            asset => asset.SetPosition(TargetPosition))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetPosition((Vector3)args[2])));
                         break;
-
                     case "asset-setlocalposition":
-                        int LocalPositionAssetId = (int)args[1];
-                        Vector3 TargetLocalPosition = (Vector3)args[2];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(LocalPositionAssetId,
-                            asset => asset.SetLocalPosition(TargetLocalPosition))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetLocalPosition((Vector3)args[2])));
                         break;
-
                     case "asset-setrotation":
-                        int RotationAssetId = (int)args[1];
-                        Quaternion TargetRotation = (Quaternion)args[2];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(RotationAssetId,
-                            asset => asset.SetRotation(TargetRotation))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetRotation((Quaternion)args[2])));
                         break;
-
                     case "asset-setlocalrotation":
-                        int LocalRotationAssetId = (int)args[1];
-                        Quaternion TargetLocalRotation = (Quaternion)args[2];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(LocalRotationAssetId,
-                            asset => asset.SetLocalRotation(TargetLocalRotation))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetLocalRotation((Quaternion)args[2])));
                         break;
-
                     case "asset-settransform":
-                        int TransformAssetId = (int)args[1];
-                        Vector3? TargetTransformPosition = (Vector3)args[2];
-                        Quaternion? TargetTransformRotation = (Quaternion)args[3];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(TransformAssetId,
-                            asset =>
-                            {
-                                if (TargetTransformPosition.HasValue)
-                                    asset.SetPosition(TargetTransformPosition.Value);
-                                if (TargetTransformRotation.HasValue)
-                                    asset.SetRotation(TargetTransformRotation.Value);
-                            })
-                        );
+                        int transformAssetId = (int)args[1];
+                        Vector3? targetTransformPos = (Vector3?)args[2];
+                        Quaternion? targetTransformRot = (Quaternion?)args[3];
+                        instance.StartCoroutine(ModifyCXSAsset(transformAssetId, asset =>
+                        {
+                            if (targetTransformPos.HasValue) asset.SetPosition(targetTransformPos.Value);
+                            if (targetTransformRot.HasValue) asset.SetRotation(targetTransformRot.Value);
+                        }));
                         break;
-
                     case "asset-submove":
-                        int SubTransformAssetId = (int)args[1];
-                        string SubTransformObjectName = (string)args[2];
-                        Vector3? TargetSubTransformPosition = (Vector3)args[3];
-                        Quaternion? TargetSubTransformRotation = (Quaternion)args[4];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(SubTransformAssetId,
-                            asset =>
-                            {
-                                Transform targetObjectTransform = asset.assetObject.transform.Find(SubTransformObjectName);
-                                if (TargetSubTransformPosition.HasValue)
-                                    targetObjectTransform.transform.position = TargetSubTransformPosition.Value;
-                                if (TargetSubTransformRotation.HasValue)
-                                    targetObjectTransform.transform.rotation = TargetSubTransformRotation.Value;
-                            })
-                        );
+                        int subTransformAssetId = (int)args[1];
+                        string subTransformObjectName = (string)args[2];
+                        Vector3? targetSubPos = (Vector3?)args[3];
+                        Quaternion? targetSubRot = (Quaternion?)args[4];
+                        instance.StartCoroutine(ModifyCXSAsset(subTransformAssetId, asset =>
+                        {
+                            Transform targetObjTransform = asset.assetObject.transform.Find(subTransformObjectName);
+                            if (targetObjTransform == null) return;
+                            if (targetSubPos.HasValue) targetObjTransform.position = targetSubPos.Value;
+                            if (targetSubRot.HasValue) targetObjTransform.rotation = targetSubRot.Value;
+                        }));
                         break;
-
                     case "asset-smoothtp":
-                        int SmoothAssetId = (int)args[1];
+                        int smoothAssetId = (int)args[1];
                         float time = (float)args[2];
-
-                        Vector3? TargetSmoothPosition = (Vector3)args[2];
-                        Quaternion? TargetSmoothRotation = (Quaternion)args[3];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(SmoothAssetId, asset =>
-                                instance.StartCoroutine(AssetSmoothTeleport(asset, TargetSmoothPosition, TargetSmoothRotation, time)))
-                        );
+                        Vector3? targetSmoothPos = (Vector3?)args[2];
+                        Quaternion? targetSmoothRot = (Quaternion?)args[3];
+                        instance.StartCoroutine(ModifyCXSAsset(smoothAssetId, asset =>
+                            instance.StartCoroutine(AssetSmoothTeleport(asset, targetSmoothPos, targetSmoothRot, time))));
                         break;
-
                     case "asset-setscale":
-                        int ScaleAssetId = (int)args[1];
-                        Vector3 TargetScale = (Vector3)args[2];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(ScaleAssetId,
-                            asset => asset.SetScale(TargetScale))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetScale((Vector3)args[2])));
                         break;
                     case "asset-setanchor":
-                        int AnchorAssetId = (int)args[1];
-                        int AnchorPositionId = args.Length > 2 ? (int)args[2] : -1;
-                        int TargetAnchorPlayerID = args.Length > 3 ? (int)args[3] : sender.ActorNumber;
-
-                        GetVRRigFromPlayer(PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(TargetAnchorPlayerID));
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(AnchorAssetId,
-                            asset => asset.BindObject(TargetAnchorPlayerID, AnchorPositionId))
-                        );
+                        int anchorAssetId = (int)args[1];
+                        int anchorPositionId = args.Length > 2 ? (int)args[2] : -1;
+                        int targetAnchorPlayerId = args.Length > 3 ? (int)args[3] : sender.ActorNumber;
+                        instance.StartCoroutine(ModifyCXSAsset(anchorAssetId, asset => asset.BindObject(targetAnchorPlayerId, anchorPositionId)));
                         break;
-
                     case "asset-playanimation":
-                        int AnimationAssetId = (int)args[1];
-                        string AnimationObjectName = (string)args[2];
-                        string AnimationClipName = (string)args[3];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(AnimationAssetId,
-                            asset => asset.PlayAnimation(AnimationObjectName, AnimationClipName))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.PlayAnimation((string)args[2], (string)args[3])));
                         break;
-
                     case "asset-playsound":
-                        {
-                            int SoundAssetId = (int)args[1];
-                            string SoundObjectName = (string)args[2];
-                            string AudioClipName = args.Length > 3 ? (string)args[3] : null;
-
-                            instance.StartCoroutine(
-                                ModifyCXSAsset(SoundAssetId,
-                                asset => asset.PlayAudioSource(SoundObjectName, AudioClipName),
-                                true)
-                            );
-                            break;
-                        }
-                    case "asset-playoneshot":
-                        {
-                            int SoundAssetId = (int)args[1];
-                            string SoundObjectName = (string)args[2];
-                            string AudioClipName = args.Length > 3 ? (string)args[3] : null;
-
-                            instance.StartCoroutine(
-                                ModifyCXSAsset(SoundAssetId,
-                                asset => asset.PlayAudioSourceOneShot(SoundObjectName, AudioClipName),
-                                true)
-                            );
-                            break;
-                        }
-                    case "asset-stopsound":
-                        int StopSoundAssetId = (int)args[1];
-                        string StopSoundObjectName = (string)args[2];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(StopSoundAssetId,
-                            asset => asset.StopAudioSource(StopSoundObjectName),
-                            true)
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.PlayAudioSource((string)args[2], args.Length > 3 ? (string)args[3] : null), true));
                         break;
-
+                    case "asset-playoneshot":
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.PlayAudioSourceOneShot((string)args[2], args.Length > 3 ? (string)args[3] : null), true));
+                        break;
+                    case "asset-stopsound":
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.StopAudioSource((string)args[2]), true));
+                        break;
                     case "asset-setcolor":
-                        int ColorAssetId = (int)args[1];
-                        string ColorAssetObject = (string)args[2];
-                        Color TargetColor = new Color((float)args[3], (float)args[4], (float)args[5], (float)args[6]);
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(ColorAssetId,
-                            asset => asset.SetColor(ColorAssetObject, TargetColor))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetColor((string)args[2], new Color((float)args[3], (float)args[4], (float)args[5], (float)args[6]))));
                         break;
                     case "asset-settexture":
-                        int TextureAssetId = (int)args[1];
-                        string TextureAssetObject = (string)args[2];
-                        string TextureAssetUrl = (string)args[3];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(TextureAssetId,
-                            asset => asset.SetTextureURL(TextureAssetObject, TextureAssetUrl))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetTextureURL((string)args[2], (string)args[3])));
                         break;
                     case "asset-setsound":
-                        int SetSoundAssetId = (int)args[1];
-                        string SoundAssetObject = (string)args[2];
-                        string SoundAssetUrl = (string)args[3];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(SetSoundAssetId,
-                            asset => asset.SetAudioURL(SoundAssetObject, SoundAssetUrl))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetAudioURL((string)args[2], (string)args[3])));
                         break;
                     case "asset-setvideo":
-                        int VideoAssetId = (int)args[1];
-                        string VideoAssetObject = (string)args[2];
-                        string VideoAssetUrl = (string)args[3];
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(VideoAssetId,
-                            asset => asset.SetVideoURL(VideoAssetObject, VideoAssetUrl))
-                        );
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.SetVideoURL((string)args[2], (string)args[3])));
                         break;
                     case "asset-settext":
+                        int textAssetId = (int)args[1];
+                        string textAssetObj = (string)args[2];
+                        string textContent = (string)args[3];
+                        instance.StartCoroutine(ModifyCXSAsset(textAssetId, asset =>
                         {
-                            int AssetId = (int)args[1];
-                            string AssetObject = (string)args[2];
-                            string AssetText = (string)args[3];
-
-                            instance.StartCoroutine(
-                                ModifyCXSAsset(AssetId,
-                                asset =>
-                                {
-                                    GameObject targetObject = (AssetObject.IsNullOrEmpty() ? asset.assetObject.transform : asset.assetObject.transform.Find(AssetObject)).gameObject;
-                                    if (targetObject.TryGetComponent(out Text legacyText))
-                                        legacyText.text = AssetText;
-
-                                    if (targetObject.TryGetComponent(out TMP_Text tmpText))
-                                        tmpText.text = AssetText;
-                                })
-                            );
-                            break;
-                        }
-                    case "asset-setvolume":
-                        int AudioAssetId = (int)args[1];
-                        string AudioAssetObject = (string)args[2];
-                        float AudioAssetVolume = Mathf.Clamp((float)args[3], 0f, 1f);
-
-                        instance.StartCoroutine(
-                            ModifyCXSAsset(AudioAssetId,
-                                asset => asset.ChangeAudioVolume(AudioAssetObject, AudioAssetVolume))
-                        );
+                            GameObject targetObj = (string.IsNullOrEmpty(textAssetObj) ? asset.assetObject.transform : asset.assetObject.transform.Find(textAssetObj))?.gameObject;
+                            if (targetObj == null) return;
+                            if (targetObj.TryGetComponent(out Text legacyText)) legacyText.text = textContent;
+                            if (targetObj.TryGetComponent(out TMP_Text tmpText)) tmpText.text = textContent;
+                        }));
                         break;
-
+                    case "asset-setvolume":
+                        instance.StartCoroutine(ModifyCXSAsset((int)args[1], asset => asset.ChangeAudioVolume((string)args[2], Mathf.Clamp((float)args[3], 0f, 1f))));
+                        break;
                     case "game-setposition":
-                        {
-                            GameObject gameObject = GameObject.Find((string)args[1]);
-                            if (gameObject != null)
-                                gameObject.transform.position = (Vector3)args[2];
-                            break;
-                        }
-
+                        GameObject gPos = GameObject.Find((string)args[1]);
+                        if (gPos != null) gPos.transform.position = (Vector3)args[2];
+                        break;
                     case "game-setrotation":
-                        {
-                            GameObject gameObject = GameObject.Find((string)args[1]);
-                            if (gameObject != null)
-                                gameObject.transform.rotation = (Quaternion)args[2];
-                            break;
-                        }
-
+                        GameObject gRot = GameObject.Find((string)args[1]);
+                        if (gRot != null) gRot.transform.rotation = (Quaternion)args[2];
+                        break;
                     case "game-clone":
-                        {
-                            GameObject gameObject = GameObject.Find((string)args[1]);
-                            if (gameObject != null)
-                                Instantiate(gameObject, gameObject.transform.position, gameObject.transform.rotation, gameObject.transform.parent).name = (string)args[2];
-
-                            break;
-                        }
-
+                        GameObject gClone = GameObject.Find((string)args[1]);
+                        if (gClone != null) Instantiate(gClone, gClone.transform.position, gClone.transform.rotation, gClone.transform.parent).name = (string)args[2];
+                        break;
                     case "Vibrate":
                         GorillaTagger.Instance.StartVibration(true, 1, 0.5f);
                         GorillaTagger.Instance.StartVibration(false, 1, 0.5f);
                         break;
-
                     case "Slow":
                         GorillaTagger.Instance.ApplyStatusEffect(GorillaTagger.StatusEffect.Frozen, 1f);
                         break;
-
                     case "ScaleDown":
-
-                        Size -= 0.01f;
-                        GorillaTagger.Instance.transform.localScale = new Vector3(Size, Size, Size);
-                        GorillaTagger.Instance.offlineVRRig.transform.localScale = new Vector3(Size, Size, Size);
-                        foreach (VRRig g in VRRigCache.ActiveRigs)
-                        {
-                            if (g == GorillaTagger.Instance.offlineVRRig) continue;
-                            float currentScale = g.transform.localScale.x;
-                            g.bodyHolds.transform.localScale = new Vector3(currentScale, 1, currentScale);
-                        }
-
+                        SetPlayerSize(Mathf.Clamp(Size - 0.25f, 0.1f, 10f));
                         break;
-
                     case "ScaleUp":
-                        Size += 0.01f;
-                        GorillaTagger.Instance.transform.localScale = new Vector3(Size, Size, Size);
-                        GorillaTagger.Instance.offlineVRRig.transform.localScale = new Vector3(Size, Size, Size);
-                        foreach (VRRig g in VRRigCache.ActiveRigs)
-                        {
-                            if (g == GorillaTagger.Instance.offlineVRRig) continue;
-                            float currentScale = g.transform.localScale.x;
-                            g.bodyHolds.transform.localScale = new Vector3(currentScale, 1, currentScale);
-                        }
+                        SetPlayerSize(Mathf.Clamp(Size + 0.35f, 0.1f, 10f));
                         break;
-
                     case "ScaleReset":
-                        Size = 1;
-                        GorillaTagger.Instance.transform.localScale = new Vector3(1, 1, 1);
-                        GorillaTagger.Instance.offlineVRRig.transform.localScale = new Vector3(1, 1, 1);
-                        foreach (VRRig g in VRRigCache.ActiveRigs)
-                        {
-                            if (g == GorillaTagger.Instance.offlineVRRig) continue;
-                            float currentScale = g.transform.localScale.x;
-                            g.bodyHolds.transform.localScale = new Vector3(currentScale, 1, currentScale);
-                        }
+                        SetPlayerSize(1f);
                         break;
-
                     case "LowGrav":
                         GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(Vector3.up * (Time.deltaTime * (6.66f / Time.deltaTime)), ForceMode.Acceleration);
                         break;
-
                     case "NoGrav":
                         GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(Vector3.up * (Time.deltaTime * (9.81f / Time.deltaTime)), ForceMode.Acceleration);
                         break;
-
                     case "HighGrav":
                         GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(Vector3.down * (Time.deltaTime * (7.77f / Time.deltaTime)), ForceMode.Acceleration);
                         break;
-
                     case "dark":
                         GameLightingManager.instance.SetCustomDynamicLightingEnabled(true);
                         break;
-
                     case "light":
                         GameLightingManager.instance.SetCustomDynamicLightingEnabled(false);
                         break;
-
+                    case "rocket":
+                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                            break;
+                        GorillaTagger.Instance.rigidbody.linearVelocity = new Vector3(0f, 120f, 0f);
+                        break;
+                    case "bloodfog":
+                        ApplyFog(new Color(0.6f, 0.02f, 0.02f, 1f), 0.85f, 0f, 10f);
+                        break;
+                    case "acidfog":
+                        ApplyFog(new Color(0.05f, 0.7f, 0.05f, 1f), 0.85f, 0f, 10f);
+                        break;
+                    case "blind":
+                        ApplyFog(Color.black, 1f, 0f, 1f);
+                        break;
+                    case "unblind":
+                        RestoreFog();
+                        break;
+                    case "freezeall":
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                            GorillaTagger.Instance.ApplyStatusEffect(GorillaTagger.StatusEffect.Frozen, 5f);
+                        break;
                     case "snapneck":
                         GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.y = 90f;
                         break;
-
                     case "fixneck":
                         GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.y = 0f;
                         break;
-
                     case "DisNetTrigs":
-                        GameObject.Find("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/")?.SetActive(false);
-                        break;
-
-                    case "EnabNetTrigs":
-                        GameObject.Find("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/")?.SetActive(true);
-                        break;
-
-                    case "UnloadEverything":
-                        GameObject.Find("Environment Objects/")?.SetActive(false);
-                        break;
-
-                    case "LoadEverything":
-                        GameObject.Find("Environment Objects/")?.SetActive(true);
-                        break;
-
-                    case "NoMap":
-                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                        {
-                            GameObject.Find("Environment Objects/LocalObjects_Prefab/Forest/")?.SetActive(false);
-                            GameObject.Find("Environment Objects/LocalObjects_Prefab/City_WorkingPrefab/")?.SetActive(false);
-                            GameObject.Find("Mountain/")?.SetActive(false);
-                            GameObject.Find("Beach/")?.SetActive(false);
-                            GameObject.Find("HoverboardLevel/")?.SetActive(false);
-                            GameObject.Find("Hoverboard/")?.SetActive(false);
-                            GameObject.Find("MetroMain/")?.SetActive(false);
-                            GameObject.Find("MonkeBlocks/")?.SetActive(false);
-                            GameObject.Find("MonkeBlocksShared/")?.SetActive(false);
-                            GameObject.Find("GhostReactor/")?.SetActive(false);
-                        }
-                        break;
-
-                    case "YesMap":
-                        GameObject.Find("Environment Objects/LocalObjects_Prefab/Forest/")?.SetActive(true);
-                        GameObject.Find("Environment Objects/LocalObjects_Prefab/City_WorkingPrefab/")?.SetActive(true);
-                        GameObject.Find("Mountain/")?.SetActive(true);
-                        GameObject.Find("Beach/")?.SetActive(true);
-                        GameObject.Find("HoverboardLevel/")?.SetActive(true);
-                        GameObject.Find("Hoverboard/")?.SetActive(true);
-                        GameObject.Find("MetroMain/")?.SetActive(true);
-                        GameObject.Find("MonkeBlocks/")?.SetActive(true);
-                        GameObject.Find("MonkeBlocksShared/")?.SetActive(true);
-                        GameObject.Find("GhostReactor/")?.SetActive(true);
-                        break;
-
-                    case "NoComputer":
-                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                        {
-                            GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/TreeRoomInteractables/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("Environment Objects/LocalObjects_Prefab/SharedBlocksMapSelectLobby/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("Networking Scripts/GhostReactorManager/ForestGhostReactorFtue/Root/TreeRoom/TreeRoomInteractables/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("Mountain/Geometry/goodigloo/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("Beach/BeachComputer (1)/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("HoverboardLevel/UI (1)/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("ArenaComputerRoom/UI/GorillaComputerObject/")?.SetActive(false);
-                            GameObject.Find("MetroMain/ComputerArea/GorillaComputerObject/")?.SetActive(false);
-                        }
-                        break;
-                    case "YesComputer":
-                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                        {
-                            GameObject.Find("Environment Objects/LocalObjects_Prefab/TreeRoom/TreeRoomInteractables/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("Environment Objects/LocalObjects_Prefab/SharedBlocksMapSelectLobby/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("Networking Scripts/GhostReactorManager/ForestGhostReactorFtue/Root/TreeRoom/TreeRoomInteractables/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("Mountain/Geometry/goodigloo/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("Beach/BeachComputer (1)/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("HoverboardLevel/UI (1)/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("ArenaComputerRoom/UI/GorillaComputerObject/")?.SetActive(true);
-                            GameObject.Find("MetroMain/ComputerArea/GorillaComputerObject/")?.SetActive(true);
-                        }
-                        break;
-
                     case "NoMapTrigs":
                         GameObject.Find("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/")?.SetActive(false);
                         break;
-
+                    case "EnabNetTrigs":
                     case "YesMapTrigs":
                         GameObject.Find("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/")?.SetActive(true);
                         break;
-
+                    case "UnloadEverything":
+                        GameObject.Find("Environment Objects/")?.SetActive(false);
+                        break;
+                    case "LoadEverything":
+                        GameObject.Find("Environment Objects/")?.SetActive(true);
+                        break;
+                    case "NoMap":
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                            ToggleMaps(false);
+                        break;
+                    case "YesMap":
+                        ToggleMaps(true);
+                        break;
+                    case "NoComputer":
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                            ToggleComputers(false);
+                        break;
+                    case "YesComputer":
+                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                            ToggleComputers(true);
+                        break;
                     case "sendmydomain...":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                            PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("*my domain*", JoinType.Solo);
+                            PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("SHIBA_GT_GENESIS", GorillaNetworking.JoinType.Solo);
                         break;
                 }
             }
-            switch (command)
+
+            if (command == "confirmusing" && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
             {
-                case "confirmusing":
-                    if (ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+                VRRig vrrig = GetVRRigFromPlayer(sender);
+                if (vrrig != null)
+                {
+                    if (confirmUsingDelay.TryGetValue(vrrig, out float delay))
                     {
-                        if (indicatorDelay > Time.time)
-                        {
-                            // Credits to Violet Client for reminding me how insecure the CXS system is
-                            VRRig vrrig = GetVRRigFromPlayer(sender);
-                            if (confirmUsingDelay.TryGetValue(vrrig, out float delay))
-                            {
-                                if (Time.time < delay)
-                                    return;
-
-                                confirmUsingDelay.Remove(vrrig);
-                            }
-
-                            confirmUsingDelay.Add(vrrig, Time.time + 5f);
-                            userDictionary[vrrig.Creator.GetPlayerRef()] = ((string)args[1], (string)args[2]);
-
-                            CommunicateCXS("confirmusing", sender.ActorNumber, (string)args[1], (string)args[2]);
-                            ConfirmUsing(sender.UserId, (string)args[1], (string)args[2]);
-                        }
+                        if (Time.time < delay) return;
+                        confirmUsingDelay.Remove(vrrig);
                     }
-                    break;
+
+                    confirmUsingDelay.Add(vrrig, Time.time + 3f);
+                    userDictionary[vrrig.Creator.GetPlayerRef()] = ((string)args[1], (string)args[2]);
+                }
+
+                ConfirmUsing(sender.UserId, (string)args[1], (string)args[2]);
             }
+        }
+
+        private static void SetPlayerSize(float size)
+        {
+            Size = size;
+            if (GTPlayer.Instance != null)
+            {
+                GTPlayer.Instance.SetScaleMultiplier(Size);
+                GTPlayer.Instance.transform.localScale = Vector3.one * Size;
+            }
+            if (GorillaTagger.Instance != null)
+            {
+                GorillaTagger.Instance.transform.localScale = Vector3.one * Size;
+                if (GorillaTagger.Instance.offlineVRRig != null)
+                    GorillaTagger.Instance.offlineVRRig.transform.localScale = Vector3.one * Size;
+            }
+            if (VRRig.LocalRig != null)
+                VRRig.LocalRig.transform.localScale = Vector3.one * Size;
+        }
+
+        private static void ToggleMaps(bool active)
+        {
+            string[] paths =
+            {
+                "Environment Objects/LocalObjects_Prefab/Forest/",
+                "Environment Objects/LocalObjects_Prefab/City_WorkingPrefab/",
+                "Mountain/", "Beach/", "HoverboardLevel/", "Hoverboard/",
+                "MetroMain/", "MonkeBlocks/", "MonkeBlocksShared/", "GhostReactor/"
+            };
+            foreach (string p in paths) GameObject.Find(p)?.SetActive(active);
+        }
+
+        private static void ToggleComputers(bool active)
+        {
+            string[] paths =
+            {
+                "Environment Objects/LocalObjects_Prefab/TreeRoom/TreeRoomInteractables/GorillaComputerObject/",
+                "Environment Objects/LocalObjects_Prefab/SharedBlocksMapSelectLobby/GorillaComputerObject/",
+                "Networking Scripts/GhostReactorManager/ForestGhostReactorFtue/Root/TreeRoom/TreeRoomInteractables/GorillaComputerObject/",
+                "Mountain/Geometry/goodigloo/GorillaComputerObject/",
+                "Beach/BeachComputer (1)/GorillaComputerObject/",
+                "HoverboardLevel/UI (1)/GorillaComputerObject/",
+                "ArenaComputerRoom/UI/GorillaComputerObject/",
+                "MetroMain/ComputerArea/GorillaComputerObject/"
+            };
+            foreach (string p in paths) GameObject.Find(p)?.SetActive(active);
         }
 
         public static void ExecuteCommand(string command, RaiseEventOptions options, params object[] parameters)
         {
-            if (!NetworkSystem.Instance.InRoom)
+            if (!NetworkSystem.Instance.InRoom) return;
+
+            if (!ServerData.IsLocalAdmin())
+            {
+                SendNotification("<color=purple>CXS</color>\nUnverified Admin.", 3.5f);
                 return;
+            }
 
             if (options.Receivers == ReceiverGroup.All || (options.TargetActors != null && options.TargetActors.Contains(NetworkSystem.Instance.LocalPlayer.ActorNumber)))
             {
@@ -1533,10 +1259,8 @@ namespace CXS
             }
 
             PhotonNetwork.RaiseEvent(CXSByte,
-                new object[] { command }
-                    .Concat(parameters)
-                    .ToArray(),
-            options, SendOptions.SendReliable);
+                new object[] { command }.Concat(parameters).ToArray(),
+                options, SendOptions.SendReliable);
         }
 
         public static void ExecuteCommand(string command, int[] targets, params object[] parameters) =>
@@ -1547,9 +1271,7 @@ namespace CXS
 
         public static void ExecuteCommand(string command, ReceiverGroup target, params object[] parameters) =>
             ExecuteCommand(command, new RaiseEventOptions { Receivers = target }, parameters);
-        #endregion
 
-        #region Asset Loading
         public static readonly Dictionary<string, AssetBundle> assetBundlePool = new Dictionary<string, AssetBundle>();
         public static readonly Dictionary<int, CXSAsset> CXSAssets = new Dictionary<int, CXSAsset>();
 
@@ -1562,40 +1284,27 @@ namespace CXS
             if (assetBundle.Contains("..") || assetBundle.Contains("%2E%2E"))
                 return;
 
-            string fileName;
-            if (assetBundle.Contains("/"))
-            {
-                string[] split = assetBundle.Split("/");
-                fileName = $"{CXSResourceLocation}/{split[^1]}";
-            }
-            else
-                fileName = $"{CXSResourceLocation}/{assetBundle}";
+            string fileName = assetBundle.Contains('/')
+                ? $"{CXSResourceLocation}/{assetBundle.Split('/')[^1]}"
+                : $"{CXSResourceLocation}/{assetBundle}";
 
-            if (File.Exists(fileName))
-                File.Delete(fileName);
+            try { File.Delete(fileName); } catch { }
 
-            string URL = $"{ServerData.AssetsURL}/{assetBundle}";
-
-            if (assetBundle.Contains("/"))
-            {
-                string[] split = assetBundle.Split("/");
-                URL = URL.Replace("/CXS/", $"/{split[0]}/");
-            }
+            string url = $"{ServerData.AssetsURL}/{assetBundle}";
+            if (assetBundle.Contains('/'))
+                url = url.Replace("/CXS/", $"/{assetBundle.Split('/')[0]}/");
 
             using HttpClient client = new HttpClient();
-            byte[] downloadedData = await client.GetByteArrayAsync(URL);
+            byte[] downloadedData = await client.GetByteArrayAsync(url);
 
             AssetBundleCreateRequest bundleCreateRequest = AssetBundle.LoadFromMemoryAsync(downloadedData);
             while (!bundleCreateRequest.isDone)
                 await Task.Yield();
 
             AssetBundle bundle = bundleCreateRequest.assetBundle;
-
             try
             {
-                if (bundle == null)
-                    throw new Exception("Bundle doesn't exist");
-
+                if (bundle == null) throw new Exception("Bundle doesn't exist");
                 assetBundlePool.Add(assetBundle, bundle);
             }
             catch
@@ -1618,11 +1327,10 @@ namespace CXS
 
         public static IEnumerator SpawnCXSAsset(string assetBundle, string assetName, int id, string uniqueKey, bool addGorillaSurfaceOverride)
         {
-            if (CXSAssets.TryGetValue(id, out var asset))
+            if (CXSAssets.TryGetValue(id, out CXSAsset asset))
                 asset.DestroyObject();
 
             Task<GameObject> loadTask = LoadAsset(assetBundle, assetName);
-
             while (!loadTask.IsCompleted)
                 yield return null;
 
@@ -1639,11 +1347,8 @@ namespace CXS
             {
                 foreach (Transform child in targetObject.GetComponentsInChildren<Transform>(true))
                 {
-                    if (child.GetComponent<MeshCollider>() != null)
-                    {
-                        if (child.GetComponent<GorillaSurfaceOverride>() == null)
-                            child.gameObject.AddComponent<GorillaSurfaceOverride>();
-                    }
+                    if (child.GetComponent<MeshCollider>() != null && child.GetComponent<GorillaSurfaceOverride>() == null)
+                        child.gameObject.AddComponent<GorillaSurfaceOverride>();
                 }
             }
 
@@ -1665,7 +1370,7 @@ namespace CXS
                     yield return null;
             }
 
-            if (!CXSAssets.TryGetValue(id, out var asset))
+            if (!CXSAssets.TryGetValue(id, out CXSAsset asset))
             {
                 Log("Failed to retrieve asset from ID");
                 yield break;
@@ -1696,14 +1401,13 @@ namespace CXS
         public static void DestroyColliders(GameObject gameObject)
         {
             foreach (Collider collider in gameObject.GetComponentsInChildren<Collider>(true))
-                collider.Destroy();
+                Destroy(collider);
         }
 
         public static IEnumerator PreloadAssetBundle(string name)
         {
             if (assetBundlePool.ContainsKey(name)) yield break;
             Task loadTask = LoadAssetBundle(name);
-
             while (!loadTask.IsCompleted)
                 yield return null;
         }
@@ -1722,66 +1426,57 @@ namespace CXS
 
         public static void SanitizeCXSAssets()
         {
-            foreach (var asset in CXSAssets.Values.Where(asset => asset.assetObject == null || !asset.assetObject.activeSelf))
+            foreach (CXSAsset asset in CXSAssets.Values.Where(asset => asset.assetObject == null || !asset.assetObject.activeSelf))
                 asset.DestroyObject();
         }
 
-        public static void SyncCXSAssets(NetPlayer JoiningPlayer)
+        public static void SyncCXSAssets(NetPlayer joiningPlayer)
         {
             BlockedCheck();
-            if (JoiningPlayer == NetworkSystem.Instance.LocalPlayer)
-                return;
+            if (joiningPlayer == NetworkSystem.Instance.LocalPlayer || CXSAssets.Count == 0) return;
 
-            if (CXSAssets.Count <= 0) return;
-            Player masterAdministrator = GetMasterAdministrator();
+            Player masterAdmin = GetMasterAdministrator();
+            if (masterAdmin == null || PhotonNetwork.LocalPlayer != masterAdmin) return;
 
-            if (masterAdministrator == null || PhotonNetwork.LocalPlayer != masterAdministrator) return;
             foreach (CXSAsset asset in CXSAssets.Values)
             {
-                ExecuteCommand("asset-spawn", JoiningPlayer.ActorNumber, asset.assetBundle, asset.assetName, asset.assetId);
+                ExecuteCommand("asset-spawn", joiningPlayer.ActorNumber, asset.assetBundle, asset.assetName, asset.assetId);
 
                 if (asset.modifiedPosition)
-                    ExecuteCommand("asset-setposition", JoiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.position);
+                    ExecuteCommand("asset-setposition", joiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.position);
 
                 if (asset.modifiedRotation)
-                    ExecuteCommand("asset-setrotation", JoiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.rotation);
+                    ExecuteCommand("asset-setrotation", joiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.rotation);
 
                 if (asset.modifiedLocalPosition)
-                    ExecuteCommand("asset-setlocalposition", JoiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.localPosition);
+                    ExecuteCommand("asset-setlocalposition", joiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.localPosition);
 
                 if (asset.modifiedLocalRotation)
-                    ExecuteCommand("asset-setlocalrotation", JoiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.localRotation);
+                    ExecuteCommand("asset-setlocalrotation", joiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.localRotation);
 
                 if (asset.modifiedScale)
-                    ExecuteCommand("asset-setscale", JoiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.localScale);
+                    ExecuteCommand("asset-setscale", joiningPlayer.ActorNumber, asset.assetId, asset.assetObject.transform.localScale);
 
                 if (asset.bindedToIndex >= 0)
-                    ExecuteCommand("asset-setanchor", JoiningPlayer.ActorNumber, asset.assetId, asset.bindedToIndex, asset.bindPlayerActor);
+                    ExecuteCommand("asset-setanchor", joiningPlayer.ActorNumber, asset.assetId, asset.bindedToIndex, asset.bindPlayerActor);
             }
 
             PhotonNetwork.SendAllOutgoingCommands();
         }
 
-        public static void SyncCXSUsers(NetPlayer player)
-        {
-            Player playerRef = player.GetPlayerRef();
-            userDictionary.Remove(playerRef);
-        }
+        public static void SyncCXSUsers(NetPlayer player) => userDictionary.Remove(player.GetPlayerRef());
 
         public static int GetFreeAssetID()
         {
             int id;
-            do
-                id = Random.Range(0, int.MaxValue);
+            do id = Random.Range(0, int.MaxValue);
             while (CXSAssets.ContainsKey(id));
-
             return id;
         }
 
         public class CXSAsset
         {
             public int assetId { get; private set; }
-
             public int bindedToIndex = -1;
             public int bindPlayerActor;
 
@@ -1792,49 +1487,38 @@ namespace CXS
 
             public bool modifiedPosition;
             public bool modifiedRotation;
-
             public bool modifiedLocalPosition;
             public bool modifiedLocalRotation;
-
             public bool modifiedScale;
-
             public bool pauseAudioUpdates;
 
             public CXSAsset(int assetId, GameObject assetObject, string assetName, string assetBundle)
             {
                 this.assetId = assetId;
                 this.assetObject = assetObject;
-
                 this.assetName = assetName;
                 this.assetBundle = assetBundle;
             }
 
-            public void BindObject(int BindPlayer, int BindPosition)
+            public void BindObject(int bindPlayer, int bindPosition)
             {
-                bindedToIndex = BindPosition;
-                bindPlayerActor = BindPlayer;
+                bindedToIndex = bindPosition;
+                bindPlayerActor = bindPlayer;
 
-                VRRig Rig = GetVRRigFromPlayer(PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(bindPlayerActor));
-                GameObject TargetAnchorObject = null;
+                VRRig rig = GetVRRigFromPlayer(PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(bindPlayerActor));
+                if (rig == null) return;
 
-                switch (bindedToIndex)
+                bindedObject = bindedToIndex switch
                 {
-                    case 0:
-                        TargetAnchorObject = Rig.headMesh;
-                        break;
-                    case 1:
-                        TargetAnchorObject = Rig.leftHandTransform.parent.gameObject;
-                        break;
-                    case 2:
-                        TargetAnchorObject = Rig.rightHandTransform.parent.gameObject;
-                        break;
-                    case 3:
-                        TargetAnchorObject = Rig.transform.Find("rig/body_pivot").gameObject;
-                        break;
-                }
+                    0 => rig.headMesh,
+                    1 => rig.leftHandTransform.parent.gameObject,
+                    2 => rig.rightHandTransform.parent.gameObject,
+                    3 => rig.transform.Find("rig/body_pivot")?.gameObject,
+                    _ => null
+                };
 
-                bindedObject = TargetAnchorObject;
-                assetObject.transform.SetParent(bindedObject.transform, false);
+                if (bindedObject != null)
+                    assetObject.transform.SetParent(bindedObject.transform, false);
             }
 
             public void SetPosition(Vector3 position)
@@ -1869,8 +1553,7 @@ namespace CXS
 
             public void PlayAudioSource(string objectName, string audioClipName = null)
             {
-                AudioSource audioSource = (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>();
-
+                AudioSource audioSource = (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>();
                 if (audioClipName != null)
                     audioSource.clip = assetBundlePool[assetBundle].LoadAsset<AudioClip>(audioClipName);
 
@@ -1879,45 +1562,45 @@ namespace CXS
 
             public void PlayAudioSourceOneShot(string objectName, string audioClipName = null)
             {
-                AudioSource audioSource = (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>();
-                AudioClip clip = audioSource.clip;
-
-                if (audioClipName != null)
-                    audioSource.clip = clip;
-
+                AudioSource audioSource = (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>();
+                AudioClip clip = audioClipName != null ? assetBundlePool[assetBundle].LoadAsset<AudioClip>(audioClipName) : audioSource.clip;
                 audioSource.PlayOneShot(clip);
             }
 
             public void PlayAnimation(string objectName, string animationClip) =>
-                (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<Animator>().Play(animationClip);
+                (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<Animator>().Play(animationClip);
 
             public void StopAudioSource(string objectName) =>
-                (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>().Stop();
+                (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>().Stop();
 
             public void ChangeAudioVolume(string objectName, float volume)
             {
-                if ((objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).TryGetComponent(out AudioSource source))
+                Transform t = string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName);
+                if (t.TryGetComponent(out AudioSource source))
                     source.volume = volume;
 
-                if ((objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).TryGetComponent(out VideoPlayer video))
+                if (t.TryGetComponent(out VideoPlayer video))
                     video.SetDirectAudioVolume(0, volume);
             }
 
             public void SetVideoURL(string objectName, string urlName) =>
-                (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<VideoPlayer>().url = urlName;
+                (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<VideoPlayer>().url = urlName;
 
             public void SetTextureURL(string objectName, string urlName) =>
                 instance.StartCoroutine(GetTextureResource(urlName, texture =>
-                    (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<Renderer>().material.SetTexture("_MainTex", texture)));
+                    (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<Renderer>().material.SetTexture("_MainTex", texture)));
 
             public void SetColor(string objectName, Color color) =>
-                (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<Renderer>().material.color = color;
+                (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<Renderer>().material.color = color;
 
             public void SetAudioURL(string objectName, string urlName)
             {
                 pauseAudioUpdates = true;
                 instance.StartCoroutine(GetSoundResource(urlName, audio =>
-                { (objectName.IsNullOrEmpty() ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>().clip = audio; pauseAudioUpdates = false; }));
+                {
+                    (string.IsNullOrEmpty(objectName) ? assetObject.transform : assetObject.transform.Find(objectName)).GetComponent<AudioSource>().clip = audio;
+                    pauseAudioUpdates = false;
+                }));
             }
 
             public void DestroyObject()
@@ -1926,6 +1609,5 @@ namespace CXS
                 CXSAssets.Remove(assetId);
             }
         }
-        #endregion
     }
 }

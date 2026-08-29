@@ -48,9 +48,13 @@ namespace ShibaGTGenesisReborn.Mods
         };
 
         public static GameObject PlatR, PlatL = null;
+        [Setting] public static bool stickyPlatforms;
         private static Vector3 scale = new Vector3(0.0125f, 0.28f, 0.3825f);
 
         private static bool teleportGunPressed;
+        private static bool catapultPressed;
+        private static bool catapultFlying;
+        private static float catapultLaunchTime;
 
         public static GameObject checkpoint;
         private static bool teleporting;
@@ -73,6 +77,11 @@ namespace ShibaGTGenesisReborn.Mods
                 PlatR.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatR.GetComponent<Renderer>());
             }
+            if (InputHandler.Instance.RightGrip.IsPressed && PlatR != null && stickyPlatforms)
+            {
+                GorillaTagger.Instance.rightHandTransform.position = PlatR.transform.position;
+                GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
+            }
             if (!InputHandler.Instance.RightGrip.IsPressed && PlatR != null)
             {
                 GameObject.Destroy(PlatR);
@@ -88,6 +97,11 @@ namespace ShibaGTGenesisReborn.Mods
                 GameObject.Destroy(PlatL.GetComponent<Rigidbody>());
                 PlatL.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatL.GetComponent<Renderer>());
+            }
+            if (InputHandler.Instance.LeftGrip.IsPressed && PlatL != null && stickyPlatforms)
+            {
+                GorillaTagger.Instance.leftHandTransform.position = PlatL.transform.position;
+                GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
             }
             if (!InputHandler.Instance.LeftGrip.IsPressed && PlatL != null)
             {
@@ -542,16 +556,44 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void Catapult(float power = 40f)
         {
+            if (catapultFlying && Time.time > catapultLaunchTime + 0.2f)
+            {
+                bool touching = GTPlayer.Instance != null && (GTPlayer.Instance.IsHandTouching(true) || GTPlayer.Instance.IsHandTouching(false));
+                if (!touching && GorillaTagger.Instance != null && GorillaTagger.Instance.bodyCollider != null)
+                    touching = Physics.Raycast(GorillaTagger.Instance.bodyCollider.transform.position, Vector3.down, 0.8f, GunLib.BypassLayers);
+
+                if (!touching && GorillaTagger.Instance != null && GorillaTagger.Instance.rigidbody != null)
+                    touching = GorillaTagger.Instance.rigidbody.linearVelocity.magnitude < 1.5f || Time.time > catapultLaunchTime + 4f;
+
+                if (touching)
+                    catapultFlying = false;
+            }
+
             GunLib.StartGun(() =>
             {
-                Vector3 target = GunLib.GetPointerPos();
-                if (target != Vector3.zero)
+                if (!catapultPressed && !catapultFlying)
                 {
-                    Vector3 handPos = GorillaTagger.Instance.rightHandTransform.position;
-                    Vector3 launchDir = (target - handPos).normalized;
-                    GorillaTagger.Instance.rigidbody.linearVelocity = launchDir * power;
+                    Vector3 target = GunLib.GetPointerPos();
+                    if (target != Vector3.zero)
+                    {
+                        Vector3 handPos = GorillaTagger.Instance.rightHandTransform.position;
+                        Vector3 launchDir = (target - handPos).normalized;
+                        GorillaTagger.Instance.rigidbody.linearVelocity = launchDir * power;
+                        catapultPressed = true;
+                        catapultFlying = true;
+                        catapultLaunchTime = Time.time;
+                    }
                 }
             }, false);
+
+            bool triggerActive = GunLib.IsXRDeviceActive()
+                ? InputHandler.Instance.RightTrigger.IsPressed
+                : Mouse.current != null && Mouse.current.leftButton.isPressed;
+
+            if (!triggerActive)
+            {
+                catapultPressed = false;
+            }
         }
 
         public static void StickyHands()
@@ -615,18 +657,18 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal)
                 {
                     piggybackTarget = GunLib.LockedPlayer;
                 }
             }, true);
 
-            if (piggybackTarget == null || piggybackTarget.isOfflineVRRig || !piggybackTarget.gameObject.activeInHierarchy)
+            if (piggybackTarget == null || piggybackTarget.isLocal || !piggybackTarget.gameObject.activeInHierarchy)
             {
                 piggybackTarget = RigManager.GetClosestVRRig();
             }
 
-            if (piggybackTarget != null && !piggybackTarget.isOfflineVRRig)
+            if (piggybackTarget != null && !piggybackTarget.isLocal)
             {
                 Vector3 ridePosition = piggybackTarget.transform.position + Vector3.up * 0.65f - piggybackTarget.transform.forward * 0.25f;
                 GorillaLocomotion.GTPlayer.Instance.transform.position = ridePosition;
@@ -647,18 +689,18 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal)
                 {
                     followPlayerTarget = GunLib.LockedPlayer;
                 }
             }, true);
 
-            if (followPlayerTarget == null || followPlayerTarget.isOfflineVRRig || !followPlayerTarget.gameObject.activeInHierarchy)
+            if (followPlayerTarget == null || followPlayerTarget.isLocal || !followPlayerTarget.gameObject.activeInHierarchy)
             {
                 followPlayerTarget = RigManager.GetClosestVRRig();
             }
 
-            if (followPlayerTarget != null && !followPlayerTarget.isOfflineVRRig)
+            if (followPlayerTarget != null && !followPlayerTarget.isLocal)
             {
                 Vector3 behindOffset = -followPlayerTarget.transform.forward * 1.5f + Vector3.up * 0.1f;
                 Vector3 targetPosition = followPlayerTarget.transform.position + behindOffset;
@@ -781,12 +823,6 @@ namespace ShibaGTGenesisReborn.Mods
                 {
                     Vector3 teleportTarget = hit.point + hit.normal * 0.25f;
                     bypasstp(teleportTarget);
-
-                    if (NetworkSystem.Instance.InRoom && GorillaTagger.Instance.myVRRig != null)
-                    {
-                        GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { teleportTarget, Quaternion.identity, 3f, 80f, false, true });
-                        RPCProt();
-                    }
 
                     if (pearl.VisualObject != null)
                     {

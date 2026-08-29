@@ -55,7 +55,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+                if (rig == null || rig.isLocal || rig == VRRig.LocalRig) continue;
 
                 Transform head = rig.headConstraint != null ? rig.headConstraint : rig.transform;
                 SphereCollider headCol = head.GetComponent<SphereCollider>();
@@ -94,7 +94,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+                if (rig == null || rig.isLocal || rig == VRRig.LocalRig) continue;
 
                 if (rig.headConstraint != null)
                 {
@@ -144,11 +144,7 @@ namespace ShibaGTGenesisReborn.Mods
                     Vector3 targetPos = GunLib.GetPointerPos();
                     if (targetPos != Vector3.zero)
                     {
-                        if ((GorillaTagger.Instance.bodyCollider.transform.position - targetPos).sqrMagnitude >= 8.5f)
-                        {
-                            bypasstp(targetPos, true);
-                        }
-
+                        bypasstp(targetPos, true);
                         GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { targetPos, Quaternion.identity, 4f, 100f, false, true });
 
                         if (VRRig.LocalRig != null)
@@ -364,7 +360,7 @@ namespace ShibaGTGenesisReborn.Mods
             braceletColorsBuffer.Clear();
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig != null && !rig.isOfflineVRRig)
+                if (rig != null && !rig.isLocal)
                     braceletColorsBuffer.Add(rig.playerColor);
             }
 
@@ -454,6 +450,32 @@ namespace ShibaGTGenesisReborn.Mods
                     delay = Time.time + 0.1f;
                 }
             }, false);
+        }
+
+        public static void JoystickRope()
+        {
+            if (!NetworkSystem.Instance.InRoom || Time.time <= delay) return;
+
+            Vector2 stick = ControllerInputPoller.instance.rightControllerPrimary2DAxis;
+            if (stick.sqrMagnitude < 0.04f) return;
+
+            Transform head = GorillaTagger.Instance.headCollider != null ? GorillaTagger.Instance.headCollider.transform : GorillaLocomotion.GTPlayer.Instance.transform;
+            Vector3 dir = (head.forward * stick.y + head.right * stick.x).normalized;
+            Vector3 vel = dir * (stick.magnitude * 55f);
+
+            RPCProt();
+            VRRig rig = VRRig.LocalRig;
+            Vector3 originalPos = rig != null ? rig.transform.position : Vector3.zero;
+
+            for (int i = 0; i < ropes.Count; i++)
+            {
+                if (ropes[i] == null) continue;
+                if (rig != null) rig.transform.position = ropes[i].transform.position;
+                RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, ropes[i].ropeId, 1, vel, true);
+            }
+
+            if (rig != null && originalPos != Vector3.zero) rig.transform.position = originalPos;
+            delay = Time.time + 0.08f;
         }
     }
 }

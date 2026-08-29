@@ -197,7 +197,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal && Time.time > actionDelay)
                 {
                     NetPlayer player = RigManager.GetNetPlayerFromVRRig(GunLib.LockedPlayer);
                     if (player != null)
@@ -213,7 +213,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal && Time.time > actionDelay)
                 {
                     NetPlayer player = RigManager.GetNetPlayerFromVRRig(GunLib.LockedPlayer);
                     if (player != null)
@@ -234,7 +234,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal && Time.time > actionDelay)
                 {
                     VRRig locked = GunLib.LockedPlayer;
                     string name = locked.Creator?.NickName ?? locked.playerNameVisible;
@@ -255,7 +255,7 @@ namespace ShibaGTGenesisReborn.Mods
                 }
             }, true);
 
-            priorityVoiceTargets.RemoveWhere(r => r == null || !r.gameObject.activeInHierarchy || r.isOfflineVRRig);
+            priorityVoiceTargets.RemoveWhere(r => r == null || !r.gameObject.activeInHierarchy || r.isLocal);
 
             if (priorityVoiceTargets.Count > 0)
             {
@@ -264,7 +264,7 @@ namespace ShibaGTGenesisReborn.Mods
                 {
                     foreach (var rig in allRigs)
                     {
-                        if (rig == null || rig.isOfflineVRRig) continue;
+                        if (rig == null || rig.isLocal) continue;
 
                         if (priorityVoiceTargets.Contains(rig))
                         {
@@ -288,7 +288,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 foreach (var rig in allRigs)
                 {
-                    if (rig == null || rig.isOfflineVRRig) continue;
+                    if (rig == null || rig.isLocal) continue;
                     ResetRigVoice(rig);
                     ResetRigHighlight(rig);
                 }
@@ -303,7 +303,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 foreach (var rig in allRigs)
                 {
-                    if (rig == null || rig.isOfflineVRRig) continue;
+                    if (rig == null || rig.isLocal) continue;
                     ApplyPriorityVoice(rig);
                 }
             }
@@ -316,7 +316,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 foreach (var rig in allRigs)
                 {
-                    if (rig == null || rig.isOfflineVRRig) continue;
+                    if (rig == null || rig.isLocal) continue;
                     ResetRigVoice(rig);
                 }
             }
@@ -462,6 +462,9 @@ namespace ShibaGTGenesisReborn.Mods
         public static bool bitcrushMic;
         public static bool underwaterMic;
         public static bool stutterMic;
+        public static bool harmonizerMic;
+        public static bool cleanMic;
+        [Setting] public static bool antiEarrape = true;
 
         public static void MicrophoneEcho(bool enableEcho = true)
         {
@@ -590,7 +593,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal && Time.time > actionDelay)
                 {
                     NetPlayer player = RigManager.GetNetPlayerFromVRRig(GunLib.LockedPlayer);
                     if (player != null)
@@ -608,7 +611,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isOfflineVRRig)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal)
                 {
                     string targetName = GunLib.LockedPlayer.Creator != null ? GunLib.LockedPlayer.Creator.NickName : GunLib.LockedPlayer.playerNameVisible;
                     if (!string.IsNullOrEmpty(targetName))

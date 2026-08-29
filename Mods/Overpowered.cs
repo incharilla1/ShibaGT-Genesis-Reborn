@@ -26,9 +26,9 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static float[] lagcooldowns =
         {
-            0.35f,
-            2.7f,
-            7.6f
+            0.37f,
+            2.8f,
+            7.9f
         };
 
         public static float tagTimer;
@@ -70,14 +70,16 @@ namespace ShibaGTGenesisReborn.Mods
         {
             RaiseEventOptions o;
             if (p != null)
-                o = new RaiseEventOptions { TargetActors = new int[] { p.Creator.ActorNumber } };
+                o = new RaiseEventOptions { TargetActors = new int[] { p.Creator.ActorNumber }, CachingOption = EventCaching.DoNotCache };
             else
-                o = new RaiseEventOptions { Receivers = ReceiverGroup.Others };
+                o = new RaiseEventOptions { Receivers = ReceiverGroup.Others, CachingOption = EventCaching.DoNotCache };
 
             PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new object[]
-            {
-                "ello"
-            }, o, SendOptions.SendUnreliable);
+             {
+                    -2147483647,
+                    76,
+                    float.NaN,
+             }, o, new SendOptions { DeliveryMode = DeliveryMode.Unreliable, Reliability = false, Encrypt = true });
         }
 
         public static void DestroyGun()
@@ -86,6 +88,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null)
                 {
+                    RPCProt();
                     PhotonNetwork.OpRemoveCompleteCacheOfPlayer(RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer).ActorNumber);
                 }
             }, true);
@@ -93,8 +96,21 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void DestroyAll()
         {
+            RPCProt();
             foreach (Player player in PhotonNetwork.PlayerListOthers)
+            {
                 PhotonNetwork.OpRemoveCompleteCacheOfPlayer(player.ActorNumber);
+            }
+        }
+
+        public static void TargetSpam() 
+        {
+            foreach (HitTargetNetworkState target in Object.FindObjectsByType<HitTargetNetworkState>(FindObjectsSortMode.None))
+            {
+                if (target == null) continue;
+                Vector3 pos = target.transform.position;
+                target.TargetHit(pos, pos);
+            }
         }
     }
 }

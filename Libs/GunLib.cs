@@ -116,12 +116,12 @@ namespace ShibaGTGenesisReborn.Libs
                 if (lockOn && LockedPlayer == null)
                 {
                     VRRig targetRig = hit.collider?.GetComponentInParent<VRRig>();
-                    if (targetRig == null || targetRig.isOfflineVRRig || targetRig == VRRig.LocalRig)
+                    if (targetRig == null || targetRig.isLocal || targetRig == VRRig.LocalRig)
                     {
                         float closestRayDist = 0.65f;
                         foreach (VRRig rig in VRRigCache.ActiveRigs)
                         {
-                            if (rig == null || rig.isOfflineVRRig || rig == VRRig.LocalRig) continue;
+                            if (rig == null || rig.isLocal || rig == VRRig.LocalRig) continue;
                             Vector3 rigPos = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position;
                             float rayDist = Vector3.Cross(ray.direction, rigPos - ray.origin).magnitude;
                             float distAlongRay = Vector3.Dot(ray.direction, rigPos - ray.origin);
@@ -133,7 +133,7 @@ namespace ShibaGTGenesisReborn.Libs
                         }
                     }
 
-                    if (targetRig != null && !targetRig.isOfflineVRRig && targetRig != VRRig.LocalRig)
+                    if (targetRig != null && !targetRig.isLocal && targetRig != VRRig.LocalRig)
                         LockedPlayer = targetRig;
                 }
 

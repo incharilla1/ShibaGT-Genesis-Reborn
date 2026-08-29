@@ -20,7 +20,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (!rig.isOfflineVRRig)
+                if (!rig.isLocal)
                 {
                     GameObject g = new GameObject("Line");
                     LineRenderer l = g.AddComponent<LineRenderer>();
@@ -33,7 +33,7 @@ namespace ShibaGTGenesisReborn.Mods
                     l.material.shader = Shader.Find("GUI/Text Shader");
                     l.startColor = rig.playerColor;
                     l.endColor = rig.playerColor;
-                    Object.Destroy(l, Time.deltaTime);
+                    Object.Destroy(g, Time.deltaTime * 2f);
                 }
             }
         }
@@ -42,7 +42,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig)
+                if (rig == null || rig.isLocal)
                     continue;
 
                 GameObject obj = new GameObject("BeaconESP");
@@ -56,7 +56,7 @@ namespace ShibaGTGenesisReborn.Mods
                 line.material.shader = Shader.Find("GUI/Text Shader");
                 line.startColor = rig.playerColor;
                 line.endColor = rig.playerColor;
-                Object.Destroy(obj, Time.deltaTime);
+                Object.Destroy(obj, Time.deltaTime * 2f);
             }
         }
 
@@ -64,7 +64,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig vrrig in VRRigCache.ActiveRigs)
             {
-                if (!vrrig.isOfflineVRRig)
+                if (!vrrig.isLocal)
                 {
                     if (vrrig.mainSkin.material.name.Contains("fected") || vrrig.mainSkin.material.name.Contains("It"))
                     {
@@ -84,7 +84,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig vrrig in VRRigCache.ActiveRigs)
             {
-                if (!vrrig.isOfflineVRRig)
+                if (!vrrig.isLocal)
                 {
                     vrrig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
                     vrrig.mainSkin.material.color = vrrig.playerColor;
@@ -122,7 +122,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig)
+                if (rig == null || rig.isLocal)
                     continue;
 
                 Color col = GetESPColor(rig, infection);
@@ -147,7 +147,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig)
+                if (rig == null || rig.isLocal)
                     continue;
 
                 Color col = GetESPColor(rig, infection);
@@ -165,7 +165,7 @@ namespace ShibaGTGenesisReborn.Mods
                     Renderer rend = cube.GetComponent<Renderer>();
                     rend.material.shader = Shader.Find("GUI/Text Shader");
                     rend.material.color = new Color(col.r, col.g, col.b, 0.35f);
-                    Object.Destroy(cube, Time.deltaTime);
+                    Object.Destroy(cube, Time.deltaTime * 2f);
                 }
 
                 Vector3 c0 = center + new Vector3(-extents.x, -extents.y, -extents.z);
@@ -202,7 +202,7 @@ namespace ShibaGTGenesisReborn.Mods
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig)
+                if (rig == null || rig.isLocal)
                     continue;
 
                 Color col = GetESPColor(rig, infection);
@@ -222,7 +222,7 @@ namespace ShibaGTGenesisReborn.Mods
                     Renderer rend = quad.GetComponent<Renderer>();
                     rend.material.shader = Shader.Find("GUI/Text Shader");
                     rend.material.color = new Color(col.r, col.g, col.b, 0.45f);
-                    Object.Destroy(quad, Time.deltaTime);
+                    Object.Destroy(quad, Time.deltaTime * 2f);
                 }
 
                 if (cam != null)
@@ -245,12 +245,111 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void InfectionTwoDBoxESP() => TwoDBoxESP(true);
 
+        private static readonly List<GameObject> wireframePool = new List<GameObject>();
+        private static int wireframePoolIndex = 0;
+
+        private static GameObject GetPooledWireSphere()
+        {
+            while (wireframePoolIndex < wireframePool.Count)
+            {
+                GameObject obj = wireframePool[wireframePoolIndex++];
+                if (obj != null)
+                {
+                    obj.SetActive(true);
+                    return obj;
+                }
+            }
+
+            GameObject sphere = new GameObject("PooledWireSphere");
+            sphere.hideFlags = HideFlags.HideAndDontSave;
+            Shader shader = Shader.Find("GUI/Text Shader");
+
+            CreateCircleRenderer(sphere, "XY", Vector3.forward, shader);
+            CreateCircleRenderer(sphere, "XZ", Vector3.up, shader);
+            CreateCircleRenderer(sphere, "YZ", Vector3.right, shader);
+
+            wireframePool.Add(sphere);
+            wireframePoolIndex = wireframePool.Count;
+            return sphere;
+        }
+
+        private static void CreateCircleRenderer(GameObject parent, string name, Vector3 normal, Shader shader)
+        {
+            GameObject child = new GameObject(name);
+            child.transform.SetParent(parent.transform, false);
+            LineRenderer lr = child.AddComponent<LineRenderer>();
+            lr.useWorldSpace = false;
+            lr.loop = true;
+            lr.startWidth = 0.012f;
+            lr.endWidth = 0.012f;
+            lr.material = new Material(shader);
+
+            int segments = 12;
+            lr.positionCount = segments;
+            Quaternion rot = Quaternion.FromToRotation(Vector3.forward, normal);
+            for (int i = 0; i < segments; i++)
+            {
+                float rad = (i / (float)segments) * Mathf.PI * 2f;
+                Vector3 p = rot * new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0f);
+                lr.SetPosition(i, p);
+            }
+        }
+
+        private static void SetWireSphere(GameObject sphere, Vector3 position, float radius, Color color)
+        {
+            if (sphere == null) return;
+            sphere.transform.position = position;
+            sphere.transform.localScale = Vector3.one * radius;
+            LineRenderer[] renderers = sphere.GetComponentsInChildren<LineRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].startColor = color;
+                renderers[i].endColor = color;
+            }
+        }
+
+        private static void ResetWireframePool()
+        {
+            for (int i = wireframePoolIndex; i < wireframePool.Count; i++)
+            {
+                if (wireframePool[i] != null && wireframePool[i].activeSelf)
+                    wireframePool[i].SetActive(false);
+            }
+            wireframePoolIndex = 0;
+        }
+
+        public static void WireframeHitboxESP(bool infection = false)
+        {
+            float mult = hitboxExpander ? hitboxExpanderMultiplier : 1f;
+            wireframePoolIndex = 0;
+
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isLocal) continue;
+
+                Color col = GetESPColor(rig, infection);
+                Vector3 head = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position + Vector3.up * 0.45f;
+                Vector3 body = rig.transform.position;
+                Vector3 leftHand = rig.leftHandTransform != null ? rig.leftHandTransform.position : body;
+                Vector3 rightHand = rig.rightHandTransform != null ? rig.rightHandTransform.position : body;
+
+                SetWireSphere(GetPooledWireSphere(), head, 0.22f * mult, col);
+                SetWireSphere(GetPooledWireSphere(), body, 0.32f * mult, col);
+                SetWireSphere(GetPooledWireSphere(), leftHand, 0.12f * mult, col);
+                SetWireSphere(GetPooledWireSphere(), rightHand, 0.12f * mult, col);
+            }
+
+            ResetWireframePool();
+        }
+
+        public static void InfectionWireframeHitboxESP() => WireframeHitboxESP(true);
+
         public static void NameAndDistanceTags()
         {
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig) continue;
+                if (rig == null || rig.isLocal) continue;
                 
                 Player player = RigManager.GetPlayerFromVRRig(rig);
                 NetPlayer netPlayer = RigManager.GetNetPlayerFromVRRig(rig);
@@ -292,7 +391,7 @@ namespace ShibaGTGenesisReborn.Mods
                     }
                 }
 
-                Object.Destroy(tagObj, Time.deltaTime);
+                Object.Destroy(tagObj, Time.deltaTime * 2f);
             }
         }
 
@@ -309,7 +408,7 @@ namespace ShibaGTGenesisReborn.Mods
             lr.material.shader = Shader.Find("GUI/Text Shader");
             lr.startColor = col;
             lr.endColor = col;
-            Object.Destroy(obj, Time.deltaTime);
+            Object.Destroy(obj, Time.deltaTime * 2f);
         }
 
         private struct MaterialState
@@ -947,7 +1046,7 @@ namespace ShibaGTGenesisReborn.Mods
             int survivorCount = 0;
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isOfflineVRRig) continue;
+                if (rig == null || rig.isLocal) continue;
                 if (rig.mainSkin != null && rig.mainSkin.material != null && rig.mainSkin.material.name.Contains("fected"))
                     infectedCount++;
                 else

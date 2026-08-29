@@ -40,6 +40,10 @@ namespace ShibaGTGenesisReborn.Libs
                     string boomboxDir = Path.Combine(genesisDirectory, "boombox");
                     if (!Directory.Exists(boomboxDir))
                         Directory.CreateDirectory(boomboxDir);
+
+                    string presetsDir = Path.Combine(genesisDirectory, "Presets");
+                    if (!Directory.Exists(presetsDir))
+                        Directory.CreateDirectory(presetsDir);
                 }
 
                 return genesisDirectory;

@@ -1,14 +1,9 @@
-using ExitGames.Client.Photon;
 using GorillaNetworking;
-using Newtonsoft.Json;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
 using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Mods
@@ -120,7 +115,7 @@ namespace ShibaGTGenesisReborn.Mods
             new ThemeInfo { bg = Color.black, btnOff = new Color(0.06f, 0.06f, 0.06f), textOff = Color.white, textOn = Color.yellow, outline = Color.blue, rig = true }
         };
 
-        public static void ApplyTheme(bool updateOutline = true)
+        public static void ApplyTheme()
         {
             if (ThemeIndex < 0 || ThemeIndex >= Themes.Length) ThemeIndex = 0;
             ThemeInfo t = Themes[ThemeIndex];
@@ -131,14 +126,6 @@ namespace ShibaGTGenesisReborn.Mods
                 new ExtGradient { colors = Main.GetSolidGradient(t.btnOff), isRainbow = t.rainbow, copyRigColors = t.rig }
             };
             Settings.textColors = new Color[] { t.textOff, t.textOn };
-            if (updateOutline)
-            {
-                Main.outlineColor = t.outline;
-                OutlineIndex = ThemeIndex;
-                ButtonInfo cocBtn = Main.GetIndex("COC");
-                if (cocBtn != null && OutlineIndex >= 0 && OutlineIndex < outnames.Length)
-                    cocBtn.overlapText = "Outline: " + outnames[OutlineIndex];
-            }
             if (Main.menu != null) Main.RecreateMenu();
         }
 
@@ -153,17 +140,17 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (GorillaPlayerScoreboardLine boardline in GorillaScoreboardTotalUpdater.allScoreboardLines)
             {
-                if (boardline.linePlayer != NetworkSystem.Instance.LocalPlayer || boardline.reportButton == null)
+                if (boardline.linePlayer == NetworkSystem.Instance.LocalPlayer && boardline.reportButton != null)
                 {
                     Transform transform = boardline.reportButton.gameObject.transform;
                     foreach (VRRig vrrig in VRRigCache.ActiveRigs)
                     {
-                        if (vrrig == null || vrrig != GorillaTagger.Instance.offlineVRRig)
+                        if (vrrig != null && vrrig != GorillaTagger.Instance.offlineVRRig)
                         {
-                            if (Vector3.Distance(vrrig.rightHandTransform.position, transform.position) < 0.4 || Vector3.Distance(vrrig.leftHandTransform.position, transform.position) < 0.4 && Time.time > notifcooldown + 0.5f)
+                            if ((Vector3.Distance(vrrig.rightHandTransform.position, transform.position) < 0.4f || Vector3.Distance(vrrig.leftHandTransform.position, transform.position) < 0.4f) && Time.time > notifcooldown + 0.5f)
                             {
                                 notifcooldown = Time.time;
-                                NetworkSystem.Instance.ReturnToSinglePlayer();
+                                Disconnect();
                                 return;
                             }
                         }
@@ -174,9 +161,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static void Disconnect()
         {
-            PhotonNetwork.Disconnect();
-            NetworkSystem.Instance.ReturnToSinglePlayer();
             PhotonNetwork.SendAllOutgoingCommands();
+            NetworkSystem.Instance.ReturnToSinglePlayer();
             NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "Anti Report disconnected you");
         }
 
@@ -187,7 +173,7 @@ namespace ShibaGTGenesisReborn.Mods
             panicSavedMods.Clear();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 15 || i == 19)
+                if (i == 0 || i == 1 || i == 10 || i == 11 || i == 13 || i == 14 || i == 15 || i == 16 || i == 17 || i == 18 || i >= 19)
                     continue;
 
                 foreach (ButtonInfo btn in Buttons.buttons[i])
