@@ -239,4 +239,33 @@ namespace ShibaGTGenesisReborn.Patches
     {
         private static void Postfix() => Main.UpdateBoardText();
     }
+
+    [HarmonyPatch(typeof(NetworkSystemPUN), "lowestPingRegionIndex", MethodType.Getter)]
+    public static class LowestPingRegionPatch
+    {
+        private static bool Prefix(NetworkSystemPUN __instance, ref int __result)
+        {
+            NetworkRegionInfo[] regions = __instance.regionData;
+            if (regions == null || regions.Length == 0) return true;
+
+            int lowestPing = int.MaxValue;
+            int bestIndex = -1;
+
+            for (int i = 0; i < regions.Length; i++)
+            {
+                if (regions[i] != null && regions[i].pingToRegion > 0 && regions[i].pingToRegion < lowestPing)
+                {
+                    lowestPing = regions[i].pingToRegion;
+                    bestIndex = i;
+                }
+            }
+
+            if (bestIndex != -1)
+            {
+                __result = bestIndex;
+                return false;
+            }
+            return true;
+        }
+    }
 }

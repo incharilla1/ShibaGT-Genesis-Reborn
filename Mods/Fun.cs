@@ -4,6 +4,7 @@ using GorillaLocomotion.Gameplay;
 using GorillaTagScripts;
 using Photon.Pun;
 using Photon.Voice.Unity;
+using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using UnityEngine;
@@ -134,17 +135,15 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SplashGun()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
             GunLib.StartGun(() =>
             {
-                if (Time.time > splashGunDelay)
+                if (Time.time > splashGunDelay && NetworkSystem.Instance.InRoom)
                 {
-                    splashGunDelay = Time.time + 0.15f;
-
+                    splashGunDelay = Time.time + 0.3f;
                     Vector3 targetPos = GunLib.GetPointerPos();
                     if (targetPos != Vector3.zero)
                     {
-                        bypasstp(targetPos, true);
+                        NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), targetPos);
                         GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { targetPos, Quaternion.identity, 4f, 100f, false, true });
 
                         if (VRRig.LocalRig != null)
@@ -392,43 +391,68 @@ namespace ShibaGTGenesisReborn.Mods
             return (GorillaTagger.Instance.rightHandTransform.position + GorillaTagger.Instance.rightHandTransform.rotation * GorillaLocomotion.GTPlayer.Instance.RightHand.handOffset, rot, rot * Vector3.up, rot * Vector3.forward, rot * Vector3.right);
         }
 
+        private static int flingRopeIndex;
+        private static int joystickRopeIndex;
+
+        public static void DisableRopes()
+        {
+            if (VRRig.LocalRig != null)
+                VRRig.LocalRig.enabled = true;
+            if (GorillaTagger.Instance?.offlineVRRig != null)
+                GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = -1;
+        }
+
         private static void FlingRope(GorillaRopeSwing rope)
         {
             if (rope == null) return;
-            VRRig rig = VRRig.LocalRig;
-            Vector3 pos = rig != null ? rig.transform.position : Vector3.zero;
-            if (rig != null)
-                rig.transform.position = rope.transform.position;
+
+            NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), rope.transform.position);
+            if (GorillaTagger.Instance?.offlineVRRig != null)
+                GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = rope.ropeId;
 
             Vector3 vel = new Vector3(Random.Range(-50f, 50f), 99f, Random.Range(-50f, 50f));
             RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, rope.ropeId, 1, vel, true);
-
-            if (rig != null && pos != Vector3.zero)
-                rig.transform.position = pos;
         }
 
         public static List<GorillaRopeSwing> ropes => GorillaRopeSwingUpdateManager.allGorillaRopeSwings;
 
         public static void FlingAllRopes()
         {
-            if (RopeSwingManager.instance == null || !NetworkSystem.Instance.InRoom || Time.time <= delay) return;
+            if (!NetworkSystem.Instance.InRoom || ropes == null || ropes.Count == 0 || Time.time <= delay) return;
             RPCProt();
-            for (int i = 0; i < ropes.Count; i++)
-                FlingRope(ropes[i]);
-            delay = Time.time + 0.1f;
+
+            if (flingRopeIndex >= ropes.Count)
+                flingRopeIndex = 0;
+
+            GorillaRopeSwing rope = ropes[flingRopeIndex];
+            if (rope != null)
+            {
+                FlingRope(rope);
+                for (int i = 0; i < ropes.Count; i++)
+                {
+                    if (i != flingRopeIndex && ropes[i] != null && Vector3.Distance(ropes[i].transform.position, rope.transform.position) <= 4.5f)
+                    {
+                        Vector3 vel = new Vector3(Random.Range(-50f, 50f), 99f, Random.Range(-50f, 50f));
+                        RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, ropes[i].ropeId, 1, vel, true);
+                    }
+                }
+            }
+
+            flingRopeIndex = (flingRopeIndex + 1) % ropes.Count;
+            delay = Time.time + 0.05f;
         }
 
         public static void FlingRopeGun()
         {
             GunLib.StartGun(() =>
             {
-                if (RopeSwingManager.instance == null || GunLib.spherepointer == null || Time.time <= delay) return;
+                if (GunLib.spherepointer == null || Time.time <= delay) return;
                 RPCProt();
                 GorillaRopeSwing target = null;
                 if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.grabbedRopeIndex >= 0)
                     RopeSwingManager.instance.TryGetRope(GunLib.LockedPlayer.grabbedRopeIndex, out target);
 
-                if (target == null)
+                if (target == null && ropes != null)
                 {
                     float minSq = 144f;
                     Vector3 ptr = GunLib.spherepointer.transform.position;
@@ -454,7 +478,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void JoystickRope()
         {
-            if (!NetworkSystem.Instance.InRoom || Time.time <= delay) return;
+            if (!NetworkSystem.Instance.InRoom || ropes == null || ropes.Count == 0 || Time.time <= delay) return;
 
             Vector2 stick = ControllerInputPoller.instance.rightControllerPrimary2DAxis;
             if (stick.sqrMagnitude < 0.04f) return;
@@ -464,18 +488,30 @@ namespace ShibaGTGenesisReborn.Mods
             Vector3 vel = dir * (stick.magnitude * 55f);
 
             RPCProt();
-            VRRig rig = VRRig.LocalRig;
-            Vector3 originalPos = rig != null ? rig.transform.position : Vector3.zero;
 
-            for (int i = 0; i < ropes.Count; i++)
+            if (joystickRopeIndex >= ropes.Count)
+                joystickRopeIndex = 0;
+
+            GorillaRopeSwing rope = ropes[joystickRopeIndex];
+            if (rope != null)
             {
-                if (ropes[i] == null) continue;
-                if (rig != null) rig.transform.position = ropes[i].transform.position;
-                RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, ropes[i].ropeId, 1, vel, true);
+                NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), rope.transform.position);
+                if (GorillaTagger.Instance?.offlineVRRig != null)
+                    GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = rope.ropeId;
+
+                RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, rope.ropeId, 1, vel, true);
+
+                for (int i = 0; i < ropes.Count; i++)
+                {
+                    if (i != joystickRopeIndex && ropes[i] != null && Vector3.Distance(ropes[i].transform.position, rope.transform.position) <= 4.5f)
+                    {
+                        RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, ropes[i].ropeId, 1, vel, true);
+                    }
+                }
             }
 
-            if (rig != null && originalPos != Vector3.zero) rig.transform.position = originalPos;
-            delay = Time.time + 0.08f;
+            joystickRopeIndex = (joystickRopeIndex + 1) % ropes.Count;
+            delay = Time.time + 0.05f;
         }
     }
 }

@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using UnityEngine;
 
 namespace ShibaGTGenesisReborn
 {
@@ -26,6 +27,15 @@ namespace ShibaGTGenesisReborn
 
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public string OverlapText { get; set; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public InputType? VrKey { get; set; }
+
+            [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public KeyCode PcKey { get; set; }
+
+            [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public KeybindMode KeybindMode { get; set; }
         }
 
         private class SavePayload
@@ -108,18 +118,22 @@ namespace ShibaGTGenesisReborn
 
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21) continue;
+                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23) continue;
                 foreach (ButtonInfo btn in Buttons.buttons[i])
                 {
                     if (btn == null || btn.buttonText == "-" || btn.buttonText == "Save" || btn.buttonText == "Remove All Prefs") continue;
 
-                    if (btn.enabled || btn.isFavorite || !string.IsNullOrEmpty(btn.overlapText))
+                    bool saveEnabled = btn.enabled && !btn.buttonText.EndsWith("Gun") && btn.buttonText != "Tag All" && btn.buttonText != "Tag Self";
+                    if (saveEnabled || btn.isFavorite || !string.IsNullOrEmpty(btn.overlapText) || btn.vrKey.HasValue || btn.pcKey != KeyCode.None)
                     {
                         buttons[btn.buttonText] = new ButtonState
                         {
-                            Enabled = btn.enabled,
+                            Enabled = saveEnabled,
                             Favorite = btn.isFavorite,
-                            OverlapText = btn.overlapText
+                            OverlapText = btn.overlapText,
+                            VrKey = btn.vrKey,
+                            PcKey = btn.pcKey,
+                            KeybindMode = btn.keybindMode
                         };
                     }
                 }
@@ -169,17 +183,22 @@ namespace ShibaGTGenesisReborn
             {
                 for (int i = 0; i < Buttons.buttons.Length; i++)
                 {
-                    if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21) continue;
+                    if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23) continue;
                     foreach (ButtonInfo btn in Buttons.buttons[i])
                     {
                         if (btn == null || !payload.Buttons.TryGetValue(btn.buttonText, out ButtonState state)) continue;
+
+                        btn.vrKey = state.VrKey;
+                        btn.pcKey = state.PcKey;
+                        btn.keybindMode = state.KeybindMode;
 
                         if (!string.IsNullOrEmpty(state.OverlapText))
                         {
                             btn.overlapText = state.OverlapText;
                         }
 
-                        if (btn.isTogglable && btn.enabled != state.Enabled)
+                        bool allowEnable = !btn.buttonText.EndsWith("Gun") && btn.buttonText != "Tag All" && btn.buttonText != "Tag Self";
+                        if (btn.isTogglable && allowEnable && btn.enabled != state.Enabled)
                         {
                             btn.enabled = state.Enabled;
                             if (state.Enabled)
@@ -453,6 +472,7 @@ namespace ShibaGTGenesisReborn
         public static void Reset()
         {
             if (File.Exists(ConfigPath)) File.Delete(ConfigPath);
+            KeybindManager.ClearAllKeybinds();
             NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Reset saved preferences");
         }
     }

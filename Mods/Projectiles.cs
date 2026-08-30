@@ -43,12 +43,17 @@ namespace ShibaGTGenesisReborn.Mods
         private static float orbitAngle;
         private static float haloAngle;
         private static bool altHand;
-        private static int lastScale = -1;
 
         public static float FireCooldown => delayRates[projectileSpeedIndex % delayRates.Length];
 
         private static void InitPresets()
         {
+            if (leftPresets[0] == null && SnowballMaker.leftHandInstance?.snowballs?.Length > 0)
+                leftPresets[0] = SnowballMaker.leftHandInstance.snowballs[0];
+
+            if (rightPresets[0] == null && SnowballMaker.rightHandInstance?.snowballs?.Length > 0)
+                rightPresets[0] = SnowballMaker.rightHandInstance.snowballs[0];
+
             if (initialized || CosmeticsController.instance?.v2_allCosmetics == null || VRRig.LocalRig?.cosmeticsObjectRegistry == null) return;
 
             CosmeticItemRegistry reg = VRRig.LocalRig.cosmeticsObjectRegistry;
@@ -101,15 +106,92 @@ namespace ShibaGTGenesisReborn.Mods
                 }
             }
 
-            initialized = rightPresets[0] != null;
+            initialized = rightPresets[0] != null || leftPresets[0] != null;
         }
 
         private static SnowballThrowable GetThrowable(int index, bool isLeft)
         {
             InitPresets();
-            int idx = Mathf.Clamp(index, 0, 10);
+            int idx = Mathf.Clamp(index, 0, ProjectileTypeNames.Length - 1);
             SnowballThrowable t = isLeft ? (leftPresets[idx] ?? rightPresets[idx]) : (rightPresets[idx] ?? leftPresets[idx]);
-            return t ?? (isLeft ? leftPresets[0] : rightPresets[0]);
+            if (t != null) return t;
+
+            if (isLeft && SnowballMaker.leftHandInstance?.snowballs?.Length > 0)
+                return SnowballMaker.leftHandInstance.snowballs[0];
+            if (!isLeft && SnowballMaker.rightHandInstance?.snowballs?.Length > 0)
+                return SnowballMaker.rightHandInstance.snowballs[0];
+
+            return leftPresets[0] ?? rightPresets[0];
+        }
+
+        public static void SetGrowingSnowballSize(GrowingSnowballThrowable growing, int level)
+        {
+            if (growing == null) return;
+            int validLevel = Mathf.Clamp(level, 0, growing.MaxSizeLevel);
+            if (growing.targetRig == null)
+            {
+                growing.targetRig = VRRig.LocalRig ?? GorillaTagger.Instance?.offlineVRRig;
+                growing.isOfflineRig = growing.targetRig != null && growing.targetRig.isOfflineVRRig;
+            }
+            growing.CreatePhotonEventsIfNull();
+            growing.SetSizeLevelLocal(validLevel);
+            if (NetworkSystem.Instance != null && NetworkSystem.Instance.InRoom && growing.changeSizeEvent != null)
+            {
+                growing.changeSizeEvent.RaiseOthers(validLevel);
+            }
+        }
+
+        public static void BigSnowballs()
+        {
+            biig = true;
+
+            if (SnowballMaker.leftHandInstance?.snowballs != null)
+            {
+                foreach (SnowballThrowable sb in SnowballMaker.leftHandInstance.snowballs)
+                {
+                    if (sb is GrowingSnowballThrowable growing && sb.gameObject.activeSelf && growing.SizeLevel < growing.MaxSizeLevel)
+                        SetGrowingSnowballSize(growing, growing.MaxSizeLevel);
+                }
+            }
+
+            if (SnowballMaker.rightHandInstance?.snowballs != null)
+            {
+                foreach (SnowballThrowable sb in SnowballMaker.rightHandInstance.snowballs)
+                {
+                    if (sb is GrowingSnowballThrowable growing && sb.gameObject.activeSelf && growing.SizeLevel < growing.MaxSizeLevel)
+                        SetGrowingSnowballSize(growing, growing.MaxSizeLevel);
+                }
+            }
+
+            if (EquipmentInteractor.instance != null)
+            {
+                if (EquipmentInteractor.instance.leftHandHeldEquipment is GrowingSnowballThrowable leftHeld && leftHeld.SizeLevel < leftHeld.MaxSizeLevel)
+                    SetGrowingSnowballSize(leftHeld, leftHeld.MaxSizeLevel);
+
+                if (EquipmentInteractor.instance.rightHandHeldEquipment is GrowingSnowballThrowable rightHeld && rightHeld.SizeLevel < rightHeld.MaxSizeLevel)
+                    SetGrowingSnowballSize(rightHeld, rightHeld.MaxSizeLevel);
+            }
+
+            if (VRRig.LocalRig?.myBodyDockPositions != null)
+            {
+                if (VRRig.LocalRig.myBodyDockPositions.leftHandThrowables != null)
+                {
+                    foreach (GameObject go in VRRig.LocalRig.myBodyDockPositions.leftHandThrowables)
+                    {
+                        if (go != null && go.activeSelf && go.TryGetComponent<GrowingSnowballThrowable>(out var g) && g.SizeLevel < g.MaxSizeLevel)
+                            SetGrowingSnowballSize(g, g.MaxSizeLevel);
+                    }
+                }
+
+                if (VRRig.LocalRig.myBodyDockPositions.rightHandThrowables != null)
+                {
+                    foreach (GameObject go in VRRig.LocalRig.myBodyDockPositions.rightHandThrowables)
+                    {
+                        if (go != null && go.activeSelf && go.TryGetComponent<GrowingSnowballThrowable>(out var g) && g.SizeLevel < g.MaxSizeLevel)
+                            SetGrowingSnowballSize(g, g.MaxSizeLevel);
+                    }
+                }
+            }
         }
 
         public static void CycleProjectileType()
@@ -166,20 +248,19 @@ namespace ShibaGTGenesisReborn.Mods
 
                 if (throwable is GrowingSnowballThrowable growing)
                 {
-                    int lvl = forcedScale >= 0 ? forcedScale : (biig ? 5 : 0);
-                    scale = (growing.snowballSizeLevels != null && lvl < growing.snowballSizeLevels.Count)
+                    int maxLvl = growing.MaxSizeLevel;
+                    int lvl = forcedScale >= 0 ? Mathf.Clamp(forcedScale, 0, maxLvl) : (biig ? maxLvl : 0);
+                    SetGrowingSnowballSize(growing, lvl);
+
+                    scale = (growing.snowballSizeLevels != null && growing.snowballSizeLevels.Count > lvl)
                         ? growing.snowballSizeLevels[lvl].snowballScale
-                        : 1f;
+                        : (biig ? 3.5f : 1f);
 
                     projectile = growing.SpawnGrowingSnowball(ref speed, scale);
-                    if (projectile != null && NetworkSystem.Instance.InRoom && lastScale != lvl)
-                    {
-                        lastScale = lvl;
-                        growing.changeSizeEvent?.RaiseOthers(lvl);
-                    }
                 }
                 else if (throwable.projectilePrefab != null && ObjectPools.instance != null)
                 {
+                    scale = forcedScale >= 0 ? forcedScale : (biig ? 3.5f : 1f);
                     GameObject spawned = ObjectPools.instance.Instantiate(throwable.projectilePrefab);
                     if (spawned != null) projectile = spawned.GetComponent<SlingshotProjectile>();
                 }
@@ -195,9 +276,14 @@ namespace ShibaGTGenesisReborn.Mods
                     if (NetworkSystem.Instance.InRoom)
                     {
                         if (throwable is GrowingSnowballThrowable g)
+                        {
+                            g.CreatePhotonEventsIfNull();
                             g.snowballThrowEvent?.RaiseOthers(origin, speed, index);
+                        }
                         else
+                        {
                             RoomSystem.SendLaunchProjectile(origin, speed, isLeft ? RoomSystem.ProjectileSource.LeftHand : RoomSystem.ProjectileSource.RightHand, index, true, col.r, col.g, col.b, col.a);
+                        }
 
                         RPCProt();
                     }
@@ -345,7 +431,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null)
                 {
-                    bypasstp(GunLib.LockedPlayer.transform.position, true);
+                    NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), GunLib.LockedPlayer.transform.position);
                     Vector3 origin = GunLib.LockedPlayer.transform.position - new Vector3(0f, 0.4f, 0f);
                     FireProjectile(origin, Vector3.up * 45f, false, Color.red, 5);
                 }

@@ -1,7 +1,16 @@
-﻿using System;
+using System;
+using ShibaGTGenesisReborn.Libs;
+using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Classes
 {
+    public enum KeybindMode
+    {
+        Toggle,
+        Hold,
+        PressOnce
+    }
+
     public class ButtonInfo
     {
         public string buttonText = "-";
@@ -13,5 +22,8 @@ namespace ShibaGTGenesisReborn.Classes
         public bool isTogglable = true;
         public string toolTip;
         public bool isFavorite = false;
+        public InputType? vrKey = null;
+        public KeyCode pcKey = KeyCode.None;
+        public KeybindMode keybindMode = KeybindMode.Toggle;
     }
 }

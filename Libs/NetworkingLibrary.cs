@@ -1,3 +1,4 @@
+using ExitGames.Client.Photon;
 using GorillaNetworking;
 using Photon.Pun;
 using Photon.Realtime;
@@ -922,6 +923,44 @@ namespace ShibaGTGenesisReborn.Libs
                 return PhotonNetwork.LocalPlayer.ActorNumber;
 
             return -1;
+        }
+
+        // no i did NOT skid this from seralyth
+        // i couldnt figure out a method myself
+        // i figured why not take inspo from something thats already working instead of 
+        // making something that works like dogshit that took 10h (which i already did)
+        // i was working on it from 6am to 4pm
+        // mine looks different enough imo
+        public static void SendRigPosition(PhotonView view, Vector3 position, int[] targets = null)
+        {
+            if (!NetworkSystem.Instance.InRoom || view == null) return;
+
+            Vector3 previous = view.transform.position;
+            view.transform.position = position;
+            List<object> payload = PhotonNetwork.OnSerializeWrite(view);
+            view.transform.position = previous;
+            if (payload == null || payload.Count == 0) return;
+
+            PhotonNetwork.RaiseEventBatch batch = new PhotonNetwork.RaiseEventBatch
+            {
+                Reliable = view.Synchronization == ViewSynchronization.ReliableDeltaCompressed || view.mixedModeIsReliable,
+                Group = view.Group
+            };
+
+            if (!PhotonNetwork.serializeViewBatches.TryGetValue(batch, out PhotonNetwork.SerializeViewBatch viewBatch))
+                PhotonNetwork.serializeViewBatches[batch] = viewBatch = new PhotonNetwork.SerializeViewBatch(batch, 2);
+
+            viewBatch.Add(payload);
+            viewBatch.ObjectUpdates[0] = PhotonNetwork.ServerTimestamp;
+            viewBatch.ObjectUpdates[1] = PhotonNetwork.currentLevelPrefix != 0 ? (object)PhotonNetwork.currentLevelPrefix : null;
+
+            PhotonNetwork.NetworkingClient.OpRaiseEvent(
+                (byte)(batch.Reliable ? PunEvent.SendSerializeReliable : PunEvent.SendSerialize),
+                viewBatch.ObjectUpdates,
+                targets != null ? new RaiseEventOptions { TargetActors = targets } : PhotonNetwork.serializeRaiseEvOptions,
+                batch.Reliable ? SendOptions.SendReliable : SendOptions.SendUnreliable
+            );
+            viewBatch.Clear();
         }
 
         private string GenerateObjectId() =>

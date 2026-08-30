@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.1</TargetFramework>
@@ -12,6 +12,7 @@
 	  <EmbeddedResource Include="Resources\settings.png" />
 	  <EmbeddedResource Include="Resources\home.png" />
 	  <EmbeddedResource Include="Resources\heart.png" />
+	  <EmbeddedResource Include="Resources\search.png" />
 	  <Compile Remove="ascs\**" />
 	  <None Remove="ascs\**" /> <!-- assembly csharp decompiled for newest version so i can see what they changed -->
 	  <Compile Remove="Loader\**" />

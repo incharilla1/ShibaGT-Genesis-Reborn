@@ -110,7 +110,15 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void Noclip() => Noclipistuff(!InputHandler.Instance.RightTrigger.IsPressed);
+        public static void Noclip()
+        {
+            bool active = GunLib.IsXRDeviceActive()
+                ? InputHandler.Instance.RightTrigger.IsPressed
+                : (Mouse.current?.rightButton.isPressed ?? false) || UnityInput.Current.GetKey(KeyCode.E);
+            Noclipistuff(active);
+        }
+
+        public static void NoclipDisable() => Noclipistuff(false);
 
         public static void CarMonkeyandfly(float speed, bool fly)
         {
@@ -183,50 +191,21 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void bypasstp(Vector3 position, bool tprig = false)
+        public static void bypasstp(Vector3 position)
         {
-            if (tprig)
-            {
-                if (VRRig.LocalRig != null)
-                {
-                    VRRig.LocalRig.enabled = false;
-                    VRRig.LocalRig.transform.position = position;
-                    if (VRRig.LocalRig.rightHandTransform != null) VRRig.LocalRig.rightHandTransform.position = position;
-                    if (VRRig.LocalRig.leftHandTransform != null) VRRig.LocalRig.leftHandTransform.position = position;
-                    if (VRRig.LocalRig.headConstraint != null) VRRig.LocalRig.headConstraint.position = position;
-                }
-                return;
-            }
-
-            if (GTPlayer.Instance == null || GorillaTagger.Instance == null) return;
-
-            Noclipistuff(true);
-
-            Vector3 headOffset = GorillaTagger.Instance.headCollider != null
-                ? GorillaTagger.Instance.headCollider.transform.position - GTPlayer.Instance.transform.position
-                : Vector3.zero;
-
-            Vector3 targetPlayerPos = position - headOffset;
+            Vector3 targetPlayerPos = position - (GorillaTagger.Instance.headCollider.transform.position - GTPlayer.Instance.transform.position);
 
             GTPlayer.Instance.TeleportTo(targetPlayerPos, GTPlayer.Instance.transform.rotation, false, false);
+            GorillaTagger.Instance.rigidbody.position = targetPlayerPos;
+            GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
 
-            if (GorillaTagger.Instance.rigidbody != null)
-            {
-                GorillaTagger.Instance.rigidbody.position = targetPlayerPos;
-                GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
-            }
+            VRRig.LocalRig.transform.position = targetPlayerPos;
+            GorillaTagger.Instance.offlineVRRig.transform.position = targetPlayerPos;
 
-            if (VRRig.LocalRig != null)
-            {
-                VRRig.LocalRig.transform.position = targetPlayerPos;
-                VRRig.LocalRig.leftHandLink?.BreakLink();
-                VRRig.LocalRig.rightHandLink?.BreakLink();
-            }
+            NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), targetPlayerPos);
 
             Physics.SyncTransforms();
             GTPlayer.Instance.ForceRigidBodySync();
-
-            Noclipistuff(false);
         }
 
         public static void PullMod()
@@ -651,39 +630,24 @@ namespace ShibaGTGenesisReborn.Mods
             modifiedWaterVolumes.Clear();
         }
 
-        private static VRRig piggybackTarget;
-
         public static void PiggyBack()
         {
             GunLib.StartGun(() =>
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal)
                 {
-                    piggybackTarget = GunLib.LockedPlayer;
+                    Vector3 ridePosition = GunLib.LockedPlayer.transform.position + Vector3.up * 0.65f - GunLib.LockedPlayer.transform.forward * 0.25f;
+                    GorillaLocomotion.GTPlayer.Instance.transform.position = ridePosition;
+                    GorillaTagger.Instance.transform.position = ridePosition;
+                    GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
                 }
             }, true);
-
-            if (piggybackTarget == null || piggybackTarget.isLocal || !piggybackTarget.gameObject.activeInHierarchy)
-            {
-                piggybackTarget = RigManager.GetClosestVRRig();
-            }
-
-            if (piggybackTarget != null && !piggybackTarget.isLocal)
-            {
-                Vector3 ridePosition = piggybackTarget.transform.position + Vector3.up * 0.65f - piggybackTarget.transform.forward * 0.25f;
-                GorillaLocomotion.GTPlayer.Instance.transform.position = ridePosition;
-                GorillaTagger.Instance.transform.position = ridePosition;
-                GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-            }
         }
 
         public static void PiggyBackDisable()
         {
-            piggybackTarget = null;
             GunLib.CleanupPointer();
         }
-
-        private static VRRig followPlayerTarget;
 
         public static void FollowPlayer()
         {
@@ -691,32 +655,21 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal)
                 {
-                    followPlayerTarget = GunLib.LockedPlayer;
+                    Vector3 behindOffset = -GunLib.LockedPlayer.transform.forward * 1.5f + Vector3.up * 0.1f;
+                    Vector3 targetPosition = GunLib.LockedPlayer.transform.position + behindOffset;
+
+                    float distance = Vector3.Distance(GorillaLocomotion.GTPlayer.Instance.transform.position, targetPosition);
+                    float followSpeed = Mathf.Max(12f, distance * 5f);
+
+                    GorillaLocomotion.GTPlayer.Instance.transform.position = Vector3.MoveTowards(GorillaLocomotion.GTPlayer.Instance.transform.position, targetPosition, followSpeed * Time.deltaTime);
+                    GorillaTagger.Instance.transform.position = GorillaLocomotion.GTPlayer.Instance.transform.position;
+                    GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
                 }
             }, true);
-
-            if (followPlayerTarget == null || followPlayerTarget.isLocal || !followPlayerTarget.gameObject.activeInHierarchy)
-            {
-                followPlayerTarget = RigManager.GetClosestVRRig();
-            }
-
-            if (followPlayerTarget != null && !followPlayerTarget.isLocal)
-            {
-                Vector3 behindOffset = -followPlayerTarget.transform.forward * 1.5f + Vector3.up * 0.1f;
-                Vector3 targetPosition = followPlayerTarget.transform.position + behindOffset;
-
-                float distance = Vector3.Distance(GorillaLocomotion.GTPlayer.Instance.transform.position, targetPosition);
-                float followSpeed = Mathf.Max(12f, distance * 5f);
-
-                GorillaLocomotion.GTPlayer.Instance.transform.position = Vector3.MoveTowards(GorillaLocomotion.GTPlayer.Instance.transform.position, targetPosition, followSpeed * Time.deltaTime);
-                GorillaTagger.Instance.transform.position = GorillaLocomotion.GTPlayer.Instance.transform.position;
-                GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-            }
         }
 
         public static void FollowPlayerDisable()
         {
-            followPlayerTarget = null;
             GunLib.CleanupPointer();
         }
 

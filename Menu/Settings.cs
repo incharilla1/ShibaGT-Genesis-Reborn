@@ -24,9 +24,18 @@ namespace ShibaGTGenesisReborn
         [Setting] public static bool disconnectButton = true;
         [Setting] public static bool SettingsButton = true;
         [Setting] public static bool FolderButton = true;
+        [Setting] public static bool SearchButton = true;
         [Setting] public static bool rightHanded = true;
         [Setting] public static bool disableNotifications = true;
         [Setting] public static bool streamerMode = false;
+        [Setting] public static bool barkMenu = false;
+        public static bool barkMenuOpen = false;
+
+        public static string searchQuery = "";
+        public static bool isSearching = false;
+        public static bool showSearchKeyboard = true;
+        public static Vector3 pinnedMenuPosition;
+        public static Quaternion pinnedMenuRotation;
 
         public static KeyCode keyboardButton = KeyCode.Q;
 

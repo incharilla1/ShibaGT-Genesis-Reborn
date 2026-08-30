@@ -1,10 +1,14 @@
+using CXS;
 using ExitGames.Client.Photon;
 using GorillaGameModes;
 using GorillaLocomotion;
 using GorillaNetworking;
 using Photon.Pun;
+using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
+using ShibaGTGenesisReborn.Menu;
+using static ShibaGTGenesisReborn.Menu.Main;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -14,61 +18,176 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
+        public static bool IsRigInfected(VRRig rig)
+        {
+            if (rig == null) return false;
+            NetPlayer np = RigManager.GetNetPlayerFromVRRig(rig);
+            if (np != null && GorillaGameManager.instance is GorillaTagManager tagManager)
+            {
+                if (tagManager.isCurrentlyTag)
+                    return tagManager.currentIt == np;
+                if (tagManager.currentInfected != null)
+                    return tagManager.currentInfected.Contains(np);
+            }
+            if (rig.setMatIndex == 1 || rig.setMatIndex == 2 || rig.setMatIndex == 11) return true;
+            return rig.mainSkin?.material != null && rig.mainSkin.material.name.Contains("fected");
+        }
+
         public static void TagGun()
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null &&
-                    !GunLib.LockedPlayer.mainSkin.material.name.Contains("fected") &&
-                    !GunLib.LockedPlayer.isLocal)
+                if (GunLib.LockedPlayer != null && !GunLib.LockedPlayer.isLocal && !IsRigInfected(GunLib.LockedPlayer))
                 {
-                    if (VRRig.LocalRig.mainSkin.material.name.Contains("fected"))
-                    {
+                    if (IsRigInfected(VRRig.LocalRig))
                         TagPlayer(GunLib.LockedPlayer);
-                    }
-                    
                 }
             }, true);
         }
 
-        public static void TagPlayer(VRRig p)
+        private static float lastReportTagTime;
+        public static void TagPlayer(VRRig p, bool btp = false)
         {
-            if (p == null || VRRig.LocalRig == null) return;
-            if (!p.mainSkin.material.name.Contains("fected") && VRRig.LocalRig.mainSkin.material.name.Contains("fected"))
+            if (p == null || !IsRigInfected(VRRig.LocalRig) || IsRigInfected(p)) return;
+            if (Time.time <= lastReportTagTime + 0.2f) return;
+
+            RPCProt();
+            lastReportTagTime = Time.time;
+
+            Vector3 originalPos = GorillaTagger.Instance.headCollider.transform.position;
+            Vector3 targetPos = p.headConstraint != null ? p.headConstraint.position : p.transform.position;
+
+            CXS.CXS.TeleportPlayer(targetPos);
+
+            PhotonView pv = RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig);
+            if (pv != null && PhotonNetwork.MasterClient != null)
+                NetworkingLibrary.SendRigPosition(pv, targetPos, new int[] { PhotonNetwork.MasterClient.ActorNumber });
+
+            Player targetPlayer = RigManager.GetPlayerFromVRRig(p);
+            if (targetPlayer != null)
             {
-                bypasstp(p.bodyTransform.position, true);
-                GameMode.ReportTag(RigManager.GetPlayerFromVRRig(p));
+                GameMode.ReportTag(targetPlayer);
+                PhotonNetwork.SendAllOutgoingCommands();
             }
+
+            CXS.CXS.TeleportPlayer(originalPos);
         }
 
         public static void TagAll()
         {
-            foreach (VRRig p in VRRigCache.ActiveRigs)
+            if (!NetworkSystem.Instance.InRoom) return;
+
+            if (!IsRigInfected(VRRig.LocalRig))
             {
-                if (!p.isLocal)
+                TagSelf();
+                return;
+            }
+
+            VRRig target = null;
+            float min = float.MaxValue;
+            Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
+
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig != null && !rig.isLocal && rig != VRRig.LocalRig && !IsRigInfected(rig))
                 {
-                    TagPlayer(p);
+                    Vector3 rigPos = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position;
+                    float d = Vector3.Distance(localHead, rigPos);
+                    if (d < min)
+                    {
+                        min = d;
+                        target = rig;
+                    }
+                }
+            }
+
+            if (target != null)
+            {
+                TagPlayer(target, false);
+            }
+            else
+            {
+                ButtonInfo b = GetIndex("Tag All");
+                if (b != null && b.enabled)
+                {
+                    b.enabled = false;
+                    RecreateMenu();
                 }
             }
         }
 
+        private static Vector3 tagSelfOrigin;
+        private static bool tagSelfActive;
+
+        public static void DisableTagSelf()
+        {
+            if (tagSelfActive)
+            {
+                CXS.CXS.TeleportPlayer(tagSelfOrigin);
+                tagSelfActive = false;
+            }
+            if (VRRig.LocalRig != null)
+                VRRig.LocalRig.enabled = true;
+        }
+
         public static void TagSelf()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
-            if (VRRig.LocalRig != null && !VRRig.LocalRig.mainSkin.material.name.Contains("fected"))
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
+
+            if (IsRigInfected(VRRig.LocalRig))
             {
-                foreach (VRRig rig in VRRigCache.ActiveRigs)
+                DisableTagSelf();
+                ButtonInfo b = GetIndex("Tag Self");
+                if (b != null && b.enabled)
                 {
-                    if (rig != null && !rig.isLocal && rig.mainSkin.material.name.Contains("fected"))
+                    b.enabled = false;
+                    RecreateMenu();
+                }
+                return;
+            }
+
+            if (!tagSelfActive)
+            {
+                tagSelfOrigin = GTPlayer.Instance.transform.position;
+                tagSelfActive = true;
+            }
+
+            VRRig target = null;
+            float min = float.MaxValue;
+            Vector3 localBody = GorillaTagger.Instance.bodyCollider.transform.position;
+
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig != null && !rig.isLocal && rig != VRRig.LocalRig && IsRigInfected(rig))
+                {
+                    Vector3 rigPos = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position;
+                    float d = Vector3.Distance(localBody, rigPos);
+                    if (d < min)
                     {
-                        bypasstp(rig.bodyTransform.position, true);
-                        break;
+                        min = d;
+                        target = rig;
                     }
                 }
+            }
 
-                if (PhotonNetwork.LocalPlayer != null)
+            if (target != null)
+            {
+                RPCProt();
+                Vector3 handPos = target.rightHandTransform != null ? target.rightHandTransform.position : (target.leftHandTransform != null ? target.leftHandTransform.position : target.transform.position);
+                Vector3 bodyOffset = GorillaTagger.Instance.bodyCollider.transform.position - GTPlayer.Instance.transform.position;
+                Vector3 targetPos = handPos - bodyOffset;
+
+                CXS.CXS.TeleportPlayer(targetPos);
+
+                PhotonView pv = RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig);
+                if (pv != null)
                 {
-                    GameMode.ReportTag(PhotonNetwork.LocalPlayer);
+                    Player targetPlayer = RigManager.GetPlayerFromVRRig(target);
+                    int[] targets = targetPlayer != null && PhotonNetwork.MasterClient != null
+                        ? new int[] { PhotonNetwork.MasterClient.ActorNumber, targetPlayer.ActorNumber }
+                        : (PhotonNetwork.MasterClient != null ? new int[] { PhotonNetwork.MasterClient.ActorNumber } : null);
+
+                    NetworkingLibrary.SendRigPosition(pv, targetPos, targets);
                 }
             }
         }
@@ -79,6 +198,16 @@ namespace ShibaGTGenesisReborn.Mods
             PlayerPrefs.SetString("tutorial", "nope");
             Hashtable hasht = new Hashtable();
             hasht.Add("didTutorial", false);
+            PhotonNetwork.LocalPlayer.SetCustomProperties(hasht, null, null);
+            PlayerPrefs.Save();
+        }
+
+        public static void TagOnJoin()
+        {
+            PlayerPrefs.SetString("didTutorial", "nope");
+            PlayerPrefs.SetString("tutorial", "nope");
+            Hashtable hasht = new Hashtable();
+            hasht.Add("didTutorial", true);
             PhotonNetwork.LocalPlayer.SetCustomProperties(hasht, null, null);
             PlayerPrefs.Save();
         }
@@ -162,39 +291,30 @@ namespace ShibaGTGenesisReborn.Mods
             GTPlayer.Instance.disableMovement = false;
         }
 
-        private static float tagAuraCooldown;
-        public static void TagAura(float radius = 3.5f)
+        public static void TagAura(float radius = 4f)
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
-            if (!VRRig.LocalRig.mainSkin.material.name.Contains("fected")) return;
-            if (Time.time < tagAuraCooldown) return;
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
             float effectiveRadius = radius * (hitboxExpander ? hitboxExpanderMultiplier : 1f);
             foreach (VRRig targetRig in VRRigCache.ActiveRigs)
             {
-                if (targetRig == null || targetRig.isLocal) continue;
-
-                if (!targetRig.mainSkin.material.name.Contains("fected"))
+                if (targetRig != null && !targetRig.isLocal && !IsRigInfected(targetRig))
                 {
                     Vector3 targetHead = targetRig.headConstraint != null ? targetRig.headConstraint.position : targetRig.transform.position;
                     if (Vector3.Distance(localHead, targetHead) <= effectiveRadius)
                     {
-                        tagAuraCooldown = Time.time + 0.35f;
-                        GameMode.ReportTag(RigManager.GetPlayerFromVRRig(targetRig));
-                        break;
+                        TagPlayer(targetRig);
                     }
                 }
             }
         }
 
-        private static float tagAssistCooldown;
         public static VRRig tagAssistTarget;
 
-        public static void TagAssist(float assistRange = 8.5f, float pullSpeed = 22f)
+        public static void TagAssist(float assistRange = 9.5f, float pullSpeed = 30f)
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
-            if (!VRRig.LocalRig.mainSkin.material.name.Contains("fected")) return;
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
             VRRig closestTarget = null;
@@ -203,9 +323,7 @@ namespace ShibaGTGenesisReborn.Mods
 
             foreach (VRRig targetRig in VRRigCache.ActiveRigs)
             {
-                if (targetRig == null || targetRig.isLocal || targetRig == VRRig.LocalRig) continue;
-
-                if (!targetRig.mainSkin.material.name.Contains("fected"))
+                if (targetRig != null && !targetRig.isLocal && !IsRigInfected(targetRig))
                 {
                     Vector3 targetPos = targetRig.headConstraint != null ? targetRig.headConstraint.position : targetRig.transform.position;
                     float distance = Vector3.Distance(localHead, targetPos);
@@ -225,15 +343,16 @@ namespace ShibaGTGenesisReborn.Mods
                 Vector3 toTarget = (targetHead - localHead).normalized;
                 GorillaTagger.Instance.rigidbody.linearVelocity = toTarget * pullSpeed;
                 GorillaTagger.Instance.rightHandTransform.position = targetHead;
+                GorillaTagger.Instance.leftHandTransform.position = targetHead;
                 if (VRRig.LocalRig != null)
                 {
                     VRRig.LocalRig.rightHandTransform.position = targetHead;
+                    VRRig.LocalRig.leftHandTransform.position = targetHead;
                 }
 
-                if (closestDistance <= 4.5f * (hitboxExpander ? hitboxExpanderMultiplier : 1f) && Time.time > tagAssistCooldown)
+                if (closestDistance <= 4.5f * (hitboxExpander ? hitboxExpanderMultiplier : 1f))
                 {
-                    tagAssistCooldown = Time.time + 0.3f;
-                    GameMode.ReportTag(RigManager.GetPlayerFromVRRig(tagAssistTarget));
+                    TagPlayer(tagAssistTarget);
                 }
             }
         }
@@ -244,28 +363,38 @@ namespace ShibaGTGenesisReborn.Mods
         public static void HitboxExpander()
         {
             hitboxExpander = true;
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
-            if (!VRRig.LocalRig.mainSkin.material.name.Contains("fected")) return;
+            if (GorillaTagger.Instance != null)
+            {
+                GorillaTagger.Instance.maxTagDistance = float.MaxValue;
+                GorillaTagger.Instance.tagRadiusOverride = 1.1f * hitboxExpanderMultiplier;
+                GorillaTagger.Instance.tagRadiusOverrideFrame = Time.frameCount + 16;
+            }
+
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 rHand = GorillaTagger.Instance.rightHandTransform.position;
             Vector3 lHand = GorillaTagger.Instance.leftHandTransform.position;
-            float reach = 0.85f * hitboxExpanderMultiplier;
+            float reach = 1.1f * hitboxExpanderMultiplier;
 
             foreach (VRRig target in VRRigCache.ActiveRigs)
             {
-                if (target == null || target.isLocal || target == VRRig.LocalRig) continue;
-                if (target.mainSkin != null && target.mainSkin.material.name.Contains("fected")) continue;
-
-                Vector3 targetPos = target.headConstraint != null ? target.headConstraint.position : target.transform.position;
-                if (Vector3.Distance(rHand, targetPos) <= reach || Vector3.Distance(lHand, targetPos) <= reach)
+                if (target != null && !target.isLocal && !IsRigInfected(target))
                 {
-                    GameMode.ReportTag(RigManager.GetPlayerFromVRRig(target));
-                    break;
+                    Vector3 targetPos = target.headConstraint != null ? target.headConstraint.position : target.transform.position;
+                    if (Vector3.Distance(rHand, targetPos) <= reach || Vector3.Distance(lHand, targetPos) <= reach)
+                    {
+                        TagPlayer(target);
+                    }
                 }
             }
         }
 
-        public static void DisableHitboxExpander() => hitboxExpander = false;
+        public static void DisableHitboxExpander()
+        {
+            hitboxExpander = false;
+            if (GorillaTagger.Instance != null)
+                GorillaTagger.Instance.tagRadiusOverride = 0f;
+        }
 
         public static void SuperSwim(float power = 22f)
         {
@@ -280,10 +409,9 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void TagPull(float range = 7f, float speed = 18f)
+        public static void TagPull(float range = 8f, float speed = 25f)
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
-            if (!VRRig.LocalRig.mainSkin.material.name.Contains("fected")) return;
+            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
             if (!InputHandler.Instance.RightTrigger.IsPressed) return;
 
             VRRig target = RigManager.GetClosestUntaggedVRRig(range);

@@ -162,6 +162,17 @@ namespace ShibaGTGenesisReborn.Menu
             rightHanded = false;
         }
 
+        public static void EnableBarkMenu()
+        {
+            barkMenu = true;
+        }
+
+        public static void DisableBarkMenu()
+        {
+            barkMenu = false;
+            barkMenuOpen = false;
+        }
+
         public static void EnableFPSCounter()
         {
             fpsCounter = true;
@@ -212,13 +223,26 @@ namespace ShibaGTGenesisReborn.Menu
             pageNumber = 0;
         }
 
+        public static void keybinds()
+        {
+            KeybindManager.RefreshKeybindMenu();
+            buttonsType = 22;
+            pageNumber = 0;
+        }
+
+        public static void keybindPicker()
+        {
+            KeybindManager.RefreshPickerMenu();
+            buttonsType = 23;
+            pageNumber = 0;
+        }
+
         public static void UpdateEnabledMods()
         {
             List<ButtonInfo> enabledMods = new List<ButtonInfo>();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21)
-                    continue;
+                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23 || i == 24) continue;
 
                 foreach (ButtonInfo mod in Buttons.buttons[i])
                 {
@@ -229,6 +253,49 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }
             Buttons.buttons[10] = enabledMods.ToArray();
+        }
+
+        public static bool IsSearchable(ButtonInfo btn, int categoryIndex)
+        {
+            if (btn == null || categoryIndex == 0 || categoryIndex == 10 || categoryIndex == 11 || categoryIndex == 18 || categoryIndex >= 21) return false;
+            string text = btn.buttonText;
+            if (string.IsNullOrEmpty(text) || text == "home" || text == "Back to Players" || text == "Version Check" || text == "Remove All Prefs")
+                return false;
+            return true;
+        }
+
+        public static void UpdateSearchResults()
+        {
+            List<ButtonInfo> results = new List<ButtonInfo>();
+            string query = (searchQuery ?? "").Trim();
+
+            if (!string.IsNullOrEmpty(query))
+            {
+                for (int i = 1; i <= 9; i++)
+                {
+                    ButtonInfo[] cat = Buttons.buttons[i];
+                    if (cat == null) continue;
+
+                    foreach (ButtonInfo btn in cat)
+                    {
+                        if (!IsSearchable(btn, i) || results.Contains(btn)) continue;
+
+                        bool nameMatch = btn.buttonText != null && btn.buttonText.IndexOf(query, System.StringComparison.OrdinalIgnoreCase) >= 0;
+                        bool overlapMatch = btn.overlapText != null && btn.overlapText.IndexOf(query, System.StringComparison.OrdinalIgnoreCase) >= 0;
+                        bool tooltipMatch = btn.toolTip != null && btn.toolTip.IndexOf(query, System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+                        if (nameMatch || overlapMatch || tooltipMatch)
+                        {
+                            results.Add(btn);
+                        }
+                    }
+                }
+            }
+
+            if (Buttons.buttons.Length > 24)
+            {
+                Buttons.buttons[24] = results.ToArray();
+            }
         }
     }
 }

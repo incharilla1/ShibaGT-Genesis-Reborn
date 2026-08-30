@@ -94,12 +94,23 @@ namespace ShibaGTGenesisReborn.Classes
 
         public static Player GetPlayerFromVRRig(VRRig p)
         {
-            return p.Creator.GetPlayerRef() ?? null;
+            if (p.isLocal) return PhotonNetwork.LocalPlayer;
+            if (p.Creator != null) return p.Creator.GetPlayerRef();
+            if (p.rigSerializer != null)
+            {
+                NetPlayer np = NetworkSystem.Instance.GetPlayer(NetworkSystem.Instance.GetOwningPlayerID(p.rigSerializer.gameObject));
+                if (np != null) return np.GetPlayerRef();
+            }
+            return null;
         }
 
         public static NetPlayer GetNetPlayerFromVRRig(VRRig p)
         {
-            return p.Creator ?? NetworkSystem.Instance.GetPlayer(GetPlayerFromVRRig(p).ActorNumber);
+            if (p.isLocal) return NetworkSystem.Instance.LocalPlayer;
+            if (p.Creator != null) return p.Creator;
+            if (p.rigSerializer != null)
+                return NetworkSystem.Instance.GetPlayer(NetworkSystem.Instance.GetOwningPlayerID(p.rigSerializer.gameObject));
+            return null;
         }
 
         public static PhotonView GetPhotonViewFromVRRig(VRRig p)

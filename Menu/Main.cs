@@ -50,13 +50,29 @@ namespace ShibaGTGenesisReborn.Menu
                     Destroy(reference);
                     reference = null;
                 }
+                DestroyDualReferences();
+                barkMenuOpen = false;
                 return;
             }
             
             try
             {
                 bool toOpen = ControllerInputPoller.instance != null && ((!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton));
-                bool keyboardOpen = UnityInput.Current.GetKey(keyboardButton);
+                bool keyboardOpen = UnityInput.Current != null && UnityInput.Current.GetKey(keyboardButton);
+
+                if (barkMenu && !isPCMenu && GorillaTagger.Instance?.bodyCollider != null)
+                {
+                    CheckBarkMenu();
+                    toOpen = barkMenuOpen;
+                }
+                else if (!barkMenu)
+                {
+                    barkMenuOpen = false;
+                }
+
+                if (keyboardOpen) isPCMenu = true;
+                else if (toOpen) isPCMenu = false;
+
                 try
                 {
                     bool rightMouse = Mouse.current != null && Mouse.current.rightButton.isPressed;
@@ -74,24 +90,33 @@ namespace ShibaGTGenesisReborn.Menu
                     if (toOpen || keyboardOpen)
                     {
                         CreateMenu();
-                        if (reference == null)
+                        if (barkMenu && !isPCMenu)
+                        {
+                            CreateDualReferences();
+                        }
+                        else if (reference == null && !isPCMenu)
                         {
                             CreateReference(rightHanded);
                         }
-                        RecenterMenu(rightHanded, keyboardOpen);
+                        RecenterMenu(rightHanded, isPCMenu);
                     }
                 }
                 else
                 {
-                    if ((toOpen || keyboardOpen))
+                    if (isSearching)
                     {
-                        RecenterMenu(rightHanded, keyboardOpen);
+                        RecenterMenu(rightHanded, isPCMenu);
+                        HandlePCTyping();
+                    }
+                    else if (toOpen || keyboardOpen)
+                    {
+                        RecenterMenu(rightHanded, isPCMenu);
                     }
                     else
                     {
                         if (shoulderCamera != null)
                         {
-                            shoulderCamera.transform.Find("CM vcam1").gameObject.SetActive(true);
+                            shoulderCamera.transform.Find("CM vcam1")?.gameObject.SetActive(true);
                         }
 
                         Rigidbody comp = menu.AddComponent(typeof(Rigidbody)) as Rigidbody;
@@ -109,6 +134,8 @@ namespace ShibaGTGenesisReborn.Menu
 
                         Destroy(reference);
                         reference = null;
+                        DestroyDualReferences();
+                        isPCMenu = false;
                     }
                 }
             }
@@ -152,6 +179,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
 
                 Mods.PlayerOptionsManager.Update();
+                KeybindManager.Update();
                 if (Time.frameCount % 240 == 0) UpdateBoardText();
             }
             catch (Exception exc)
@@ -173,6 +201,9 @@ namespace ShibaGTGenesisReborn.Menu
                 Destroy(reference);
                 reference = null;
             }
+
+            DestroyDualReferences();
+            barkMenuOpen = false;
 
             if (canvasObject != null)
             {
@@ -308,7 +339,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }.AddComponent<Text>();
             text.font = currentFont;
-            text.text = PluginInfo.Name;
+            text.text = isSearching ? "" : PluginInfo.Name;
             text.fontSize = 1;
             text.color = textColors[0];
             text.supportRichText = true;
@@ -348,7 +379,7 @@ namespace ShibaGTGenesisReborn.Menu
                 component2.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
 
-            var But1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject But1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
 
             But1.GetComponent<BoxCollider>().isTrigger = true;
 
@@ -387,7 +418,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             if (SettingsButton)
             {
-                var But = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                GameObject But = GameObject.CreatePrimitive(PrimitiveType.Cube);
 
                 But.GetComponent<BoxCollider>().isTrigger = true;
 
@@ -428,7 +459,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             if (FolderButton)
             {
-                var folderBtn = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                GameObject folderBtn = GameObject.CreatePrimitive(PrimitiveType.Cube);
 
                 folderBtn.GetComponent<BoxCollider>().isTrigger = true;
 
@@ -464,6 +495,43 @@ namespace ShibaGTGenesisReborn.Menu
                 folderRect.localPosition = new Vector3(0.064f, -0.039f, -0.218f);
                 folderRect.sizeDelta = new Vector2(0.024f, 0.024f);
                 folderRect.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+            }
+
+            if (SearchButton)
+            {
+                GameObject searchBtn = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                searchBtn.GetComponent<BoxCollider>().isTrigger = true;
+                searchBtn.transform.parent = menu.transform;
+                searchBtn.transform.rotation = Quaternion.identity;
+                searchBtn.transform.localScale = new Vector3(0.05f, 0.1f, 0.08f);
+                searchBtn.transform.localPosition = new Vector3(0.56f, 0.03f, -0.57f);
+
+                searchBtn.GetComponent<Renderer>().material.color = isSearching ? buttonColors[1].colors[0].color : buttonColors[0].colors[0].color;
+                ColorChanger ccSearch = searchBtn.AddComponent<ColorChanger>();
+                ccSearch.colorInfo = isSearching ? buttonColors[1] : buttonColors[0];
+                ccSearch.Start();
+                if (showOutline)
+                {
+                    OutlineObj(searchBtn, outlineColor, outlineColor, false);
+                }
+
+                searchBtn.AddComponent<Classes.Button>().relatedText = "Search";
+
+                RawImage searchImg = new GameObject
+                {
+                    transform =
+                    {
+                        parent = canvasObject.transform
+                    }
+                }.AddComponent<RawImage>();
+
+                searchImg.texture = ModsLib.GetSearchTexture();
+                searchImg.color = isSearching ? textColors[1] : textColors[0];
+
+                RectTransform searchRect = searchImg.GetComponent<RectTransform>();
+                searchRect.localPosition = new Vector3(0.064f, 0.009f, -0.218f);
+                searchRect.sizeDelta = new Vector2(0.024f, 0.024f);
+                searchRect.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
 
             if (disconnectButton)
@@ -505,6 +573,17 @@ namespace ShibaGTGenesisReborn.Menu
                 rectt.sizeDelta = new Vector2(0.2f, 0.03f);
                 rectt.localPosition = new Vector3(0.064f, 0f, 0.22f);
                 rectt.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+            }
+
+            if (isSearching && showSearchKeyboard)
+            {
+                RenderVirtualKeyboard();
+                return;
+            }
+
+            if (isSearching)
+            {
+                RenderSearchResultsHeader();
             }
 
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -592,9 +671,10 @@ namespace ShibaGTGenesisReborn.Menu
                 activeButtons = new ButtonInfo[0];
             }
 
+            float startOffset = isSearching ? 0.055f : 0f;
             for (int i = 0; i < activeButtons.Length; i++)
             {
-                CreateButton(i * 0.095f, activeButtons[i]);
+                CreateButton(i * 0.095f + startOffset, activeButtons[i]);
             }
         }
 
@@ -703,7 +783,7 @@ namespace ShibaGTGenesisReborn.Menu
                 menu = null;
 
                 CreateMenu();
-                RecenterMenu(rightHanded, UnityInput.Current.GetKey(keyboardButton));
+                RecenterMenu(rightHanded, isPCMenu || (UnityInput.Current != null && UnityInput.Current.GetKey(keyboardButton)));
             }
         }
 
@@ -711,6 +791,27 @@ namespace ShibaGTGenesisReborn.Menu
         {
             if (!isKeyboardCondition)
             {
+                if (isSearching)
+                {
+                    menu.transform.position = pinnedMenuPosition;
+                    menu.transform.rotation = pinnedMenuRotation;
+                    return;
+                }
+
+                if (barkMenu && barkMenuOpen)
+                {
+                    Transform head = GorillaTagger.Instance.headCollider.transform;
+                    Vector3 forward = head.forward;
+                    forward.y = 0f;
+                    forward.Normalize();
+
+                    Vector3 pos = head.position + forward * 0.55f + Vector3.down * 0.15f;
+                    menu.transform.position = pos;
+                    menu.transform.LookAt(head.position);
+                    menu.transform.rotation = Quaternion.Euler(0f, menu.transform.eulerAngles.y, 0f) * Quaternion.Euler(-90f, 0f, -90f);
+                    return;
+                }
+
                 if (!isRightHanded)
                 {
                     menu.transform.position = GorillaTagger.Instance.leftHandTransform.position;
@@ -927,6 +1028,48 @@ namespace ShibaGTGenesisReborn.Menu
             colorChanger.Start();
         }
 
+        private static float lastChestTap;
+        private static int chestTaps;
+        private static bool chestContact;
+
+        public static void CheckBarkMenu()
+        {
+            if (!barkMenuOpen)
+            {
+                Vector3 lHand = GorillaTagger.Instance.leftHandTransform.position;
+                Vector3 rHand = GorillaTagger.Instance.rightHandTransform.position;
+                Collider body = GorillaTagger.Instance.bodyCollider;
+
+                bool touching = Vector3.Distance(body.ClosestPoint(lHand), lHand) < 0.14f ||
+                                Vector3.Distance(body.ClosestPoint(rHand), rHand) < 0.14f;
+
+                if (touching && !chestContact)
+                {
+                    if (Time.time - lastChestTap > 0.6f) chestTaps = 0;
+                    lastChestTap = Time.time;
+                    chestTaps++;
+
+                    if (chestTaps >= 3)
+                    {
+                        chestTaps = 0;
+                        barkMenuOpen = true;
+                    }
+                }
+                chestContact = touching;
+            }
+            else
+            {
+                bool buttonPress = ControllerInputPoller.instance != null && 
+                    ((!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || 
+                     (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton));
+
+                if (buttonPress)
+                {
+                    barkMenuOpen = false;
+                }
+            }
+        }
+
         public static void ToggleFavorite(string buttonText, ButtonInfo target = null)
         {
             if (target == null)
@@ -979,6 +1122,7 @@ namespace ShibaGTGenesisReborn.Menu
         public static void Load()
         {
             UpdateFavoritesCategory();
+            KeybindManager.RefreshKeybindMenu();
             MenuAudio.Initialize();
         }
 
@@ -987,6 +1131,71 @@ namespace ShibaGTGenesisReborn.Menu
             if (buttonText.StartsWith("fav_"))
             {
                 ToggleFavorite(buttonText.Substring(4), target);
+                return;
+            }
+
+            if (buttonText == "Search")
+            {
+                ToggleSearchMode();
+                return;
+            }
+
+            if (buttonText.StartsWith("vkey_"))
+            {
+                string key = buttonText.Substring(5);
+                if (searchQuery.Length < 24)
+                {
+                    searchQuery += key;
+                    SettingsMods.UpdateSearchResults();
+                    RecreateMenu();
+                }
+                return;
+            }
+
+            if (buttonText == "Search_Backspace")
+            {
+                if (searchQuery.Length > 0)
+                {
+                    searchQuery = searchQuery.Substring(0, searchQuery.Length - 1);
+                    SettingsMods.UpdateSearchResults();
+                    RecreateMenu();
+                }
+                return;
+            }
+
+            if (buttonText == "Search_Clear")
+            {
+                searchQuery = "";
+                SettingsMods.UpdateSearchResults();
+                RecreateMenu();
+                return;
+            }
+
+            if (buttonText == "Search_Space")
+            {
+                if (searchQuery.Length < 24 && searchQuery.Length > 0 && !searchQuery.EndsWith(" "))
+                {
+                    searchQuery += " ";
+                    SettingsMods.UpdateSearchResults();
+                    RecreateMenu();
+                }
+                return;
+            }
+
+            if (buttonText == "Search_ShowResults")
+            {
+                showSearchKeyboard = false;
+                buttonsType = 24;
+                pageNumber = 0;
+                SettingsMods.UpdateSearchResults();
+                RecreateMenu();
+                return;
+            }
+
+            if (buttonText == "Search_ShowKeyboard")
+            {
+                showSearchKeyboard = true;
+                RecreateMenu();
                 return;
             }
 
@@ -1032,6 +1241,11 @@ namespace ShibaGTGenesisReborn.Menu
             }
             else if (buttonText == "home")
             {
+                if (isSearching)
+                {
+                    ToggleSearchMode();
+                    return;
+                }
                 buttonsType = 0;
                 pageNumber = 0;
                 RecreateMenu();
@@ -1091,7 +1305,7 @@ namespace ShibaGTGenesisReborn.Menu
                                 try
                                 {
                                     target.method.Invoke();
-                                    NotificationLib.SendNotification(NotificationLib.NotificationType.Enabled, displayName);
+                                    NotificationLib.SendNotification(NotificationLib.NotificationType.Info, displayName);
                                 }
                                 catch { }
                             }
@@ -1264,12 +1478,287 @@ namespace ShibaGTGenesisReborn.Menu
             cachedTPC = null;
         }
 
+        private static readonly string[] KeyboardRow0 = new string[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" };
+        private static readonly string[] KeyboardRow1 = new string[] { "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P" };
+        private static readonly string[] KeyboardRow2 = new string[] { "A", "S", "D", "F", "G", "H", "J", "K", "L" };
+        private static readonly string[] KeyboardRow3 = new string[] { "Z", "X", "C", "V", "B", "N", "M" };
+
+        private static void CreateKey(float posX, float posY, float posZ, float width, float height, string label, string relatedText)
+        {
+            GameObject keyObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.Destroy(keyObj.GetComponent<Rigidbody>());
+            keyObj.GetComponent<BoxCollider>().isTrigger = true;
+            keyObj.transform.parent = menu.transform;
+            keyObj.transform.rotation = Quaternion.identity;
+            keyObj.transform.localScale = new Vector3(0.05f, width, height);
+            keyObj.transform.localPosition = new Vector3(posX, posY, posZ);
+
+            keyObj.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+            ColorChanger cc = keyObj.AddComponent<ColorChanger>();
+            cc.colorInfo = buttonColors[0];
+            cc.Start();
+
+            if (showOutline) OutlineObj(keyObj, outlineColor, outlineColor, false, 2);
+
+            Classes.Button btn = keyObj.AddComponent<Classes.Button>();
+            btn.relatedText = relatedText;
+
+            Text keyText = new GameObject
+            {
+                transform = { parent = canvasObject.transform }
+            }.AddComponent<Text>();
+            keyText.font = currentFont;
+            keyText.text = label;
+            keyText.fontSize = 1;
+            keyText.color = textColors[0];
+            keyText.alignment = TextAnchor.MiddleCenter;
+            keyText.fontStyle = FontStyle.Bold;
+            keyText.resizeTextForBestFit = true;
+            keyText.resizeTextMinSize = 0;
+
+            RectTransform rect = keyText.GetComponent<RectTransform>();
+            rect.localPosition = Vector3.zero;
+            rect.sizeDelta = new Vector2(width * 0.3f, height * 0.3825f);
+            rect.localPosition = new Vector3(0.064f, posY * 0.3f, posZ * 0.3825f);
+            rect.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+        }
+
+        private static void RenderVirtualKeyboard()
+        {
+            GameObject searchBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.Destroy(searchBox.GetComponent<Rigidbody>());
+            searchBox.GetComponent<BoxCollider>().isTrigger = true;
+            searchBox.transform.parent = menu.transform;
+            searchBox.transform.rotation = Quaternion.identity;
+            searchBox.transform.localScale = new Vector3(0.05f, 0.88f, 0.09f);
+            searchBox.transform.localPosition = new Vector3(0.56f, 0f, 0.33f);
+            searchBox.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+            ColorChanger ccBox = searchBox.AddComponent<ColorChanger>();
+            ccBox.colorInfo = buttonColors[0];
+            ccBox.Start();
+            if (showOutline) OutlineObj(searchBox, outlineColor, outlineColor, false, 2);
+
+            Text searchBoxText = new GameObject
+            {
+                transform = { parent = canvasObject.transform }
+            }.AddComponent<Text>();
+            searchBoxText.font = currentFont;
+            string displayText = string.IsNullOrEmpty(searchQuery) ? "<color=grey>Type here...</color>" : searchQuery + "_";
+            searchBoxText.text = $"<color=yellow>Search:</color> {displayText}";
+            searchBoxText.supportRichText = true;
+            searchBoxText.fontSize = 1;
+            searchBoxText.color = textColors[0];
+            searchBoxText.alignment = TextAnchor.MiddleCenter;
+            searchBoxText.fontStyle = FontStyle.Bold;
+            searchBoxText.resizeTextForBestFit = true;
+            searchBoxText.resizeTextMinSize = 0;
+
+            RectTransform rectBox = searchBoxText.GetComponent<RectTransform>();
+            rectBox.localPosition = Vector3.zero;
+            rectBox.sizeDelta = new Vector2(0.26f, 0.035f);
+            rectBox.localPosition = new Vector3(0.064f, 0f, 0.33f * 0.3825f);
+            rectBox.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+
+            float z0 = 0.20f;
+            for (int i = 0; i < KeyboardRow0.Length; i++)
+            {
+                float y = 0.405f - i * 0.09f;
+                CreateKey(0.56f, y, z0, 0.08f, 0.075f, KeyboardRow0[i], "vkey_" + KeyboardRow0[i]);
+            }
+
+            float z1 = 0.105f;
+            for (int i = 0; i < KeyboardRow1.Length; i++)
+            {
+                float y = 0.405f - i * 0.09f;
+                CreateKey(0.56f, y, z1, 0.08f, 0.075f, KeyboardRow1[i], "vkey_" + KeyboardRow1[i]);
+            }
+
+            float z2 = 0.01f;
+            for (int i = 0; i < KeyboardRow2.Length; i++)
+            {
+                float y = 0.36f - i * 0.09f;
+                CreateKey(0.56f, y, z2, 0.082f, 0.075f, KeyboardRow2[i], "vkey_" + KeyboardRow2[i]);
+            }
+
+            float z3 = -0.085f;
+            for (int i = 0; i < KeyboardRow3.Length; i++)
+            {
+                float y = 0.36f - i * 0.09f;
+                CreateKey(0.56f, y, z3, 0.082f, 0.075f, KeyboardRow3[i], "vkey_" + KeyboardRow3[i]);
+            }
+            CreateKey(0.56f, -0.315f, z3, 0.17f, 0.075f, "<-", "Search_Backspace");
+
+            float z4 = -0.18f;
+            CreateKey(0.56f, 0.27f, z4, 0.28f, 0.075f, "Space", "Search_Space");
+            CreateKey(0.56f, -0.01f, z4, 0.22f, 0.075f, "Clear", "Search_Clear");
+            int matchCount = Buttons.buttons.Length > 24 && Buttons.buttons[24] != null ? Buttons.buttons[24].Length : 0;
+            CreateKey(0.56f, -0.28f, z4, 0.28f, 0.075f, $"Results ({matchCount})", "Search_ShowResults");
+        }
+
+        private static void RenderSearchResultsHeader()
+        {
+            int matchCount = Buttons.buttons.Length > 24 && Buttons.buttons[24] != null ? Buttons.buttons[24].Length : 0;
+            CreateKey(0.56f, 0f, 0.38f, 0.88f, 0.065f, $"Query: \"{searchQuery}\" ({matchCount}) - Tap to Edit", "Search_ShowKeyboard");
+        }
+
+        public static void CreateDualReferences()
+        {
+            DestroyDualReferences();
+
+            if (reference != null)
+            {
+                UnityEngine.Object.Destroy(reference);
+                reference = null;
+                buttonCollider = null;
+            }
+
+            if (GorillaTagger.Instance == null) return;
+
+            leftReference = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            leftReference.transform.parent = GorillaTagger.Instance.leftHandTransform;
+            leftReference.GetComponent<Renderer>().material.color = backgroundColor.colors[0].color;
+            leftReference.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+            leftReference.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+            leftButtonCollider = leftReference.GetComponent<SphereCollider>();
+
+            ColorChanger ccL = leftReference.AddComponent<ColorChanger>();
+            ccL.colorInfo = backgroundColor;
+            ccL.Start();
+
+            rightReference = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            rightReference.transform.parent = GorillaTagger.Instance.rightHandTransform;
+            rightReference.GetComponent<Renderer>().material.color = backgroundColor.colors[0].color;
+            rightReference.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+            rightReference.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+            rightButtonCollider = rightReference.GetComponent<SphereCollider>();
+
+            ColorChanger ccR = rightReference.AddComponent<ColorChanger>();
+            ccR.colorInfo = backgroundColor;
+            ccR.Start();
+        }
+
+        public static void DestroyDualReferences()
+        {
+            if (leftReference != null)
+            {
+                UnityEngine.Object.Destroy(leftReference);
+                leftReference = null;
+                leftButtonCollider = null;
+            }
+            if (rightReference != null)
+            {
+                UnityEngine.Object.Destroy(rightReference);
+                rightReference = null;
+                rightButtonCollider = null;
+            }
+        }
+
+        public static void ToggleSearchMode()
+        {
+            isSearching = !isSearching;
+            if (isSearching)
+            {
+                showSearchKeyboard = true;
+                buttonsType = 24;
+                pageNumber = 0;
+                SettingsMods.UpdateSearchResults();
+
+                if (menu != null && !isPCMenu)
+                {
+                    pinnedMenuPosition = menu.transform.position;
+                    Vector3 headPos = GorillaTagger.Instance != null && GorillaTagger.Instance.headCollider != null
+                        ? GorillaTagger.Instance.headCollider.transform.position
+                        : (Camera.main != null ? Camera.main.transform.position : menu.transform.position + Vector3.back);
+
+                    Vector3 toHead = headPos - menu.transform.position;
+                    toHead.y = 0f;
+                    float yaw = toHead.sqrMagnitude > 0.001f ? Mathf.Atan2(toHead.x, toHead.z) * Mathf.Rad2Deg : 0f;
+
+                    pinnedMenuRotation = Quaternion.Euler(-90f, yaw - 90f, 0f);
+                    menu.transform.position = pinnedMenuPosition;
+                    menu.transform.rotation = pinnedMenuRotation;
+                    menu.transform.parent = null;
+                    CreateDualReferences();
+                }
+            }
+            else
+            {
+                showSearchKeyboard = false;
+                searchQuery = "";
+                buttonsType = 0;
+                pageNumber = 0;
+                DestroyDualReferences();
+                if (reference == null && !isPCMenu)
+                {
+                    CreateReference(rightHanded);
+                }
+            }
+            RecreateMenu();
+        }
+
+        private static void HandlePCTyping()
+        {
+            try
+            {
+                string input = Input.inputString;
+                if (!string.IsNullOrEmpty(input))
+                {
+                    bool changed = false;
+                    foreach (char c in input)
+                    {
+                        if (c == '\b')
+                        {
+                            if (searchQuery.Length > 0)
+                            {
+                                searchQuery = searchQuery.Substring(0, searchQuery.Length - 1);
+                                changed = true;
+                            }
+                        }
+                        else if (c == '\n' || c == '\r')
+                        {
+                            showSearchKeyboard = false;
+                            buttonsType = 24;
+                            pageNumber = 0;
+                            SettingsMods.UpdateSearchResults();
+                            RecreateMenu();
+                            return;
+                        }
+                        else if (c == '\u001b')
+                        {
+                            ToggleSearchMode();
+                            return;
+                        }
+                        else if (char.IsLetterOrDigit(c) || c == ' ')
+                        {
+                            if (searchQuery.Length < 24)
+                            {
+                                searchQuery += c;
+                                changed = true;
+                            }
+                        }
+                    }
+
+                    if (changed)
+                    {
+                        SettingsMods.UpdateSearchResults();
+                        RecreateMenu();
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public static bool isPCMenu = false;
         public static GameObject menu;
         public static GameObject menuBackground;
         public static GameObject reference;
+        public static GameObject leftReference;
+        public static GameObject rightReference;
         public static GameObject canvasObject;
 
         public static SphereCollider buttonCollider;
+        public static SphereCollider leftButtonCollider;
+        public static SphereCollider rightButtonCollider;
         public static Camera TPC;
         public static Text fpsObject;
 

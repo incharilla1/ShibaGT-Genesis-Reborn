@@ -47,7 +47,7 @@ namespace ShibaGTGenesisReborn.Classes
 
         public void OnTriggerEnter(Collider collider)
         {
-            if (collider == buttonCollider || collider == null || buttonCollider == null)
+            if (collider == buttonCollider || collider == leftButtonCollider || collider == rightButtonCollider || collider == null || buttonCollider == null)
             {
                 Click();
             }
