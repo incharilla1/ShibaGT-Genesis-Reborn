@@ -131,6 +131,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void WASDFly()
         {
+            if (Settings.isSearching) return;
+
             Rigidbody rb = GorillaTagger.Instance.rigidbody;
             Transform cam = GorillaLocomotion.GTPlayer.Instance.GetControllerTransform(false).parent;
             rb.linearVelocity = Vector3.zero;

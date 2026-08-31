@@ -1696,53 +1696,142 @@ namespace ShibaGTGenesisReborn.Menu
             RecreateMenu();
         }
 
+        private readonly struct TypeKey
+        {
+            public readonly Key InputKey;
+            public readonly KeyCode LegacyKey;
+            public readonly char Lower;
+            public readonly char Upper;
+
+            public TypeKey(Key inputKey, KeyCode legacyKey, char lower, char upper)
+            {
+                InputKey = inputKey;
+                LegacyKey = legacyKey;
+                Lower = lower;
+                Upper = upper;
+            }
+
+            public TypeKey(Key inputKey, KeyCode legacyKey, char c) : this(inputKey, legacyKey, c, c) { }
+        }
+
+        private static readonly TypeKey[] PCKeys = new TypeKey[]
+        {
+            new TypeKey(Key.A, KeyCode.A, 'a', 'A'),
+            new TypeKey(Key.B, KeyCode.B, 'b', 'B'),
+            new TypeKey(Key.C, KeyCode.C, 'c', 'C'),
+            new TypeKey(Key.D, KeyCode.D, 'd', 'D'),
+            new TypeKey(Key.E, KeyCode.E, 'e', 'E'),
+            new TypeKey(Key.F, KeyCode.F, 'f', 'F'),
+            new TypeKey(Key.G, KeyCode.G, 'g', 'G'),
+            new TypeKey(Key.H, KeyCode.H, 'h', 'H'),
+            new TypeKey(Key.I, KeyCode.I, 'i', 'I'),
+            new TypeKey(Key.J, KeyCode.J, 'j', 'J'),
+            new TypeKey(Key.K, KeyCode.K, 'k', 'K'),
+            new TypeKey(Key.L, KeyCode.L, 'l', 'L'),
+            new TypeKey(Key.M, KeyCode.M, 'm', 'M'),
+            new TypeKey(Key.N, KeyCode.N, 'n', 'N'),
+            new TypeKey(Key.O, KeyCode.O, 'o', 'O'),
+            new TypeKey(Key.P, KeyCode.P, 'p', 'P'),
+            new TypeKey(Key.Q, KeyCode.Q, 'q', 'Q'),
+            new TypeKey(Key.R, KeyCode.R, 'r', 'R'),
+            new TypeKey(Key.S, KeyCode.S, 's', 'S'),
+            new TypeKey(Key.T, KeyCode.T, 't', 'T'),
+            new TypeKey(Key.U, KeyCode.U, 'u', 'U'),
+            new TypeKey(Key.V, KeyCode.V, 'v', 'V'),
+            new TypeKey(Key.W, KeyCode.W, 'w', 'W'),
+            new TypeKey(Key.X, KeyCode.X, 'x', 'X'),
+            new TypeKey(Key.Y, KeyCode.Y, 'y', 'Y'),
+            new TypeKey(Key.Z, KeyCode.Z, 'z', 'Z'),
+            new TypeKey(Key.Digit0, KeyCode.Alpha0, '0', ')'),
+            new TypeKey(Key.Digit1, KeyCode.Alpha1, '1', '!'),
+            new TypeKey(Key.Digit2, KeyCode.Alpha2, '2', '@'),
+            new TypeKey(Key.Digit3, KeyCode.Alpha3, '3', '#'),
+            new TypeKey(Key.Digit4, KeyCode.Alpha4, '4', '$'),
+            new TypeKey(Key.Digit5, KeyCode.Alpha5, '5', '%'),
+            new TypeKey(Key.Digit6, KeyCode.Alpha6, '6', '^'),
+            new TypeKey(Key.Digit7, KeyCode.Alpha7, '7', '&'),
+            new TypeKey(Key.Digit8, KeyCode.Alpha8, '8', '*'),
+            new TypeKey(Key.Digit9, KeyCode.Alpha9, '9', '('),
+            new TypeKey(Key.Numpad0, KeyCode.Keypad0, '0'),
+            new TypeKey(Key.Numpad1, KeyCode.Keypad1, '1'),
+            new TypeKey(Key.Numpad2, KeyCode.Keypad2, '2'),
+            new TypeKey(Key.Numpad3, KeyCode.Keypad3, '3'),
+            new TypeKey(Key.Numpad4, KeyCode.Keypad4, '4'),
+            new TypeKey(Key.Numpad5, KeyCode.Keypad5, '5'),
+            new TypeKey(Key.Numpad6, KeyCode.Keypad6, '6'),
+            new TypeKey(Key.Numpad7, KeyCode.Keypad7, '7'),
+            new TypeKey(Key.Numpad8, KeyCode.Keypad8, '8'),
+            new TypeKey(Key.Numpad9, KeyCode.Keypad9, '9'),
+            new TypeKey(Key.Minus, KeyCode.Minus, '-', '_'),
+            new TypeKey(Key.NumpadMinus, KeyCode.KeypadMinus, '-'),
+            new TypeKey(Key.Period, KeyCode.Period, '.', '>'),
+            new TypeKey(Key.NumpadPeriod, KeyCode.KeypadPeriod, '.'),
+            new TypeKey(Key.Slash, KeyCode.Slash, '/', '?'),
+            new TypeKey(Key.NumpadDivide, KeyCode.KeypadDivide, '/')
+        };
+
         private static void HandlePCTyping()
         {
             try
             {
-                string input = Input.inputString;
-                if (!string.IsNullOrEmpty(input))
+                Keyboard kb = Keyboard.current;
+                bool isShift = (kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed))
+                    || (UnityInput.Current != null && (UnityInput.Current.GetKey(KeyCode.LeftShift) || UnityInput.Current.GetKey(KeyCode.RightShift)));
+
+                if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Escape)))
                 {
-                    bool changed = false;
-                    foreach (char c in input)
+                    ToggleSearchMode();
+                    return;
+                }
+
+                if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || (UnityInput.Current != null && (UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.KeypadEnter))))
+                {
+                    showSearchKeyboard = false;
+                    buttonsType = 24;
+                    pageNumber = 0;
+                    SettingsMods.UpdateSearchResults();
+                    RecreateMenu();
+                    return;
+                }
+
+                bool changed = false;
+                if ((kb != null && kb.backspaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Backspace)))
+                {
+                    if (searchQuery.Length > 0)
                     {
-                        if (c == '\b')
-                        {
-                            if (searchQuery.Length > 0)
-                            {
-                                searchQuery = searchQuery.Substring(0, searchQuery.Length - 1);
-                                changed = true;
-                            }
-                        }
-                        else if (c == '\n' || c == '\r')
-                        {
-                            showSearchKeyboard = false;
-                            buttonsType = 24;
-                            pageNumber = 0;
-                            SettingsMods.UpdateSearchResults();
-                            RecreateMenu();
-                            return;
-                        }
-                        else if (c == '\u001b')
-                        {
-                            ToggleSearchMode();
-                            return;
-                        }
-                        else if (char.IsLetterOrDigit(c) || c == ' ')
+                        searchQuery = searchQuery.Substring(0, searchQuery.Length - 1);
+                        changed = true;
+                    }
+                }
+                else if ((kb != null && kb.spaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Space)))
+                {
+                    if (searchQuery.Length < 24 && searchQuery.Length > 0 && !searchQuery.EndsWith(" "))
+                    {
+                        searchQuery += ' ';
+                        changed = true;
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < PCKeys.Length; i++)
+                    {
+                        TypeKey k = PCKeys[i];
+                        if ((kb != null && kb[k.InputKey].wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(k.LegacyKey)))
                         {
                             if (searchQuery.Length < 24)
                             {
-                                searchQuery += c;
+                                searchQuery += isShift ? k.Upper : k.Lower;
                                 changed = true;
+                                break;
                             }
                         }
                     }
+                }
 
-                    if (changed)
-                    {
-                        SettingsMods.UpdateSearchResults();
-                        RecreateMenu();
-                    }
+                if (changed)
+                {
+                    SettingsMods.UpdateSearchResults();
+                    RecreateMenu();
                 }
             }
             catch { }
