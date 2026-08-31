@@ -126,8 +126,8 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Rig [4]
-                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Freeze your rig"},
-                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey"},
+                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), disableMethod =() => mods.GhostMonkeDisable(), isTogglable = true, toolTip = "Freeze your rig (Hold Left Primary / F)"},
+                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), disableMethod =() => mods.InvisMonkeDisable(), isTogglable = true, toolTip = "Invisible monkey (Hold Right Primary / B)"},
                 new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), disableMethod =() => mods.NormalArms(), isTogglable = true, toolTip = "Long arms"},
                 new ButtonInfo { buttonText = "No Fingers", method =() => mods.NoFinger(), isTogglable = true, toolTip = "No fingers"},
                 new ButtonInfo { buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey"},

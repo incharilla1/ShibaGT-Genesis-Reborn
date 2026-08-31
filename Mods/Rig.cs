@@ -1,40 +1,56 @@
+using BepInEx;
 using GorillaLocomotion;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        private static bool Ghost_Toggled = false;
-        private static bool Invis_Toggled = false;
-
         public static void GhostMonke()
         {
-            bool isPressed = InputHandler.Instance.LeftPrimary.WasPressed;
-
-            if (isPressed)
+            if (InputHandler.Instance.LeftPrimary.IsPressed)
             {
-                Ghost_Toggled = !Ghost_Toggled;
-                VRRig.LocalRig.enabled = !Ghost_Toggled;
+                GorillaTagger.Instance.offlineVRRig.enabled = false;
+                VRRig.LocalRig.enabled = false;
             }
+            else
+            {
+                GorillaTagger.Instance.offlineVRRig.enabled = true;
+                VRRig.LocalRig.enabled = true;
+            }
+        }
+
+        public static void GhostMonkeDisable()
+        {
+            GorillaTagger.Instance.offlineVRRig.enabled = true;
+            VRRig.LocalRig.enabled = true;
         }
 
         public static void InvisMonke()
         {
-            if (InputHandler.Instance.RightPrimary.WasPressed)
-                Invis_Toggled = !Invis_Toggled;
-
-            if (Invis_Toggled)
-                NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), new Vector3(0f, -100f, 0f));
+            if (InputHandler.Instance.RightPrimary.IsPressed)
+            {
+                GorillaTagger.Instance.offlineVRRig.enabled = false;
+                GorillaTagger.Instance.offlineVRRig.transform.position = new Vector3(0f, -9999f, 0f);
+                VRRig.LocalRig.enabled = false;
+                VRRig.LocalRig.transform.position = new Vector3(0f, -9999f, 0f);
+            }
             else
             {
-                VRRig.LocalRig.enabled = true;
                 GorillaTagger.Instance.offlineVRRig.enabled = true;
+                VRRig.LocalRig.enabled = true;
             }
+        }
+
+        public static void InvisMonkeDisable()
+        {
+            GorillaTagger.Instance.offlineVRRig.enabled = true;
+            VRRig.LocalRig.enabled = true;
         }
 
         public static void LongArms()
