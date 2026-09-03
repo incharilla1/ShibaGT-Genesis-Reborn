@@ -358,30 +358,30 @@ namespace ShibaGTGenesisReborn.Mods
         }
 
         [Setting] public static bool hitboxExpander;
-        public static float hitboxExpanderMultiplier = 1.75f;
+        public static float hitboxExpanderMultiplier = 7.0f;
 
         public static void HitboxExpander()
         {
             hitboxExpander = true;
             if (GorillaTagger.Instance != null)
             {
-                GorillaTagger.Instance.maxTagDistance = float.MaxValue;
-                GorillaTagger.Instance.tagRadiusOverride = 1.1f * hitboxExpanderMultiplier;
-                GorillaTagger.Instance.tagRadiusOverrideFrame = Time.frameCount + 16;
+                GorillaTagger.Instance.maxTagDistance = 2.2f * hitboxExpanderMultiplier;
+                GorillaTagger.Instance.SetTagRadiusOverrideThisFrame(0.12f * hitboxExpanderMultiplier);
             }
 
             if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 rHand = GorillaTagger.Instance.rightHandTransform.position;
             Vector3 lHand = GorillaTagger.Instance.leftHandTransform.position;
-            float reach = 1.1f * hitboxExpanderMultiplier;
+            Vector3 head = GorillaTagger.Instance.headCollider.transform.position;
+            float reach = 1.25f * hitboxExpanderMultiplier;
 
             foreach (VRRig target in VRRigCache.ActiveRigs)
             {
                 if (target != null && !target.isLocal && !IsRigInfected(target))
                 {
                     Vector3 targetPos = target.headConstraint != null ? target.headConstraint.position : target.transform.position;
-                    if (Vector3.Distance(rHand, targetPos) <= reach || Vector3.Distance(lHand, targetPos) <= reach)
+                    if (Vector3.Distance(rHand, targetPos) <= reach || Vector3.Distance(lHand, targetPos) <= reach || Vector3.Distance(head, targetPos) <= reach)
                     {
                         TagPlayer(target);
                     }
@@ -393,7 +393,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             hitboxExpander = false;
             if (GorillaTagger.Instance != null)
-                GorillaTagger.Instance.tagRadiusOverride = 0f;
+                GorillaTagger.Instance.maxTagDistance = 2.2f;
         }
 
         public static void SuperSwim(float power = 22f)

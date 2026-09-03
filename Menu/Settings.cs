@@ -28,6 +28,7 @@ namespace ShibaGTGenesisReborn
         [Setting] public static bool rightHanded = true;
         [Setting] public static bool disableNotifications = true;
         [Setting] public static bool streamerMode = false;
+        [Setting] public static bool disableVRViewHUD = false;
         [Setting] public static bool barkMenu = false;
         public static bool barkMenuOpen = false;
 
@@ -41,5 +42,47 @@ namespace ShibaGTGenesisReborn
 
         public static Vector3 menuSize = new Vector3(0.1f, 1f, 1f); // Depth, Width, Height
         public static int buttonsPerPage = 8;
+
+        [Setting] public static int openAnimIndex = 0;
+        public static readonly string[] openAnimNames =
+        {
+            "None",
+            "Pop",
+            "Smooth Scale",
+            "Slide",
+            "Drop",
+            "Fold",
+            "Elastic"
+        };
+
+        [Setting] public static int buttonStyleIndex = 0;
+        public static readonly string[] buttonStyleNames =
+        {
+            "Classic",
+            "Slim",
+            "Chunky 3D",
+            "Bordered",
+            "Compact"
+        };
+
+        [Setting] public static int textSizeIndex = 0;
+        public static readonly string[] textSizeNames =
+        {
+            "Auto",
+            "Small",
+            "Medium",
+            "Large"
+        };
+
+        [Setting] public static int pageButtonIndex = 0;
+        public static readonly string[] pageButtonNames =
+        {
+            "ShibaGT",
+            "Sides",
+            "Grip",
+            "Trigger"
+        };
+
+        [Setting] public static bool roundedMenu = false;
     }
 }

@@ -344,6 +344,17 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void InfectionWireframeHitboxESP() => WireframeHitboxESP(true);
 
+        public static void DisableWireframeHitboxESP()
+        {
+            for (int i = 0; i < wireframePool.Count; i++)
+            {
+                if (wireframePool[i] != null)
+                    Object.Destroy(wireframePool[i]);
+            }
+            wireframePool.Clear();
+            wireframePoolIndex = 0;
+        }
+
         public static void NameAndDistanceTags()
         {
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();

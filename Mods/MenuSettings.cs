@@ -131,8 +131,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SwitchPagePos()
         {
-            Main.sideLayout = !Main.sideLayout;
-            Main.GetIndex("PPos").overlapText = Main.sideLayout ? "Menu Layout: Sides" : "Menu Layout: ShibaGT";
+            Main.Change("PPos", ref Settings.pageButtonIndex, Settings.pageButtonNames, () => Main.RecreateMenu(), "Page Buttons: ");
+            Main.sideLayout = (Settings.pageButtonIndex == 1);
         }
 
         private static float notifcooldown;

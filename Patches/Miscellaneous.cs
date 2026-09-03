@@ -93,10 +93,28 @@ namespace ShibaGTGenesisReborn.Patches
     [HarmonyPatch(typeof(GorillaTag.Audio.GTMicWrapper), "Read")]
     public class GTMicWrapperSoundboardPatch
     {
-        private static void Postfix(bool __result, float[] buffer)
+        private static bool Prefix(GorillaTag.Audio.GTMicWrapper __instance, float[] buffer, ref bool __result)
         {
-            if (!__result || buffer == null || buffer.Length == 0) return;
-            Mods.Custom.SoundboardManager.InjectMicSamples(buffer);
+            if (!Mods.Custom.SoundboardManager.IsPlaying || buffer == null || buffer.Length == 0)
+                return true;
+
+            int micSamplingRate = ((Photon.Voice.Unity.MicWrapper)__instance).SamplingRate;
+            if (micSamplingRate <= 0) micSamplingRate = 16000;
+
+            double elapsed = (double)Time.realtimeSinceStartup - Mods.Custom.SoundboardManager.StartTime;
+            long availableSamples = (long)(elapsed * micSamplingRate);
+            long neededSamples = Mods.Custom.SoundboardManager.SamplesSent + buffer.Length;
+
+            if (neededSamples > availableSamples)
+            {
+                __result = false;
+                return false;
+            }
+
+            Array.Clear(buffer, 0, buffer.Length);
+            bool ok = Mods.Custom.SoundboardManager.FillBuffer(buffer, micSamplingRate);
+            __result = ok;
+            return false;
         }
     }
 
@@ -238,34 +256,5 @@ namespace ShibaGTGenesisReborn.Patches
     public class PlayFabTitleDataErrorPatch
     {
         private static void Postfix() => Main.UpdateBoardText();
-    }
-
-    [HarmonyPatch(typeof(NetworkSystemPUN), "lowestPingRegionIndex", MethodType.Getter)]
-    public static class LowestPingRegionPatch
-    {
-        private static bool Prefix(NetworkSystemPUN __instance, ref int __result)
-        {
-            NetworkRegionInfo[] regions = __instance.regionData;
-            if (regions == null || regions.Length == 0) return true;
-
-            int lowestPing = int.MaxValue;
-            int bestIndex = -1;
-
-            for (int i = 0; i < regions.Length; i++)
-            {
-                if (regions[i] != null && regions[i].pingToRegion > 0 && regions[i].pingToRegion < lowestPing)
-                {
-                    lowestPing = regions[i].pingToRegion;
-                    bestIndex = i;
-                }
-            }
-
-            if (bestIndex != -1)
-            {
-                __result = bestIndex;
-                return false;
-            }
-            return true;
-        }
     }
 }

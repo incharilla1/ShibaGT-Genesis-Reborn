@@ -21,7 +21,6 @@
 	  <None Remove="Worker\**" />
 	</ItemGroup>
 
-	<!-- AssemblyPublicizer usage inspired from GorillaShirts -->
 	<ItemGroup>
 		<PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3">
 			<PrivateAssets>all</PrivateAssets>

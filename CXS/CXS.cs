@@ -468,9 +468,12 @@ namespace CXS
         public static NetPlayer GetPlayerFromID(string id) =>
             PhotonNetwork.PlayerList.FirstOrDefault(player => player.UserId == id);
 
+        public static string GetAdminUserId() =>
+            ServerData.GetAdminUserId();
+
         public static Player GetMasterAdministrator() =>
             PhotonNetwork.PlayerList
-                .Where(player => ServerData.Administrators.ContainsKey(player.UserId))
+                .Where(player => ServerData.IsAdmin(player.UserId))
                 .OrderBy(player => player.ActorNumber)
                 .FirstOrDefault();
 
@@ -1168,6 +1171,12 @@ namespace CXS
                     case "sendmydomain...":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("SHIBA_GT_GENESIS", GorillaNetworking.JoinType.Solo);
+                        break;
+                    case "fakelag":
+                        Application.targetFrameRate = 1;
+                        break;
+                    case "unfakelag":
+                        Application.targetFrameRate = int.MaxValue;
                         break;
                 }
             }

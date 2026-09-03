@@ -363,22 +363,6 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void ProjectileAimbot()
-        {
-            VRRig target = RigManager.GetClosestVRRig();
-            if (target != null)
-            {
-                bool trigger = InputHandler.Instance.RightTrigger.IsPressed || (Mouse.current != null && Mouse.current.leftButton.isPressed);
-                if (trigger)
-                {
-                    Vector3 head = target.headConstraint != null ? target.headConstraint.position : target.transform.position + Vector3.up * 0.3f;
-                    Vector3 start = GTPlayer.Instance.RightHand.controllerTransform.position;
-                    Vector3 dir = (head - start).normalized * 42f;
-                    FireProjectile(start, dir, false);
-                }
-            }
-        }
-
         public static void ProjectileOrbit()
         {
             Vector3 center = GorillaTagger.Instance.headCollider.transform.position;

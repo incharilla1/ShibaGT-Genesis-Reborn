@@ -116,6 +116,13 @@ namespace ShibaGTGenesisReborn.Menu
             pageNumber = 0;
         }
 
+        public static void spotify()
+        {
+            Mods.Custom.SpotifyManager.Initialize();
+            buttonsType = 25;
+            pageNumber = 0;
+        }
+
         public static void safety()
         {
             buttonsType = 15;
@@ -242,7 +249,7 @@ namespace ShibaGTGenesisReborn.Menu
             List<ButtonInfo> enabledMods = new List<ButtonInfo>();
             for (int i = 0; i < Buttons.buttons.Length; i++)
             {
-                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23 || i == 24) continue;
+                if (i == 10 || i == 11 || i == 13 || i == 14 || i == 19 || i == 20 || i == 21 || i == 22 || i == 23 || i == 24 || i == 25) continue;
 
                 foreach (ButtonInfo mod in Buttons.buttons[i])
                 {

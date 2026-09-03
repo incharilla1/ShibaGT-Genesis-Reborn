@@ -1,4 +1,5 @@
 using BepInEx;
+using GorillaNetworking;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
@@ -30,6 +31,7 @@ namespace ShibaGTGenesisReborn.Menu
             MenuAudio.Initialize();
             Mods.Custom.BoomboxManager.Initialize();
             Mods.Custom.SoundboardManager.Initialize();
+            Mods.Custom.SpotifyManager.Initialize();
             Preferences.EnsureDirectory();
             StreamerMode.EnsureInitialized();
             Mods.PlayerOptionsManager.Initialize();
@@ -107,10 +109,12 @@ namespace ShibaGTGenesisReborn.Menu
                     {
                         RecenterMenu(rightHanded, isPCMenu);
                         HandlePCTyping();
+                        HandlePageInputs();
                     }
                     else if (toOpen || keyboardOpen)
                     {
                         RecenterMenu(rightHanded, isPCMenu);
+                        HandlePageInputs();
                     }
                     else
                     {
@@ -148,7 +152,7 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 if (fpsObject != null)
                 {
-                    fpsObject.text = "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
+                    fpsObject.text = isSearching ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
                 }
 
                 if (!Loaded)
@@ -220,6 +224,10 @@ namespace ShibaGTGenesisReborn.Menu
         [Setting] public static bool showOutline;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
+        public static readonly Vector3 defaultMenuScale = new Vector3(0.1f, 0.3f, 0.3825f);
+        public static float menuOpenTime;
+        public static bool isMenuAnimating;
+
         public static int GetTotalButtonCount()
         {
             int count = 0;
@@ -237,6 +245,163 @@ namespace ShibaGTGenesisReborn.Menu
             return count;
         }
 
+        private static readonly Dictionary<string, Mesh> roundedMeshCache = new Dictionary<string, Mesh>();
+        public static Mesh GetRoundedBoxMesh(float width, float height, float cornerRadius) // vibecoded this shit
+        {
+            string key = $"{width:F3}_{height:F3}_{cornerRadius:F4}";
+            if (roundedMeshCache.TryGetValue(key, out Mesh cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Mesh mesh = new Mesh();
+            mesh.name = $"RoundedBox_{key}";
+
+            int n = 12;
+            int p = 4 * n;
+
+            float maxRadius = Mathf.Min(width, height) * 0.49f;
+            float r = Mathf.Min(cornerRadius, maxRadius);
+            float ry = Mathf.Clamp(r / width, 0.005f, 0.49f);
+            float rz = Mathf.Clamp(r / height, 0.005f, 0.49f);
+
+            Vector2[] perim = new Vector2[p];
+            float[] cornerAngles = { 0f, Mathf.PI * 0.5f, Mathf.PI, Mathf.PI * 1.5f };
+            Vector2[] centers =
+            {
+                new Vector2(0.5f - ry, 0.5f - rz),
+                new Vector2(-0.5f + ry, 0.5f - rz),
+                new Vector2(-0.5f + ry, -0.5f + rz),
+                new Vector2(0.5f - ry, -0.5f + rz)
+            };
+
+            int idx = 0;
+            for (int c = 0; c < 4; c++)
+            {
+                float baseAngle = cornerAngles[c];
+                Vector2 center = centers[c];
+                for (int s = 0; s < n; s++)
+                {
+                    float angle = baseAngle + (s / (float)n) * (Mathf.PI * 0.5f);
+                    perim[idx++] = new Vector2(center.x + Mathf.Cos(angle) * ry, center.y + Mathf.Sin(angle) * rz);
+                }
+            }
+
+            Vector3[] perimNormals = new Vector3[p];
+            for (int i = 0; i < p; i++)
+            {
+                int prev = (i - 1 + p) % p;
+                int next = (i + 1) % p;
+                Vector2 dir = perim[next] - perim[prev];
+                Vector2 norm2D = new Vector2(dir.y, -dir.x).normalized;
+                perimNormals[i] = new Vector3(0f, norm2D.x, norm2D.y);
+            }
+
+            List<Vector3> vertices = new List<Vector3>();
+            List<Vector3> normals = new List<Vector3>();
+            List<Vector2> uvs = new List<Vector2>();
+            List<int> triangles = new List<int>();
+
+            int frontCenterIdx = vertices.Count;
+            vertices.Add(new Vector3(0.5f, 0f, 0f));
+            normals.Add(new Vector3(1f, 0f, 0f));
+            uvs.Add(new Vector2(0.5f, 0.5f));
+
+            int frontStartIdx = vertices.Count;
+            for (int i = 0; i < p; i++)
+            {
+                vertices.Add(new Vector3(0.5f, perim[i].x, perim[i].y));
+                normals.Add(new Vector3(1f, 0f, 0f));
+                uvs.Add(new Vector2(perim[i].x + 0.5f, perim[i].y + 0.5f));
+            }
+
+            for (int i = 0; i < p; i++)
+            {
+                int next = (i + 1) % p;
+                triangles.Add(frontCenterIdx);
+                triangles.Add(frontStartIdx + i);
+                triangles.Add(frontStartIdx + next);
+            }
+
+            int backCenterIdx = vertices.Count;
+            vertices.Add(new Vector3(-0.5f, 0f, 0f));
+            normals.Add(new Vector3(-1f, 0f, 0f));
+            uvs.Add(new Vector2(0.5f, 0.5f));
+
+            int backStartIdx = vertices.Count;
+            for (int i = 0; i < p; i++)
+            {
+                vertices.Add(new Vector3(-0.5f, perim[i].x, perim[i].y));
+                normals.Add(new Vector3(-1f, 0f, 0f));
+                uvs.Add(new Vector2(perim[i].x + 0.5f, perim[i].y + 0.5f));
+            }
+
+            for (int i = 0; i < p; i++)
+            {
+                int next = (i + 1) % p;
+                triangles.Add(backCenterIdx);
+                triangles.Add(backStartIdx + next);
+                triangles.Add(backStartIdx + i);
+            }
+
+            for (int i = 0; i < p; i++)
+            {
+                int next = (i + 1) % p;
+                Vector2 p0 = perim[i];
+                Vector2 p1 = perim[next];
+                Vector3 n0 = perimNormals[i];
+                Vector3 n1 = perimNormals[next];
+
+                int v0 = vertices.Count;
+                int v1 = v0 + 1;
+                int v2 = v0 + 2;
+                int v3 = v0 + 3;
+                vertices.Add(new Vector3(0.5f, p0.x, p0.y));
+                vertices.Add(new Vector3(-0.5f, p0.x, p0.y));
+                vertices.Add(new Vector3(-0.5f, p1.x, p1.y));
+                vertices.Add(new Vector3(0.5f, p1.x, p1.y));
+
+                normals.Add(n0);
+                normals.Add(n0);
+                normals.Add(n1);
+                normals.Add(n1);
+
+                float u0 = i / (float)p;
+                float u1 = (i + 1) / (float)p;
+                uvs.Add(new Vector2(u0, 1f));
+                uvs.Add(new Vector2(u0, 0f));
+                uvs.Add(new Vector2(u1, 0f));
+                uvs.Add(new Vector2(u1, 1f));
+
+                triangles.Add(v0);
+                triangles.Add(v1);
+                triangles.Add(v2);
+
+                triangles.Add(v0);
+                triangles.Add(v2);
+                triangles.Add(v3);
+            }
+
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateBounds();
+
+            roundedMeshCache[key] = mesh;
+            return mesh;
+        }
+
+        public static void ApplyRoundedMesh(GameObject obj, float width, float height, float cornerRadius)
+        {
+            if (obj == null) return;
+            MeshFilter mf = obj.GetComponent<MeshFilter>();
+            if (mf != null)
+            {
+                mf.sharedMesh = GetRoundedBoxMesh(width, height, cornerRadius);
+            }
+        }
+
         public static void OutlineObj(GameObject toOut, Color color1, Color color2, bool parentself = false, float thickness = 1)
         {
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -249,6 +414,14 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.transform.rotation = Quaternion.identity;
             gameObject.transform.localPosition = toOut.transform.localPosition;
             gameObject.transform.localScale = toOut.transform.localScale + new Vector3(-0.01f / thickness, 0.01f * thickness, 0.0075f * thickness);
+            if (Settings.roundedMenu && toOut != null)
+            {
+                MeshFilter outMf = toOut.GetComponent<MeshFilter>();
+                if (outMf != null && outMf.sharedMesh != null)
+                {
+                    gameObject.GetComponent<MeshFilter>().sharedMesh = outMf.sharedMesh;
+                }
+            }
             Renderer r = gameObject.GetComponent<Renderer>();
             r.material.color = color1;
             if (buttonColors[1].isRainbow || buttonColors[1].copyRigColors)
@@ -257,6 +430,73 @@ namespace ShibaGTGenesisReborn.Menu
                 cc.colorInfo = buttonColors[1];
                 cc.Start();
             }
+        }
+
+        public static void ApplyOpenAnimation()
+        {
+            if (menu == null) return;
+
+            if (!isMenuAnimating || openAnimIndex <= 0)
+            {
+                menu.transform.localScale = defaultMenuScale;
+                return;
+            }
+
+            float elapsed = Time.unscaledTime - menuOpenTime;
+            float duration = 0.16f;
+            if (elapsed >= duration)
+            {
+                isMenuAnimating = false;
+                menu.transform.localScale = defaultMenuScale;
+                return;
+            }
+
+            float t = Mathf.Clamp01(elapsed / duration);
+            Vector3 posOffset = Vector3.zero;
+            Quaternion rotOffset = Quaternion.identity;
+            float scaleMult = 1f;
+
+            switch (openAnimIndex)
+            {
+                case 1:
+                {
+                    scaleMult = t < 0.7f ? Mathf.Lerp(0.85f, 1.08f, t / 0.7f) : Mathf.Lerp(1.08f, 1f, (t - 0.7f) / 0.3f);
+                    break;
+                }
+                case 2:
+                {
+                    scaleMult = Mathf.Lerp(0.85f, 1f, 1f - Mathf.Pow(1f - t, 3f));
+                    break;
+                }
+                case 3:
+                {
+                    float ease = 1f - Mathf.Pow(1f - t, 3f);
+                    posOffset = -menu.transform.forward * ((1f - ease) * 0.12f);
+                    break;
+                }
+                case 4:
+                {
+                    float ease = 1f - Mathf.Pow(1f - t, 3f);
+                    posOffset = menu.transform.up * ((1f - ease) * 0.12f);
+                    break;
+                }
+                case 5:
+                {
+                    float ease = 1f - Mathf.Pow(1f - t, 3f);
+                    rotOffset = Quaternion.Euler((1f - ease) * 60f, 0f, 0f);
+                    break;
+                }
+                case 6:
+                {
+                    float s = Mathf.Sin(-13f * (t + 1f) * Mathf.PI * 0.5f) * Mathf.Pow(2f, -10f * t) + 1f;
+                    scaleMult = Mathf.Clamp(s, 0.85f, 1.12f);
+                    break;
+                }
+            }
+
+            menu.transform.position += posOffset;
+            menu.transform.rotation *= rotOffset;
+            menu.transform.localScale = defaultMenuScale * scaleMult;
         }
 
         public static void OpenGenesisFolder()
@@ -296,7 +536,9 @@ namespace ShibaGTGenesisReborn.Menu
             UnityEngine.Object.Destroy(menu.GetComponent<Rigidbody>());
             UnityEngine.Object.Destroy(menu.GetComponent<BoxCollider>());
             UnityEngine.Object.Destroy(menu.GetComponent<Renderer>());
-            menu.transform.localScale = new Vector3(0.1f, 0.3f, 0.3825f);
+            menuOpenTime = Time.unscaledTime;
+            isMenuAnimating = (openAnimIndex > 0);
+            menu.transform.localScale = defaultMenuScale;
 
             menuBackground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(menuBackground.GetComponent<Rigidbody>());
@@ -309,6 +551,7 @@ namespace ShibaGTGenesisReborn.Menu
             ColorChanger bgChanger = menuBackground.AddComponent<ColorChanger>();
             bgChanger.colorInfo = backgroundColor;
             bgChanger.Start();
+            if (Settings.roundedMenu) ApplyRoundedMesh(menuBackground, menuSize.y, menuSize.z, 0.025f);
             if (showOutline) OutlineObj(menuBackground, outlineColor, outlineColor, false, 3);
 
             canvasObject = new GameObject();
@@ -363,7 +606,7 @@ namespace ShibaGTGenesisReborn.Menu
                     }
                 }.AddComponent<Text>();
                 fpsObject.font = currentFont;
-                fpsObject.text = "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
+                fpsObject.text = isSearching ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
                 fpsObject.color = textColors[0];
                 fpsObject.fontSize = 1;
                 fpsObject.supportRichText = true;
@@ -392,6 +635,7 @@ namespace ShibaGTGenesisReborn.Menu
             ColorChanger ccHome = But1.AddComponent<ColorChanger>();
             ccHome.colorInfo = buttonColors[0];
             ccHome.Start();
+            if (Settings.roundedMenu) ApplyRoundedMesh(But1, 0.1f, 0.08f, 0.012f);
             if (showOutline)
             {
                 OutlineObj(But1, outlineColor, outlineColor, false);
@@ -432,6 +676,7 @@ namespace ShibaGTGenesisReborn.Menu
                 ColorChanger ccSettings = But.AddComponent<ColorChanger>();
                 ccSettings.colorInfo = buttonColors[0];
                 ccSettings.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(But, 0.1f, 0.08f, 0.012f);
                 if (showOutline)
                 {
                     OutlineObj(But, outlineColor, outlineColor, false);
@@ -472,6 +717,7 @@ namespace ShibaGTGenesisReborn.Menu
                 ColorChanger ccFolder = folderBtn.AddComponent<ColorChanger>();
                 ccFolder.colorInfo = buttonColors[0];
                 ccFolder.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(folderBtn, 0.1f, 0.08f, 0.012f);
                 if (showOutline)
                 {
                     OutlineObj(folderBtn, outlineColor, outlineColor, false);
@@ -510,6 +756,7 @@ namespace ShibaGTGenesisReborn.Menu
                 ColorChanger ccSearch = searchBtn.AddComponent<ColorChanger>();
                 ccSearch.colorInfo = isSearching ? buttonColors[1] : buttonColors[0];
                 ccSearch.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(searchBtn, 0.1f, 0.08f, 0.012f);
                 if (showOutline)
                 {
                     OutlineObj(searchBtn, outlineColor, outlineColor, false);
@@ -547,6 +794,7 @@ namespace ShibaGTGenesisReborn.Menu
                 ColorChanger ccDisc = disconnectbutton.AddComponent<ColorChanger>();
                 ccDisc.colorInfo = buttonColors[0];
                 ccDisc.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(disconnectbutton, 0.4f, 0.09f, 0.014f);
                 if (showOutline)
                 {
                     OutlineObj(disconnectbutton, outlineColor, outlineColor, false, 3);
@@ -586,79 +834,85 @@ namespace ShibaGTGenesisReborn.Menu
                 RenderSearchResultsHeader();
             }
 
-            GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
-            gameObject.GetComponent<BoxCollider>().isTrigger = true;
-            gameObject.transform.parent = menu.transform;
-            gameObject.transform.rotation = Quaternion.identity;
-            gameObject.transform.localScale = sideLayout ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
-            gameObject.transform.localPosition = sideLayout ? new Vector3(0.56f, 0.657f, 0.0063f) : new Vector3(0.56f, -0.37f, 0.555f);
-            gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
-            ColorChanger ccNext = gameObject.AddComponent<ColorChanger>();
-            ccNext.colorInfo = buttonColors[0];
-            ccNext.Start();
-            gameObject.AddComponent<Classes.Button>().relatedText = "NextPage";
-            if (showOutline)
+            if (Settings.pageButtonIndex < 2)
             {
-                OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
-            }
-
-            text = new GameObject
-            {
-                transform =
+                bool isSide = Settings.pageButtonIndex == 1;
+                GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
+                gameObject.GetComponent<BoxCollider>().isTrigger = true;
+                gameObject.transform.parent = menu.transform;
+                gameObject.transform.rotation = Quaternion.identity;
+                gameObject.transform.localScale = isSide ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
+                gameObject.transform.localPosition = isSide ? new Vector3(0.56f, 0.657f, 0.0063f) : new Vector3(0.56f, -0.37f, 0.555f);
+                gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+                ColorChanger ccNext = gameObject.AddComponent<ColorChanger>();
+                ccNext.colorInfo = buttonColors[0];
+                ccNext.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(gameObject, isSide ? 0.25f : 0.25f, isSide ? 0.8936f : 0.06f, isSide ? 0.015f : 0.012f);
+                gameObject.AddComponent<Classes.Button>().relatedText = "NextPage";
+                if (showOutline)
                 {
-                    parent = canvasObject.transform
+                    OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
                 }
-            }.AddComponent<Text>();
-            text.font = currentFont;
-            text.text = "";
-            text.fontSize = 1;
-            text.color = textColors[0];
-            text.alignment = TextAnchor.MiddleCenter;
-            text.resizeTextForBestFit = true;
-            text.resizeTextMinSize = 0;
-            component = text.GetComponent<RectTransform>();
-            component.localPosition = Vector3.zero;
-            component.sizeDelta = new Vector2(0.2f, 0.03f);
-            component.localPosition = sideLayout ? new Vector3(0.064f, 0.195f, 0f) : new Vector3(0.064f, -0.115f, 0.215f);
-            component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
-            gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
-            gameObject.GetComponent<BoxCollider>().isTrigger = true;
-            gameObject.transform.parent = menu.transform;
-            gameObject.transform.rotation = Quaternion.identity;
-            gameObject.transform.localScale = sideLayout ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
-            gameObject.transform.localPosition = sideLayout ? new Vector3(0.56f, -0.657f, 0.0063f) : new Vector3(0.56f, 0.37f, 0.555f);
-            gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
-            ColorChanger ccPrev = gameObject.AddComponent<ColorChanger>();
-            ccPrev.colorInfo = buttonColors[0];
-            ccPrev.Start();
-            if (showOutline)
-            {
-                OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
-            }
-            gameObject.AddComponent<Classes.Button>().relatedText = "PreviousPage";
-
-            text = new GameObject
-            {
-                transform =
+                text = new GameObject
                 {
-                    parent = canvasObject.transform
+                    transform =
+                    {
+                        parent = canvasObject.transform
+                    }
+                }.AddComponent<Text>();
+                text.font = currentFont;
+                text.text = "";
+                text.fontSize = 1;
+                text.color = textColors[0];
+                text.alignment = TextAnchor.MiddleCenter;
+                text.resizeTextForBestFit = true;
+                text.resizeTextMinSize = 0;
+                component = text.GetComponent<RectTransform>();
+                component.localPosition = Vector3.zero;
+                component.sizeDelta = new Vector2(0.2f, 0.03f);
+                component.localPosition = isSide ? new Vector3(0.064f, 0.195f, 0f) : new Vector3(0.064f, -0.115f, 0.215f);
+                component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+
+                gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
+                gameObject.GetComponent<BoxCollider>().isTrigger = true;
+                gameObject.transform.parent = menu.transform;
+                gameObject.transform.rotation = Quaternion.identity;
+                gameObject.transform.localScale = isSide ? new Vector3(0.045f, 0.25f, 0.8936298f) : new Vector3(0.06f, 0.25f, 0.06f);
+                gameObject.transform.localPosition = isSide ? new Vector3(0.56f, -0.657f, 0.0063f) : new Vector3(0.56f, 0.37f, 0.555f);
+                gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+                ColorChanger ccPrev = gameObject.AddComponent<ColorChanger>();
+                ccPrev.colorInfo = buttonColors[0];
+                ccPrev.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(gameObject, isSide ? 0.25f : 0.25f, isSide ? 0.8936f : 0.06f, isSide ? 0.015f : 0.012f);
+                if (showOutline)
+                {
+                    OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
                 }
-            }.AddComponent<Text>();
-            text.font = currentFont;
-            text.text = "";
-            text.fontSize = 1;
-            text.color = textColors[0];
-            text.alignment = TextAnchor.MiddleCenter;
-            text.resizeTextForBestFit = true;
-            text.resizeTextMinSize = 0;
-            component = text.GetComponent<RectTransform>();
-            component.localPosition = Vector3.zero;
-            component.sizeDelta = new Vector2(0.2f, 0.03f);
-            component.localPosition = sideLayout ? new Vector3(0.064f, -0.195f, 0f) : new Vector3(0.064f, 0.115f, 0.215f);
-            component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+                gameObject.AddComponent<Classes.Button>().relatedText = "PreviousPage";
+
+                text = new GameObject
+                {
+                    transform =
+                    {
+                        parent = canvasObject.transform
+                    }
+                }.AddComponent<Text>();
+                text.font = currentFont;
+                text.text = "";
+                text.fontSize = 1;
+                text.color = textColors[0];
+                text.alignment = TextAnchor.MiddleCenter;
+                text.resizeTextForBestFit = true;
+                text.resizeTextMinSize = 0;
+                component = text.GetComponent<RectTransform>();
+                component.localPosition = Vector3.zero;
+                component.sizeDelta = new Vector2(0.2f, 0.03f);
+                component.localPosition = isSide ? new Vector3(0.064f, -0.195f, 0f) : new Vector3(0.064f, 0.115f, 0.215f);
+                component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+            }
 
             ButtonInfo[] activeButtons;
 
@@ -680,18 +934,61 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void CreateButton(float offset, ButtonInfo method)
         {
+            Vector3 btnScale = new Vector3(0.05f, 0.6f, 0.08f);
+            Vector3 favScale = new Vector3(0.05f, 0.1f, 0.085f);
+            float textWidth = 0.20f;
+            float textHeight = 0.03f;
+
+            switch (buttonStyleIndex)
+            {
+                case 1:
+                    btnScale = new Vector3(0.035f, 0.62f, 0.065f);
+                    favScale = new Vector3(0.035f, 0.085f, 0.065f);
+                    textWidth = 0.20f;
+                    textHeight = 0.026f;
+                    break;
+                case 2:
+                    btnScale = new Vector3(0.085f, 0.58f, 0.082f);
+                    favScale = new Vector3(0.085f, 0.095f, 0.082f);
+                    textWidth = 0.19f;
+                    textHeight = 0.030f;
+                    break;
+                case 3:
+                    btnScale = new Vector3(0.05f, 0.6f, 0.078f);
+                    favScale = new Vector3(0.05f, 0.095f, 0.078f);
+                    textWidth = 0.19f;
+                    textHeight = 0.028f;
+                    break;
+                case 4:
+                    btnScale = new Vector3(0.045f, 0.52f, 0.072f);
+                    favScale = new Vector3(0.045f, 0.08f, 0.072f);
+                    textWidth = 0.18f;
+                    textHeight = 0.026f;
+                    break;
+            }
+
+            int maxFontSize = 40;
+            switch (textSizeIndex)
+            {
+                case 1: maxFontSize = 24; break;
+                case 2: maxFontSize = 32; break;
+                case 3: maxFontSize = 44; break;
+                default: maxFontSize = 40; break;
+            }
+
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
             gameObject.GetComponent<BoxCollider>().isTrigger = true;
             gameObject.transform.parent = menu.transform;
             gameObject.transform.rotation = Quaternion.identity;
-            gameObject.transform.localScale = new Vector3(0.05f, 0.6f, 0.08f);
+            gameObject.transform.localScale = btnScale;
             gameObject.transform.localPosition = new Vector3(0.56f, 0.1f, 0.25f - offset);
             Classes.Button btn = gameObject.AddComponent<Classes.Button>();
             btn.relatedText = method.buttonText;
             btn.buttonInfo = method;
             gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
-            if (showOutline)
+            if (Settings.roundedMenu) ApplyRoundedMesh(gameObject, btnScale.y, btnScale.z, 0.014f);
+            if (showOutline || buttonStyleIndex == 3)
             {
                 OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
             }
@@ -701,7 +998,7 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject1.GetComponent<BoxCollider>().isTrigger = true;
             gameObject1.transform.parent = menu.transform;
             gameObject1.transform.rotation = Quaternion.identity;
-            gameObject1.transform.localScale = new Vector3(0.05f, 0.1f, 0.085f);
+            gameObject1.transform.localScale = favScale;
             gameObject1.transform.localPosition = new Vector3(0.56f, -0.35f, 0.25f - offset);
             Classes.Button favBtn = gameObject1.AddComponent<Classes.Button>();
             favBtn.relatedText = "fav_" + method.buttonText;
@@ -710,7 +1007,8 @@ namespace ShibaGTGenesisReborn.Menu
             ColorChanger ccFav = gameObject1.AddComponent<ColorChanger>();
             ccFav.colorInfo = buttonColors[0];
             ccFav.Start();
-            if (showOutline)
+            if (Settings.roundedMenu) ApplyRoundedMesh(gameObject1, favScale.y, favScale.z, 0.012f);
+            if (showOutline || buttonStyleIndex == 3)
             {
                 OutlineObj(gameObject1, outlineColor, outlineColor, false, 3);
             }
@@ -741,21 +1039,15 @@ namespace ShibaGTGenesisReborn.Menu
             }
             text.supportRichText = true;
             text.fontSize = 1;
-            if (method.enabled)
-            {
-                text.color = textColors[1];
-            }
-            else
-            {
-                text.color = textColors[0];
-            }
+            text.color = method.enabled ? textColors[1] : textColors[0];
             text.alignment = TextAnchor.MiddleCenter;
             text.fontStyle = FontStyle.Bold;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 0;
+            text.resizeTextMaxSize = maxFontSize;
             RectTransform component = text.GetComponent<RectTransform>();
             component.localPosition = Vector3.zero;
-            component.sizeDelta = new Vector2(.2f, .03f);
+            component.sizeDelta = new Vector2(textWidth, textHeight);
             component.localPosition = new Vector3(.064f, 0.03f, 0.095625f - offset * 0.3825f);
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
 
@@ -775,6 +1067,70 @@ namespace ShibaGTGenesisReborn.Menu
             component1.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
         }
 
+        public static void NextPage()
+        {
+            int lastPage = 0;
+            if (buttonsType < buttons.Length)
+            {
+                lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
+                if (lastPage < 0) lastPage = 0;
+            }
+            pageNumber++;
+            if (pageNumber > lastPage)
+            {
+                pageNumber = 0;
+            }
+            RecreateMenu();
+        }
+
+        public static void PreviousPage()
+        {
+            int lastPage = 0;
+            if (buttonsType < buttons.Length)
+            {
+                lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
+                if (lastPage < 0) lastPage = 0;
+            }
+            pageNumber--;
+            if (pageNumber < 0)
+            {
+                pageNumber = lastPage;
+            }
+            RecreateMenu();
+        }
+
+        private static void HandlePageInputs()
+        {
+            if (Settings.pageButtonIndex < 2 || InputHandler.Instance == null) return;
+
+            if (Settings.pageButtonIndex == 2)
+            {
+                if (InputHandler.Instance.RightGrip.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.E)))
+                {
+                    MenuAudio.PlayClickSound();
+                    NextPage();
+                }
+                else if (InputHandler.Instance.LeftGrip.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Q)))
+                {
+                    MenuAudio.PlayClickSound();
+                    PreviousPage();
+                }
+            }
+            else if (Settings.pageButtonIndex == 3)
+            {
+                if (InputHandler.Instance.RightTrigger.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.RightArrow)))
+                {
+                    MenuAudio.PlayClickSound();
+                    NextPage();
+                }
+                else if (InputHandler.Instance.LeftTrigger.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.LeftArrow)))
+                {
+                    MenuAudio.PlayClickSound();
+                    PreviousPage();
+                }
+            }
+        }
+
         public static void RecreateMenu()
         {
             if (menu != null)
@@ -783,6 +1139,8 @@ namespace ShibaGTGenesisReborn.Menu
                 menu = null;
 
                 CreateMenu();
+                isMenuAnimating = false;
+                if (menu != null) menu.transform.localScale = defaultMenuScale;
                 RecenterMenu(rightHanded, isPCMenu || (UnityInput.Current != null && UnityInput.Current.GetKey(keyboardButton)));
             }
         }
@@ -795,6 +1153,7 @@ namespace ShibaGTGenesisReborn.Menu
                 {
                     menu.transform.position = pinnedMenuPosition;
                     menu.transform.rotation = pinnedMenuRotation;
+                    ApplyOpenAnimation();
                     return;
                 }
 
@@ -809,6 +1168,7 @@ namespace ShibaGTGenesisReborn.Menu
                     menu.transform.position = pos;
                     menu.transform.LookAt(head.position);
                     menu.transform.rotation = Quaternion.Euler(0f, menu.transform.eulerAngles.y, 0f) * Quaternion.Euler(-90f, 0f, -90f);
+                    ApplyOpenAnimation();
                     return;
                 }
 
@@ -824,6 +1184,7 @@ namespace ShibaGTGenesisReborn.Menu
                     rotation += new Vector3(0f, 0f, 180f);
                     menu.transform.rotation = Quaternion.Euler(rotation);
                 }
+                ApplyOpenAnimation();
             }
             else
             {
@@ -872,6 +1233,7 @@ namespace ShibaGTGenesisReborn.Menu
                     Vector3 rot = TPC.transform.rotation.eulerAngles;
                     rot = new Vector3(rot.x - 90, rot.y + 90, rot.z);
                     menu.transform.rotation = Quaternion.Euler(rot);
+                    ApplyOpenAnimation();
 
                     Cursor.lockState = CursorLockMode.None;
                     Cursor.visible = true;
@@ -1199,32 +1561,15 @@ namespace ShibaGTGenesisReborn.Menu
                 return;
             }
 
-            int lastPage = 0;
-            if (buttonsType < buttons.Length)
-            {
-                lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
-                if (lastPage < 0) lastPage = 0;
-            }
-            else
-            {
-                lastPage = 0;
-            }
-
             if (buttonText == "PreviousPage")
             {
-                pageNumber--;
-                if (pageNumber < 0)
-                {
-                    pageNumber = lastPage;
-                }
+                PreviousPage();
+                return;
             }
             else if (buttonText == "NextPage")
             {
-                pageNumber++;
-                if (pageNumber > lastPage)
-                {
-                    pageNumber = 0;
-                }
+                NextPage();
+                return;
             }
             else if (buttonText.Equals("Disconnect", StringComparison.OrdinalIgnoreCase))
             {
@@ -1406,6 +1751,7 @@ namespace ShibaGTGenesisReborn.Menu
                     prefix = colon >= 0 ? btn.overlapText.Substring(0, colon + 2) : $"{buttonText}: ";
                 }
                 btn.overlapText = prefix + names[index];
+                buttonLookup[btn.overlapText] = btn;
             }
 
             sideEffect?.Invoke();
@@ -1497,7 +1843,7 @@ namespace ShibaGTGenesisReborn.Menu
             ColorChanger cc = keyObj.AddComponent<ColorChanger>();
             cc.colorInfo = buttonColors[0];
             cc.Start();
-
+            if (Settings.roundedMenu) ApplyRoundedMesh(keyObj, width, height, 0.008f);
             if (showOutline) OutlineObj(keyObj, outlineColor, outlineColor, false, 2);
 
             Classes.Button btn = keyObj.AddComponent<Classes.Button>();
@@ -1536,6 +1882,7 @@ namespace ShibaGTGenesisReborn.Menu
             ColorChanger ccBox = searchBox.AddComponent<ColorChanger>();
             ccBox.colorInfo = buttonColors[0];
             ccBox.Start();
+            if (Settings.roundedMenu) ApplyRoundedMesh(searchBox, 0.88f, 0.09f, 0.012f);
             if (showOutline) OutlineObj(searchBox, outlineColor, outlineColor, false, 2);
 
             Text searchBoxText = new GameObject
@@ -1835,6 +2182,21 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }
             catch { }
+        }
+
+        public static bool RequireMasterClient(string action)
+        {
+            bool isMaster = (PhotonNetwork.InRoom && PhotonNetwork.IsMasterClient) ||
+                            (NetworkSystem.Instance != null &&
+                             NetworkSystem.Instance.InRoom &&
+                             NetworkSystem.Instance.IsMasterClient);
+
+            if (isMaster) return true;
+
+            NotificationLib.SendNotification(
+                NotificationLib.NotificationType.Alert,
+                $"{action} needs master");
+            return false;
         }
 
         public static bool isPCMenu = false;

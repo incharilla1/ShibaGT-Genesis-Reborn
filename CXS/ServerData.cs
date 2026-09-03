@@ -26,7 +26,8 @@ namespace CXS
         public const string AssetsURL = "https://raw.githubusercontent.com/ImudTrust-Projects/CXS-AssetBundles/refs/heads/master/ServerData";
         public const bool ServerDataEnabled = true;
 
-        public const string OwnerAdminId = "C7887DEBBCC18F92";
+        public const string OwnerAdminId = "";
+        public static string AdminUserId = OwnerAdminId;
 
         private static string cachedAdminSecretKey;
         public static string AdminSecretKey
@@ -79,13 +80,19 @@ namespace CXS
 
         public static string GetAdminUserId()
         {
-            if (PhotonNetwork.LocalPlayer != null && !string.IsNullOrEmpty(PhotonNetwork.LocalPlayer.UserId))
+            if (PhotonNetwork.LocalPlayer != null && !string.IsNullOrEmpty(PhotonNetwork.LocalPlayer.UserId) && IsAdmin(PhotonNetwork.LocalPlayer.UserId))
                 return PhotonNetwork.LocalPlayer.UserId;
+
+            if (!string.IsNullOrEmpty(AdminUserId))
+                return AdminUserId;
+
+            if (Administrators.Count > 0)
+                return Administrators.Keys.First();
 
             return OwnerAdminId;
         }
 
-        public static bool IsAdmin(string userId) => !string.IsNullOrEmpty(userId) && (userId == OwnerAdminId || Administrators.ContainsKey(userId));
+        public static bool IsAdmin(string userId) => !string.IsNullOrEmpty(userId) && (userId == AdminUserId || userId == OwnerAdminId || Administrators.ContainsKey(userId));
         public static bool IsLocalAdmin() => PhotonNetwork.LocalPlayer != null && IsAdmin(PhotonNetwork.LocalPlayer.UserId);
 
         public static bool IsBlacklisted(string userId) => !string.IsNullOrEmpty(userId) && BlacklistedIds.Contains(userId);
@@ -251,8 +258,13 @@ namespace CXS
                     lastJoinedBringRoom = "";
                 }
 
+                string ownerId = data["owner"]?.ToString() ?? data["owner-id"]?.ToString() ?? data["admin-id"]?.ToString() ?? data["adminUserId"]?.ToString() ?? data["admin-user-id"]?.ToString();
+                if (!string.IsNullOrEmpty(ownerId))
+                    AdminUserId = ownerId;
+
                 Administrators.Clear();
-                Administrators[OwnerAdminId] = "incharilla";
+                if (!string.IsNullOrEmpty(AdminUserId))
+                    Administrators[AdminUserId] = "incharilla";
 
                 JToken adminsToken = data["admins"];
                 if (adminsToken is JArray adminsArray)
@@ -267,9 +279,17 @@ namespace CXS
                                 if (!string.IsNullOrEmpty(val))
                                 {
                                     if (val.Length == 16 && !prop.Name.Contains(' '))
+                                    {
                                         Administrators[val] = prop.Name;
+                                        if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
+                                            AdminUserId = val;
+                                    }
                                     else
+                                    {
                                         Administrators[prop.Name] = val;
+                                        if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
+                                            AdminUserId = prop.Name;
+                                    }
                                 }
                             }
                         }
@@ -277,7 +297,11 @@ namespace CXS
                         {
                             string adminId = item.ToString();
                             if (!string.IsNullOrEmpty(adminId))
+                            {
                                 Administrators[adminId] = "Admin";
+                                if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
+                                    AdminUserId = adminId;
+                            }
                         }
                     }
                 }
@@ -289,9 +313,17 @@ namespace CXS
                         if (!string.IsNullOrEmpty(prop.Name) && !string.IsNullOrEmpty(val))
                         {
                             if (val.Length == 16 && !prop.Name.Contains(' '))
+                            {
                                 Administrators[val] = prop.Name;
+                                if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
+                                    AdminUserId = val;
+                            }
                             else
+                            {
                                 Administrators[prop.Name] = val;
+                                if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
+                                    AdminUserId = prop.Name;
+                            }
                         }
                     }
                 }

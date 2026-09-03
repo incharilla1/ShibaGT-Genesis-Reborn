@@ -28,6 +28,9 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         private static double _playbackPos;
         private static AudioSource _localAudio;
 
+        public static double StartTime { get; private set; }
+        public static long SamplesSent { get; set; }
+
         public static string SoundboardDirectory => Path.Combine(ModsLib.GenesisDirectory, "soundboard");
 
         public static void EnsureDirectory()
@@ -45,7 +48,12 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 Instance = go.AddComponent<SoundboardManager>();
                 _localAudio = go.AddComponent<AudioSource>();
                 _localAudio.spatialBlend = 0f;
-                _localAudio.volume = Volume;
+                _localAudio.playOnAwake = false;
+                _localAudio.loop = false;
+                _localAudio.bypassEffects = true;
+                _localAudio.bypassListenerEffects = true;
+                _localAudio.bypassReverbZones = true;
+                _localAudio.volume = Mathf.Clamp01(Volume);
                 DontDestroyOnLoad(go);
             }
             RefreshSounds(false);
@@ -55,13 +63,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         {
             Volume = Mathf.Clamp(Volume + delta, 0f, 2f);
             if (_localAudio != null)
-                _localAudio.volume = Volume;
+                _localAudio.volume = Mathf.Clamp01(Volume);
             NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Soundboard Vol: {Mathf.RoundToInt(Volume * 100)}%");
         }
 
         public static void PlayAudioFile(string path)
         {
-            if (Instance == null)
+            if (Instance == null || _localAudio == null)
                 Initialize();
 
             if (!File.Exists(path))
@@ -73,43 +81,61 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             Instance.StartCoroutine(Instance.LoadAndPlay(path));
         }
 
+        private static AudioType GetAudioType(string path)
+        {
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            switch (ext)
+            {
+                case ".wav": return AudioType.WAV;
+                case ".mp3": return AudioType.MPEG;
+                case ".ogg": return AudioType.OGGVORBIS;
+                case ".aiff":
+                case ".aif": return AudioType.AIFF;
+                default: return AudioType.UNKNOWN;
+            }
+        }
+
         private IEnumerator LoadAndPlay(string path)
         {
             Stop();
             string url = "file://" + path;
-            using (UnityWebRequest uwr = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.UNKNOWN))
+            using UnityWebRequest uwr = UnityWebRequestMultimedia.GetAudioClip(url, GetAudioType(path));
+            yield return uwr.SendWebRequest();
+            if (uwr.result != UnityWebRequest.Result.Success)
             {
-                yield return uwr.SendWebRequest();
-                if (uwr.result != UnityWebRequest.Result.Success)
-                {
-                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load audio");
-                    yield break;
-                }
-
-                AudioClip clip = DownloadHandlerAudioClip.GetContent(uwr);
-                if (clip == null)
-                {
-                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Invalid audio clip");
-                    yield break;
-                }
-
-                _sampleRate = clip.frequency;
-                _channels = clip.channels;
-                _pcmSamples = new float[clip.samples * clip.channels];
-                clip.GetData(_pcmSamples, 0);
-                _playbackPos = 0;
-                _isPlaying = true;
-                CurrentTrack = Path.GetFileNameWithoutExtension(path);
-
-                if (_localAudio != null)
-                {
-                    _localAudio.clip = clip;
-                    _localAudio.volume = Volume;
-                    _localAudio.Play();
-                }
-
-                NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Soundboard: {CurrentTrack}");
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Failed to load audio");
+                yield break;
             }
+
+            AudioClip clip = DownloadHandlerAudioClip.GetContent(uwr);
+            if (clip == null)
+            {
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "Invalid audio clip");
+                yield break;
+            }
+
+            _sampleRate = clip.frequency;
+            _channels = clip.channels;
+            _pcmSamples = new float[clip.samples * clip.channels];
+            clip.GetData(_pcmSamples, 0);
+            _playbackPos = 0;
+            StartTime = (double)Time.realtimeSinceStartup;
+            SamplesSent = 0L;
+            _isPlaying = true;
+            CurrentTrack = Path.GetFileNameWithoutExtension(path);
+
+            if (_localAudio == null && Instance != null)
+                _localAudio = Instance.gameObject.GetComponent<AudioSource>() ?? Instance.gameObject.AddComponent<AudioSource>();
+
+            if (_localAudio != null)
+            {
+                _localAudio.clip = clip;
+                _localAudio.time = 0f;
+                _localAudio.volume = Mathf.Clamp01(Volume);
+                _localAudio.Play();
+            }
+
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Soundboard: {CurrentTrack}");
         }
 
         public static void Stop()
@@ -117,32 +143,41 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             _isPlaying = false;
             _pcmSamples = null;
             _playbackPos = 0;
+            SamplesSent = 0L;
             CurrentTrack = "None";
             if (_localAudio != null && _localAudio.isPlaying)
                 _localAudio.Stop();
         }
 
-        public static void InjectMicSamples(float[] buffer)
+        public static bool FillBuffer(float[] buffer, int targetSampleRate = 16000)
         {
             if (!_isPlaying || _pcmSamples == null || buffer == null || buffer.Length == 0)
-                return;
+                return false;
 
-            double step = (double)_sampleRate / 16000.0;
+            int rate = targetSampleRate > 0 ? targetSampleRate : 16000;
+            double step = (double)_sampleRate / rate;
+
             for (int i = 0; i < buffer.Length; i++)
             {
                 int sampleIndex = (int)_playbackPos * _channels;
                 if (sampleIndex < _pcmSamples.Length)
                 {
-                    float sample = _pcmSamples[sampleIndex] * Volume;
-                    buffer[i] = Mathf.Clamp(buffer[i] + sample, -1f, 1f);
+                    float sample = _channels > 1 && sampleIndex + 1 < _pcmSamples.Length
+                        ? (_pcmSamples[sampleIndex] + _pcmSamples[sampleIndex + 1]) * 0.5f * Volume
+                        : _pcmSamples[sampleIndex] * Volume;
+
+                    buffer[i] = Mathf.Clamp(sample, -1f, 1f);
                     _playbackPos += step;
                 }
                 else
                 {
                     Stop();
-                    break;
+                    return false;
                 }
             }
+
+            SamplesSent += buffer.Length;
+            return true;
         }
 
         public static void OpenFolder()
