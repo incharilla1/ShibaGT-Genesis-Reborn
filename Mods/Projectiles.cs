@@ -1,10 +1,12 @@
 using GorillaLocomotion;
 using GorillaNetworking;
 using GorillaTag.CosmeticSystem;
+using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -22,9 +24,7 @@ namespace ShibaGTGenesisReborn.Mods
             "Snowball",
             "Water Balloon",
             "Lava Rock",
-            "Mentos",
             "Popcorn",
-            "Candy Corn",
             "Book",
             "Ice Cream",
             "Fish",
@@ -34,9 +34,11 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static readonly string[] projectileSpeedNames = { "Slow", "Fast", "Quick" };
 
-        private static readonly float[] delayRates = { 0.7f, 0.35f, 0.20f };
-        private static readonly SnowballThrowable[] leftPresets = new SnowballThrowable[11];
-        private static readonly SnowballThrowable[] rightPresets = new SnowballThrowable[11];
+        private static readonly float[] delayRates = { 0.7f, 0.4f, 0.3f };
+        private static readonly SnowballThrowable[] leftPresets = new SnowballThrowable[9];
+        private static readonly SnowballThrowable[] rightPresets = new SnowballThrowable[9];
+        private static readonly List<ProjectileEntry> projectileEntries = new List<ProjectileEntry>();
+        private static int growingSnowballIndex = -1;
 
         private static bool initialized;
         private static float nextFire;
@@ -46,6 +48,26 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static float FireCooldown => delayRates[projectileSpeedIndex % delayRates.Length];
 
+        public class ProjectileEntry // holy ai vibecoded opsec osint chatgpt fable 6 astra deepseek v4.1 flash 99.99% arc agi test
+        {
+            public string Name;
+            public int ThrowableIndex;
+            public SnowballThrowable ThrowableLeft => FindByThrowableIndex(SnowballMaker.leftHandInstance, ThrowableIndex);
+            public SnowballThrowable ThrowableRight => FindByThrowableIndex(SnowballMaker.rightHandInstance, ThrowableIndex);
+            public SnowballThrowable Throwable => ThrowableRight ?? ThrowableLeft;
+        }
+
+        private static SnowballThrowable FindByThrowableIndex(SnowballMaker maker, int throwableIndex)
+        {
+            if (maker?.snowballs == null) return null;
+            foreach (SnowballThrowable sb in maker.snowballs)
+            {
+                if (sb != null && sb.throwableMakerIndex == throwableIndex)
+                    return sb;
+            }
+            return null;
+        }
+
         private static void InitPresets()
         {
             if (leftPresets[0] == null && SnowballMaker.leftHandInstance?.snowballs?.Length > 0)
@@ -54,59 +76,61 @@ namespace ShibaGTGenesisReborn.Mods
             if (rightPresets[0] == null && SnowballMaker.rightHandInstance?.snowballs?.Length > 0)
                 rightPresets[0] = SnowballMaker.rightHandInstance.snowballs[0];
 
-            if (initialized || CosmeticsController.instance?.v2_allCosmetics == null || VRRig.LocalRig?.cosmeticsObjectRegistry == null) return;
+            if (CosmeticsController.instance?.v2_allCosmetics == null || VRRig.LocalRig.cosmeticsObjectRegistry == null) return;
 
             CosmeticItemRegistry reg = VRRig.LocalRig.cosmeticsObjectRegistry;
 
-            foreach (CosmeticInfoV2 item in CosmeticsController.instance.v2_allCosmetics)
+            if (!initialized)
             {
-                if (!item.isThrowable) continue;
-
-                string name = item.displayName ?? item.playFabID;
-                int idx = -1;
-                if (name.IndexOf("Snowball", StringComparison.OrdinalIgnoreCase) >= 0) idx = 0;
-                else if (name.IndexOf("Water", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Balloon", StringComparison.OrdinalIgnoreCase) >= 0) idx = 1;
-                else if (name.IndexOf("Lava", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Rock", StringComparison.OrdinalIgnoreCase) >= 0) idx = 2;
-                else if (name.IndexOf("Mentos", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Soda", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Mint", StringComparison.OrdinalIgnoreCase) >= 0) idx = 3;
-                else if (name.IndexOf("Candy Corn", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Candy", StringComparison.OrdinalIgnoreCase) >= 0) idx = 5;
-                else if (name.IndexOf("Popcorn", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Corn", StringComparison.OrdinalIgnoreCase) >= 0) idx = 4;
-                else if (name.IndexOf("Book", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Tome", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Spell", StringComparison.OrdinalIgnoreCase) >= 0) idx = 6;
-                else if (name.IndexOf("Ice Cream", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Icecream", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Sundae", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Cone", StringComparison.OrdinalIgnoreCase) >= 0) idx = 7;
-                else if (name.IndexOf("Fish", StringComparison.OrdinalIgnoreCase) >= 0) idx = 8;
-                else if (name.IndexOf("Present", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Gift", StringComparison.OrdinalIgnoreCase) >= 0) idx = 9;
-                else if (name.IndexOf("Apple", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Fruit", StringComparison.OrdinalIgnoreCase) >= 0) idx = 10;
-
-                if (idx < 0 || rightPresets[idx] != null) continue;
-
-                if (CosmeticsV2Spawner_Dirty.GetPlayfabIdFromThrowableIndex(false, item.throwableIndex, out string rId) &&
-                    CosmeticsV2Spawner_Dirty.GetPlayfabIdFromThrowableIndex(true, item.throwableIndex, out string lId))
+                foreach (CosmeticInfoV2 item in CosmeticsController.instance.v2_allCosmetics)
                 {
-                    reg.Cosmetic(lId);
-                    reg.Cosmetic(rId);
+                    if (!item.isThrowable) continue;
 
-                    foreach (SnowballThrowable sb in SnowballMaker.leftHandInstance?.snowballs ?? Array.Empty<SnowballThrowable>())
+                    string name = item.displayName ?? item.playFabID;
+                    if (name == null) continue;
+
+                    if (growingSnowballIndex < 0 && (name.IndexOf("Growing", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (item.playFabID != null && item.playFabID.IndexOf("Growing", StringComparison.OrdinalIgnoreCase) >= 0)))
                     {
-                        if (sb != null && sb.throwableMakerIndex == item.throwableIndex)
-                        {
-                            leftPresets[idx] = sb;
-                            if (SnowballMaker.leftHandInstance != null) sb.velocityEstimator = SnowballMaker.leftHandInstance.velocityEstimator;
-                            break;
-                        }
+                        growingSnowballIndex = item.throwableIndex;
                     }
 
-                    foreach (SnowballThrowable sb in SnowballMaker.rightHandInstance?.snowballs ?? Array.Empty<SnowballThrowable>())
+                    if (CosmeticsV2Spawner_Dirty.GetPlayfabIdFromThrowableIndex(false, item.throwableIndex, out string rId))
+                        reg.Cosmetic(rId);
+
+                    if (CosmeticsV2Spawner_Dirty.GetPlayfabIdFromThrowableIndex(true, item.throwableIndex, out string lId))
+                        reg.Cosmetic(lId);
+
+                    projectileEntries.Add(new ProjectileEntry
                     {
-                        if (sb != null && sb.throwableMakerIndex == item.throwableIndex)
-                        {
-                            rightPresets[idx] = sb;
-                            if (SnowballMaker.rightHandInstance != null) sb.velocityEstimator = SnowballMaker.rightHandInstance.velocityEstimator;
-                            break;
-                        }
-                    }
+                        Name = name,
+                        ThrowableIndex = item.throwableIndex
+                    });
                 }
+                initialized = true;
             }
 
-            initialized = rightPresets[0] != null || leftPresets[0] != null;
+            for (int i = 0; i < projectileEntries.Count; i++)
+            {
+                ProjectileEntry entry = projectileEntries[i];
+                int idx = -1;
+                string name = entry.Name;
+                if (name.IndexOf("Snowball", StringComparison.OrdinalIgnoreCase) >= 0 && name.IndexOf("Growing", StringComparison.OrdinalIgnoreCase) < 0) idx = 0;
+                else if (name.IndexOf("Water", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Balloon", StringComparison.OrdinalIgnoreCase) >= 0) idx = 1;
+                else if (name.IndexOf("Lava", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Rock", StringComparison.OrdinalIgnoreCase) >= 0) idx = 2;
+                else if (name.IndexOf("Popcorn", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Corn", StringComparison.OrdinalIgnoreCase) >= 0) idx = 3;
+                else if (name.IndexOf("Book", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Tome", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Spell", StringComparison.OrdinalIgnoreCase) >= 0) idx = 4;
+                else if (name.IndexOf("Ice Cream", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Icecream", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Sundae", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Cone", StringComparison.OrdinalIgnoreCase) >= 0) idx = 5;
+                else if (name.IndexOf("Fish", StringComparison.OrdinalIgnoreCase) >= 0) idx = 6;
+                else if (name.IndexOf("Present", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Gift", StringComparison.OrdinalIgnoreCase) >= 0) idx = 7;
+                else if (name.IndexOf("Apple", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("Fruit", StringComparison.OrdinalIgnoreCase) >= 0) idx = 8;
+
+                if (idx >= 0)
+                {
+                    if (leftPresets[idx] == null) leftPresets[idx] = entry.ThrowableLeft;
+                    if (rightPresets[idx] == null) rightPresets[idx] = entry.ThrowableRight;
+                }
+            }
         }
 
         private static SnowballThrowable GetThrowable(int index, bool isLeft)
@@ -130,8 +154,8 @@ namespace ShibaGTGenesisReborn.Mods
             int validLevel = Mathf.Clamp(level, 0, growing.MaxSizeLevel);
             if (growing.targetRig == null)
             {
-                growing.targetRig = VRRig.LocalRig ?? GorillaTagger.Instance?.offlineVRRig;
-                growing.isOfflineRig = growing.targetRig != null && growing.targetRig.isOfflineVRRig;
+                growing.targetRig = VRRig.LocalRig;
+                growing.isOfflineRig = growing.targetRig.isOfflineVRRig;
             }
             growing.CreatePhotonEventsIfNull();
             growing.SetSizeLevelLocal(validLevel);
@@ -172,13 +196,13 @@ namespace ShibaGTGenesisReborn.Mods
                     SetGrowingSnowballSize(rightHeld, rightHeld.MaxSizeLevel);
             }
 
-            if (VRRig.LocalRig?.myBodyDockPositions != null)
+            if (VRRig.LocalRig.myBodyDockPositions != null)
             {
                 if (VRRig.LocalRig.myBodyDockPositions.leftHandThrowables != null)
                 {
                     foreach (GameObject go in VRRig.LocalRig.myBodyDockPositions.leftHandThrowables)
                     {
-                        if (go != null && go.activeSelf && go.TryGetComponent<GrowingSnowballThrowable>(out var g) && g.SizeLevel < g.MaxSizeLevel)
+                        if (go != null && go.activeSelf && go.TryGetComponent<GrowingSnowballThrowable>(out GrowingSnowballThrowable g) && g.SizeLevel < g.MaxSizeLevel)
                             SetGrowingSnowballSize(g, g.MaxSizeLevel);
                     }
                 }
@@ -187,7 +211,7 @@ namespace ShibaGTGenesisReborn.Mods
                 {
                     foreach (GameObject go in VRRig.LocalRig.myBodyDockPositions.rightHandThrowables)
                     {
-                        if (go != null && go.activeSelf && go.TryGetComponent<GrowingSnowballThrowable>(out var g) && g.SizeLevel < g.MaxSizeLevel)
+                        if (go != null && go.activeSelf && go.TryGetComponent<GrowingSnowballThrowable>(out GrowingSnowballThrowable g) && g.SizeLevel < g.MaxSizeLevel)
                             SetGrowingSnowballSize(g, g.MaxSizeLevel);
                     }
                 }
@@ -206,7 +230,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static void SyncThrowable(int id)
         {
-            if (VRRig.LocalRig == null) return;
             VRRig.LocalRig.LeftThrowableProjectileIndex = id;
             VRRig.LocalRig.RightThrowableProjectileIndex = id;
             VRRig.LocalRig.reliableState?.SetIsDirty();
@@ -227,15 +250,12 @@ namespace ShibaGTGenesisReborn.Mods
                 SyncThrowable(throwable.throwableMakerIndex);
 
                 Color32 col = tint ?? (rainbowProjectiles ? Color.HSVToRGB(Mathf.Repeat(Time.time * 2f, 1f), 1f, 1f) : Color.white);
-                if (VRRig.LocalRig != null)
-                {
-                    VRRig.LocalRig.LeftThrowableProjectileColor = col;
-                    VRRig.LocalRig.RightThrowableProjectileColor = col;
-                    VRRig.LocalRig.reliableState?.SetIsDirty();
-                }
+                VRRig.LocalRig.LeftThrowableProjectileColor = col;
+                VRRig.LocalRig.RightThrowableProjectileColor = col;
+                VRRig.LocalRig.reliableState?.SetIsDirty();
 
                 Vector3 origin = pos;
-                if (VRRig.LocalRig != null && Vector3.Distance(VRRig.LocalRig.transform.position, pos) > 3.5f)
+                if (Vector3.Distance(VRRig.LocalRig.transform.position, pos) > 3.5f)
                 {
                     origin = isLeft
                         ? GTPlayer.Instance.LeftHand.controllerTransform.position
@@ -270,7 +290,7 @@ namespace ShibaGTGenesisReborn.Mods
                     int index = ProjectileTracker.AddAndIncrementLocalProjectile(projectile, speed, origin, scale);
                     index = ((index % 50) + 50) % 50;
 
-                    projectile.Launch(origin, speed, VRRig.LocalRig?.Creator ?? NetworkSystem.Instance.LocalPlayer, false, false, index, scale, true, col);
+                    projectile.Launch(origin, speed, VRRig.LocalRig.Creator ?? NetworkSystem.Instance.LocalPlayer, false, false, index, scale, true, col);
                     projectile.OnImpact += throwable.OnProjectileImpact;
 
                     if (NetworkSystem.Instance.InRoom)
@@ -348,8 +368,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void ProjectileLauncher()
         {
-            if (InputHandler.Instance == null) return;
-
             if (InputHandler.Instance.RightGrip.WasPressed)
             {
                 Transform r = GTPlayer.Instance.RightHand.controllerTransform;
@@ -409,17 +427,5 @@ namespace ShibaGTGenesisReborn.Mods
             }, true);
         }
 
-        public static void FlingGun()
-        {
-            GunLib.StartGun(() =>
-            {
-                if (GunLib.LockedPlayer != null)
-                {
-                    NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), GunLib.LockedPlayer.transform.position);
-                    Vector3 origin = GunLib.LockedPlayer.transform.position - new Vector3(0f, 0.4f, 0f);
-                    FireProjectile(origin, Vector3.up * 45f, false, Color.red, 5);
-                }
-            }, true);
-        }
     }
 }

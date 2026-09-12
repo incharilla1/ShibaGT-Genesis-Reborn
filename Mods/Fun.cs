@@ -37,18 +37,14 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SpawnBoard()
         {
-            if (GTPlayer.Instance == null || VRRig.LocalRig == null) return;
-            GTPlayer.Instance.SetHoverAllowed(true, true);
             GTPlayer.Instance.GrabPersonalHoverboard(false, Vector3.zero, Quaternion.identity, VRRig.LocalRig.playerColor);
             GTPlayer.Instance.SetHoverActive(true);
         }
 
         public static void DisableBoard()
         {
-            if (GTPlayer.Instance == null) return;
             GTPlayer.Instance.SetHoverActive(false);
-            GTPlayer.Instance.SetHoverAllowed(false, true);
-            if (VRRig.LocalRig?.hoverboardVisual != null)
+            if (VRRig.LocalRig.hoverboardVisual != null)
                 VRRig.LocalRig.hoverboardVisual.SetNotHeld();
         }
 
@@ -56,7 +52,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isLocal || rig == VRRig.LocalRig) continue;
+                if (rig == null || rig.isLocal) continue;
 
                 Transform head = rig.headConstraint != null ? rig.headConstraint : rig.transform;
                 SphereCollider headCol = head.GetComponent<SphereCollider>();
@@ -95,7 +91,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isLocal || rig == VRRig.LocalRig) continue;
+                if (rig == null || rig.isLocal) continue;
 
                 if (rig.headConstraint != null)
                 {
@@ -146,10 +142,8 @@ namespace ShibaGTGenesisReborn.Mods
                         NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), targetPos);
                         GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { targetPos, Quaternion.identity, 4f, 100f, false, true });
 
-                        if (VRRig.LocalRig != null)
-                            VRRig.LocalRig.enabled = true;
-                        if (GorillaTagger.Instance.offlineVRRig != null)
-                            GorillaTagger.Instance.offlineVRRig.enabled = true;
+                        VRRig.LocalRig.enabled = true;
+                        GorillaTagger.Instance.offlineVRRig.enabled = true;
 
                         RPCProt();
                     }
@@ -171,39 +165,33 @@ namespace ShibaGTGenesisReborn.Mods
                 GorillaTagScripts.FriendshipGroupDetection.Instance.myBeadColors.AddRange(colors);
             }
 
-            if (GorillaTagger.Instance.offlineVRRig != null)
+            GorillaTagger.Instance.offlineVRRig.partyMemberStatus = VRRig.PartyMemberStatus.InLocalParty;
+            if (GorillaTagger.Instance.offlineVRRig.reliableState != null)
             {
-                GorillaTagger.Instance.offlineVRRig.partyMemberStatus = VRRig.PartyMemberStatus.InLocalParty;
-                if (GorillaTagger.Instance.offlineVRRig.reliableState != null)
-                {
-                    GorillaTagger.Instance.offlineVRRig.reliableState.isBraceletLeftHanded = isLeftHand;
-                    GorillaTagger.Instance.offlineVRRig.reliableState.braceletSelfIndex = 0;
-                    GorillaTagger.Instance.offlineVRRig.reliableState.braceletBeadColors.Clear();
-                    GorillaTagger.Instance.offlineVRRig.reliableState.braceletBeadColors.AddRange(colors);
-                    GorillaTagger.Instance.offlineVRRig.reliableState.SetIsDirty();
-                }
-                if (GorillaTagger.Instance.offlineVRRig.friendshipBraceletRightHand != null && GorillaTagger.Instance.offlineVRRig.friendshipBraceletRightHand.gameObject.activeInHierarchy)
-                    GorillaTagger.Instance.offlineVRRig.friendshipBraceletRightHand.UpdateBeads(colors, 0);
-                if (GorillaTagger.Instance.offlineVRRig.friendshipBraceletLeftHand != null && GorillaTagger.Instance.offlineVRRig.friendshipBraceletLeftHand.gameObject.activeInHierarchy)
-                    GorillaTagger.Instance.offlineVRRig.friendshipBraceletLeftHand.UpdateBeads(colors, 0);
+                GorillaTagger.Instance.offlineVRRig.reliableState.isBraceletLeftHanded = isLeftHand;
+                GorillaTagger.Instance.offlineVRRig.reliableState.braceletSelfIndex = 0;
+                GorillaTagger.Instance.offlineVRRig.reliableState.braceletBeadColors.Clear();
+                GorillaTagger.Instance.offlineVRRig.reliableState.braceletBeadColors.AddRange(colors);
+                GorillaTagger.Instance.offlineVRRig.reliableState.SetIsDirty();
             }
+            if (GorillaTagger.Instance.offlineVRRig.friendshipBraceletRightHand != null && GorillaTagger.Instance.offlineVRRig.friendshipBraceletRightHand.gameObject.activeInHierarchy)
+                GorillaTagger.Instance.offlineVRRig.friendshipBraceletRightHand.UpdateBeads(colors, 0);
+            if (GorillaTagger.Instance.offlineVRRig.friendshipBraceletLeftHand != null && GorillaTagger.Instance.offlineVRRig.friendshipBraceletLeftHand.gameObject.activeInHierarchy)
+                GorillaTagger.Instance.offlineVRRig.friendshipBraceletLeftHand.UpdateBeads(colors, 0);
 
-            if (VRRig.LocalRig != null)
+            VRRig.LocalRig.partyMemberStatus = VRRig.PartyMemberStatus.InLocalParty;
+            if (VRRig.LocalRig.reliableState != null)
             {
-                VRRig.LocalRig.partyMemberStatus = VRRig.PartyMemberStatus.InLocalParty;
-                if (VRRig.LocalRig.reliableState != null)
-                {
-                    VRRig.LocalRig.reliableState.isBraceletLeftHanded = isLeftHand;
-                    VRRig.LocalRig.reliableState.braceletSelfIndex = 0;
-                    VRRig.LocalRig.reliableState.braceletBeadColors.Clear();
-                    VRRig.LocalRig.reliableState.braceletBeadColors.AddRange(colors);
-                    VRRig.LocalRig.reliableState.SetIsDirty();
-                }
-                if (VRRig.LocalRig.friendshipBraceletRightHand != null && VRRig.LocalRig.friendshipBraceletRightHand.gameObject.activeInHierarchy)
-                    VRRig.LocalRig.friendshipBraceletRightHand.UpdateBeads(colors, 0);
-                if (VRRig.LocalRig.friendshipBraceletLeftHand != null && VRRig.LocalRig.friendshipBraceletLeftHand.gameObject.activeInHierarchy)
-                    VRRig.LocalRig.friendshipBraceletLeftHand.UpdateBeads(colors, 0);
+                VRRig.LocalRig.reliableState.isBraceletLeftHanded = isLeftHand;
+                VRRig.LocalRig.reliableState.braceletSelfIndex = 0;
+                VRRig.LocalRig.reliableState.braceletBeadColors.Clear();
+                VRRig.LocalRig.reliableState.braceletBeadColors.AddRange(colors);
+                VRRig.LocalRig.reliableState.SetIsDirty();
             }
+            if (VRRig.LocalRig.friendshipBraceletRightHand != null && VRRig.LocalRig.friendshipBraceletRightHand.gameObject.activeInHierarchy)
+                VRRig.LocalRig.friendshipBraceletRightHand.UpdateBeads(colors, 0);
+            if (VRRig.LocalRig.friendshipBraceletLeftHand != null && VRRig.LocalRig.friendshipBraceletLeftHand.gameObject.activeInHierarchy)
+                VRRig.LocalRig.friendshipBraceletLeftHand.UpdateBeads(colors, 0);
 
             if (NetworkSystem.Instance.InRoom && GorillaTagger.Instance.myVRRig != null)
                 GorillaTagger.Instance.myVRRig.SendRPC("EnableNonCosmeticHandItemRPC", RpcTarget.All, true, isLeftHand);
@@ -213,20 +201,20 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (braceletColorsBuffer.Count == 0)
             {
-                Color defaultColor = VRRig.LocalRig != null ? VRRig.LocalRig.playerColor : Color.white;
+                Color defaultColor = VRRig.LocalRig.playerColor;
                 for (int i = 0; i < 8; i++)
                     braceletColorsBuffer.Add(defaultColor);
             }
 
             SyncBraceletColors(braceletColorsBuffer, isLeftHand);
 
-            if (isLeftHand && GorillaTagger.Instance.offlineVRRig?.nonCosmeticLeftHandItem != null)
+            if (isLeftHand && GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem != null)
                 GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem.EnableItem(true);
-            else if (!isLeftHand && GorillaTagger.Instance.offlineVRRig?.nonCosmeticRightHandItem != null)
+            else if (!isLeftHand && GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem != null)
                 GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem.EnableItem(true);
-            else if (isLeftHand && VRRig.LocalRig?.nonCosmeticLeftHandItem != null)
+            else if (isLeftHand && VRRig.LocalRig.nonCosmeticLeftHandItem != null)
                 VRRig.LocalRig.nonCosmeticLeftHandItem.EnableItem(true);
-            else if (!isLeftHand && VRRig.LocalRig?.nonCosmeticRightHandItem != null)
+            else if (!isLeftHand && VRRig.LocalRig.nonCosmeticRightHandItem != null)
                 VRRig.LocalRig.nonCosmeticRightHandItem.EnableItem(true);
         }
 
@@ -243,33 +231,27 @@ namespace ShibaGTGenesisReborn.Mods
             if (GorillaTagScripts.FriendshipGroupDetection.Instance != null)
                 GorillaTagScripts.FriendshipGroupDetection.Instance.myBeadColors.Clear();
 
-            if (GorillaTagger.Instance.offlineVRRig != null)
+            GorillaTagger.Instance.offlineVRRig.partyMemberStatus = VRRig.PartyMemberStatus.NotInLocalParty;
+            if (GorillaTagger.Instance.offlineVRRig.reliableState != null)
             {
-                GorillaTagger.Instance.offlineVRRig.partyMemberStatus = VRRig.PartyMemberStatus.NotInLocalParty;
-                if (GorillaTagger.Instance.offlineVRRig.reliableState != null)
-                {
-                    GorillaTagger.Instance.offlineVRRig.reliableState.braceletBeadColors.Clear();
-                    GorillaTagger.Instance.offlineVRRig.reliableState.SetIsDirty();
-                }
-                if (GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem != null)
-                    GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem.EnableItem(false);
-                if (GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem != null)
-                    GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem.EnableItem(false);
+                GorillaTagger.Instance.offlineVRRig.reliableState.braceletBeadColors.Clear();
+                GorillaTagger.Instance.offlineVRRig.reliableState.SetIsDirty();
             }
+            if (GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem != null)
+                GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem.EnableItem(false);
+            if (GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem != null)
+                GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem.EnableItem(false);
 
-            if (VRRig.LocalRig != null)
+            VRRig.LocalRig.partyMemberStatus = VRRig.PartyMemberStatus.NotInLocalParty;
+            if (VRRig.LocalRig.reliableState != null)
             {
-                VRRig.LocalRig.partyMemberStatus = VRRig.PartyMemberStatus.NotInLocalParty;
-                if (VRRig.LocalRig.reliableState != null)
-                {
-                    VRRig.LocalRig.reliableState.braceletBeadColors.Clear();
-                    VRRig.LocalRig.reliableState.SetIsDirty();
-                }
-                if (VRRig.LocalRig.nonCosmeticRightHandItem != null)
-                    VRRig.LocalRig.nonCosmeticRightHandItem.EnableItem(false);
-                if (VRRig.LocalRig.nonCosmeticLeftHandItem != null)
-                    VRRig.LocalRig.nonCosmeticLeftHandItem.EnableItem(false);
+                VRRig.LocalRig.reliableState.braceletBeadColors.Clear();
+                VRRig.LocalRig.reliableState.SetIsDirty();
             }
+            if (VRRig.LocalRig.nonCosmeticRightHandItem != null)
+                VRRig.LocalRig.nonCosmeticRightHandItem.EnableItem(false);
+            if (VRRig.LocalRig.nonCosmeticLeftHandItem != null)
+                VRRig.LocalRig.nonCosmeticLeftHandItem.EnableItem(false);
 
             if (NetworkSystem.Instance.InRoom && GorillaTagger.Instance.myVRRig != null)
             {
@@ -288,9 +270,9 @@ namespace ShibaGTGenesisReborn.Mods
                 if (NetworkSystem.Instance.InRoom && GorillaTagger.Instance.myVRRig != null)
                     GorillaTagger.Instance.myVRRig.SendRPC("EnableNonCosmeticHandItemRPC", RpcTarget.All, enablebracelet, false);
 
-                if (GorillaTagger.Instance.offlineVRRig?.nonCosmeticRightHandItem != null)
+                if (GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem != null)
                     GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem.EnableItem(enablebracelet);
-                else if (VRRig.LocalRig?.nonCosmeticRightHandItem != null)
+                else if (VRRig.LocalRig.nonCosmeticRightHandItem != null)
                     VRRig.LocalRig.nonCosmeticRightHandItem.EnableItem(enablebracelet);
 
                 delay = Time.time;
@@ -310,10 +292,10 @@ namespace ShibaGTGenesisReborn.Mods
                     GorillaTagger.Instance.myVRRig.SendRPC("EnableNonCosmeticHandItemRPC", RpcTarget.All, dualBraceletState, true);
                 }
 
-                if (GorillaTagger.Instance.offlineVRRig?.nonCosmeticRightHandItem != null) GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem.EnableItem(dualBraceletState);
-                if (GorillaTagger.Instance.offlineVRRig?.nonCosmeticLeftHandItem != null) GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem.EnableItem(dualBraceletState);
-                if (VRRig.LocalRig?.nonCosmeticRightHandItem != null) VRRig.LocalRig.nonCosmeticRightHandItem.EnableItem(dualBraceletState);
-                if (VRRig.LocalRig?.nonCosmeticLeftHandItem != null) VRRig.LocalRig.nonCosmeticLeftHandItem.EnableItem(dualBraceletState);
+                if (GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem != null) GorillaTagger.Instance.offlineVRRig.nonCosmeticRightHandItem.EnableItem(dualBraceletState);
+                if (GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem != null) GorillaTagger.Instance.offlineVRRig.nonCosmeticLeftHandItem.EnableItem(dualBraceletState);
+                if (VRRig.LocalRig.nonCosmeticRightHandItem != null) VRRig.LocalRig.nonCosmeticRightHandItem.EnableItem(dualBraceletState);
+                if (VRRig.LocalRig.nonCosmeticLeftHandItem != null) VRRig.LocalRig.nonCosmeticLeftHandItem.EnableItem(dualBraceletState);
             }
         }
 
@@ -332,7 +314,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void CustomColorBracelet()
         {
-            Color bodyColor = VRRig.LocalRig != null ? VRRig.LocalRig.playerColor : (GorillaTagger.Instance.offlineVRRig != null ? GorillaTagger.Instance.offlineVRRig.playerColor : Color.white);
+            Color bodyColor = VRRig.LocalRig.playerColor;
 
             braceletColorsBuffer.Clear();
             for (int i = 0; i < 8; i++)
@@ -364,7 +346,7 @@ namespace ShibaGTGenesisReborn.Mods
             }
 
             if (braceletColorsBuffer.Count == 0)
-                braceletColorsBuffer.Add(VRRig.LocalRig != null ? VRRig.LocalRig.playerColor : Color.white);
+                braceletColorsBuffer.Add(VRRig.LocalRig.playerColor);
 
             SyncBraceletColors(braceletColorsBuffer, false);
         }
@@ -396,10 +378,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void DisableRopes()
         {
-            if (VRRig.LocalRig != null)
-                VRRig.LocalRig.enabled = true;
-            if (GorillaTagger.Instance?.offlineVRRig != null)
-                GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = -1;
+            VRRig.LocalRig.enabled = true;
+            GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = -1;
         }
 
         private static void FlingRope(GorillaRopeSwing rope)
@@ -407,8 +387,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (rope == null) return;
 
             NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), rope.transform.position);
-            if (GorillaTagger.Instance?.offlineVRRig != null)
-                GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = rope.ropeId;
+            GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = rope.ropeId;
 
             Vector3 vel = new Vector3(Random.Range(-50f, 50f), 99f, Random.Range(-50f, 50f));
             RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, rope.ropeId, 1, vel, true);
@@ -496,8 +475,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (rope != null)
             {
                 NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), rope.transform.position);
-                if (GorillaTagger.Instance?.offlineVRRig != null)
-                    GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = rope.ropeId;
+                GorillaTagger.Instance.offlineVRRig.grabbedRopeIndex = rope.ropeId;
 
                 RopeSwingManager.instance.photonView.RPC("SetVelocity", RpcTarget.All, rope.ropeId, 1, vel, true);
 

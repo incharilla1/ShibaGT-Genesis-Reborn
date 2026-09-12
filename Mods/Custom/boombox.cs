@@ -119,7 +119,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         static void HandleInteraction()
         {
             var player = GorillaLocomotion.GTPlayer.Instance;
-            if (!player) return;
 
             bool rGrip = InputHandler.Instance.RightGrip.IsPressed;
             bool lGrip = InputHandler.Instance.LeftGrip.IsPressed;
@@ -130,8 +129,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 if (Obj.TryGetComponent(out Collider c))
                 {
                     ModsLib.IgnoreCollisionRecursive(c, GorillaTagger.Instance.transform);
-                    if (GorillaTagger.Instance.offlineVRRig != null)
-                        ModsLib.IgnoreCollisionRecursive(c, GorillaTagger.Instance.offlineVRRig.transform);
+                    ModsLib.IgnoreCollisionRecursive(c, GorillaTagger.Instance.offlineVRRig.transform);
                 }
             }
 
@@ -262,7 +260,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         {
             if (Obj) return;
             var player = GorillaLocomotion.GTPlayer.Instance;
-            if (player == null || player.RightHand.controllerTransform == null) return;
+            if (player.RightHand.controllerTransform == null) return;
 
             Obj = new GameObject("BoomboxItem");
             Obj.transform.position = player.RightHand.controllerTransform.position;
@@ -282,7 +280,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             Aud.pitch = PitchAndSpeed;
             Obj.transform.localScale = Vector3.one * BaseScale;
             ModsLib.IgnoreCollisionRecursive(col, player.transform);
-            if (GorillaTagger.Instance.offlineVRRig != null) ModsLib.IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
+            ModsLib.IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
             Done = true;
             
             if (NetworkingLibrary.Instance != null && NetworkingLibrary.Instance.NetworkEnabled)

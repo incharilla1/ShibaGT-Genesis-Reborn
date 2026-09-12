@@ -175,16 +175,13 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static Vector3 GetRightHandPosition()
         {
-            if (GTPlayer.Instance != null)
+            Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
+            if (rightController != null)
             {
-                Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
-                if (rightController != null)
-                {
-                    return rightController.position + rightController.rotation * GTPlayer.Instance.RightHand.handOffset;
-                }
+                return rightController.position + rightController.rotation * GTPlayer.Instance.RightHand.handOffset;
             }
 
-            if (GorillaTagger.Instance != null && GorillaTagger.Instance.rightHandTransform != null)
+            if (GorillaTagger.Instance.rightHandTransform != null)
             {
                 return GorillaTagger.Instance.rightHandTransform.position;
             }
@@ -194,16 +191,13 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static Quaternion GetRightHandRotation()
         {
-            if (GTPlayer.Instance != null)
+            Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
+            if (rightController != null)
             {
-                Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
-                if (rightController != null)
-                {
-                    return rightController.rotation * GTPlayer.Instance.RightHand.handRotOffset;
-                }
+                return rightController.rotation * GTPlayer.Instance.RightHand.handRotOffset;
             }
 
-            if (GorillaTagger.Instance != null && GorillaTagger.Instance.rightHandTransform != null)
+            if (GorillaTagger.Instance.rightHandTransform != null)
             {
                 return GorillaTagger.Instance.rightHandTransform.rotation;
             }

@@ -606,7 +606,6 @@ namespace ShibaGTGenesisReborn.Mods
         {
             Main.Change("Time Switcher", ref timeOfDayIndex, timeOfDayNames, () =>
             {
-                if (BetterDayNightManager.instance == null) return;
                 switch (timeOfDayIndex)
                 {
                     case 0: BetterDayNightManager.instance.SetTimeOfDay(1, true); break;
@@ -628,7 +627,6 @@ namespace ShibaGTGenesisReborn.Mods
         {
             Main.Change("Weather Switcher", ref weatherIndex, weatherNames, () =>
             {
-                if (BetterDayNightManager.instance == null) return;
                 switch (weatherIndex)
                 {
                     case 0: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.Raining, true); break;
@@ -680,9 +678,9 @@ namespace ShibaGTGenesisReborn.Mods
                 savedUnlockedThrowables = new List<CosmeticsController.CosmeticItem>(controller.unlockedThrowables);
             }
 
-            if (VRRig.LocalRig?._playerOwnedCosmetics != null)
+            if (VRRig.LocalRig._playerOwnedCosmetics != null)
                 savedPlayerOwnedCosmetics = new HashSet<string>(VRRig.LocalRig._playerOwnedCosmetics);
-            if (GorillaTagger.Instance?.offlineVRRig?._playerOwnedCosmetics != null)
+            if (GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics != null)
                 savedOfflinePlayerOwnedCosmetics = new HashSet<string>(GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics);
 
             controller.unlockedCosmetics.Clear();
@@ -753,9 +751,8 @@ namespace ShibaGTGenesisReborn.Mods
                             break;
                     }
 
-                    if (VRRig.LocalRig != null)
-                        VRRig.LocalRig.AddCosmetic(item.itemName);
-                    if (GorillaTagger.Instance?.offlineVRRig != null && GorillaTagger.Instance.offlineVRRig != VRRig.LocalRig)
+                    VRRig.LocalRig.AddCosmetic(item.itemName);
+                    if (GorillaTagger.Instance.offlineVRRig != VRRig.LocalRig)
                         GorillaTagger.Instance.offlineVRRig.AddCosmetic(item.itemName);
                 }
             }
@@ -763,8 +760,8 @@ namespace ShibaGTGenesisReborn.Mods
             controller.concatStringCosmeticsAllowed = string.Concat(controller.unlockedCosmetics.Select(x => x.itemName));
             controller.UpdateWardrobeModelsAndButtons();
             controller.OnCosmeticsUpdated?.Invoke();
-            VRRig.LocalRig?.RefreshCosmetics();
-            GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
+            VRRig.LocalRig.RefreshCosmetics();
+            GorillaTagger.Instance.offlineVRRig.RefreshCosmetics();
             ModsLib.SyncCosmeticsToNetwork();
         }
 
@@ -801,13 +798,13 @@ namespace ShibaGTGenesisReborn.Mods
             controller.unlockedThrowables.Clear();
             controller.unlockedThrowables.AddRange(savedUnlockedThrowables);
 
-            if (VRRig.LocalRig?._playerOwnedCosmetics != null)
+            if (VRRig.LocalRig._playerOwnedCosmetics != null)
             {
                 VRRig.LocalRig._playerOwnedCosmetics.Clear();
                 VRRig.LocalRig._playerOwnedCosmetics.UnionWith(savedPlayerOwnedCosmetics);
             }
 
-            if (GorillaTagger.Instance?.offlineVRRig?._playerOwnedCosmetics != null)
+            if (GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics != null)
             {
                 GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics.Clear();
                 GorillaTagger.Instance.offlineVRRig._playerOwnedCosmetics.UnionWith(savedOfflinePlayerOwnedCosmetics);
@@ -824,7 +821,7 @@ namespace ShibaGTGenesisReborn.Mods
                 try
                 {
                     controller.GetCosmeticsPlayFabCatalogData();
-                    GorillaTagger.Instance?.offlineVRRig?.GetCosmeticsPlayFabCatalogData();
+                    GorillaTagger.Instance.offlineVRRig.GetCosmeticsPlayFabCatalogData();
                 }
                 catch { }
             }
@@ -841,8 +838,8 @@ namespace ShibaGTGenesisReborn.Mods
             controller.UpdateWardrobeModelsAndButtons();
             controller.OnCosmeticsUpdated?.Invoke();
             controller.OnOutfitsUpdated?.Invoke();
-            VRRig.LocalRig?.RefreshCosmetics();
-            GorillaTagger.Instance?.offlineVRRig?.RefreshCosmetics();
+            VRRig.LocalRig.RefreshCosmetics();
+            GorillaTagger.Instance.offlineVRRig.RefreshCosmetics();
             ModsLib.SyncCosmeticsToNetwork();
         }
 
@@ -894,7 +891,7 @@ namespace ShibaGTGenesisReborn.Mods
 
             if (debugVrObj == null)
             {
-                Camera cam = Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+                Camera cam = Camera.main ?? GorillaTagger.Instance.mainCamera?.GetComponent<Camera>();
                 if (cam != null)
                 {
                     debugVrObj = new GameObject("VR_DebugInfo");
@@ -915,13 +912,13 @@ namespace ShibaGTGenesisReborn.Mods
             if (Time.unscaledTime < debugUpdateTimer) return;
             debugUpdateTimer = Time.unscaledTime + 0.1f;
 
-            Vector3 pos = GTPlayer.Instance != null ? GTPlayer.Instance.transform.position : (VRRig.LocalRig != null ? VRRig.LocalRig.transform.position : Vector3.zero);
-            Vector3 vel = GTPlayer.Instance != null ? GTPlayer.Instance.currentVelocity : Vector3.zero;
+            Vector3 pos = GTPlayer.Instance.transform.position;
+            Vector3 vel = GTPlayer.Instance.currentVelocity;
             Vector3 vrCam = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
             float yaw = Camera.main != null ? Camera.main.transform.eulerAngles.y : 0f;
 
-            Vector3 lHand = GorillaTagger.Instance?.leftHandTransform != null ? GorillaTagger.Instance.leftHandTransform.position : Vector3.zero;
-            Vector3 rHand = GorillaTagger.Instance?.rightHandTransform != null ? GorillaTagger.Instance.rightHandTransform.position : Vector3.zero;
+            Vector3 lHand = GorillaTagger.Instance.leftHandTransform != null ? GorillaTagger.Instance.leftHandTransform.position : Vector3.zero;
+            Vector3 rHand = GorillaTagger.Instance.rightHandTransform != null ? GorillaTagger.Instance.rightHandTransform.position : Vector3.zero;
 
             if (cachedTpc == null)
                 cachedTpc = Main.TPC ?? GameObject.Find("Shoulder Camera")?.GetComponent<Camera>();
@@ -942,8 +939,8 @@ namespace ShibaGTGenesisReborn.Mods
             string room = inRoom ? $"{PhotonNetwork.CurrentRoom.Name} ({PhotonNetwork.CurrentRoom.PlayerCount}/{PhotonNetwork.CurrentRoom.MaxPlayers})" : "Offline";
             string ping = inRoom ? $"{PhotonNetwork.GetPing()} ms" : "N/A";
             string zone = !string.IsNullOrEmpty(lastmap) ? lastmap : (GorillaComputer.instance?.currentQueue ?? "forest");
-            bool isGrounded = GTPlayer.Instance != null && (GTPlayer.Instance.IsHandTouching(true) || GTPlayer.Instance.IsHandTouching(false));
-            bool isInfected = VRRig.LocalRig != null && VRRig.LocalRig.mainSkin != null && VRRig.LocalRig.mainSkin.material != null && VRRig.LocalRig.mainSkin.material.name.Contains("fected");
+            bool isGrounded = GTPlayer.Instance.IsHandTouching(true) || GTPlayer.Instance.IsHandTouching(false);
+            bool isInfected = VRRig.LocalRig.mainSkin != null && VRRig.LocalRig.mainSkin.material != null && VRRig.LocalRig.mainSkin.material.name.Contains("fected");
 
             string text =
                 $"FPS: {fps} ({(Time.unscaledDeltaTime * 1000f):F1} ms)\n" +
@@ -1019,7 +1016,7 @@ namespace ShibaGTGenesisReborn.Mods
 
             if (roomVrObj == null)
             {
-                Camera cam = Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+                Camera cam = Camera.main ?? GorillaTagger.Instance.mainCamera?.GetComponent<Camera>();
                 if (cam != null)
                 {
                     roomVrObj = new GameObject("VR_RoomInfo");

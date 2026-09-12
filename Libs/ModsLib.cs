@@ -583,7 +583,7 @@ namespace ShibaGTGenesisReborn.Libs
         #region Platform & Cosmetic Utilities
         public static string GetPlayerPlatform(NetPlayer player)
         {
-            if (player == null || NetworkSystem.Instance == null) return string.Empty;
+            if (player == null) return string.Empty;
             return NetworkSystem.Instance.GetPlayerPlatform(player) ?? string.Empty;
         }
 
@@ -599,7 +599,7 @@ namespace ShibaGTGenesisReborn.Libs
 
         public static string GetLocalCosmeticString()
         {
-            if (VRRig.LocalRig == null || VRRig.LocalRig.cosmeticSet == null || VRRig.LocalRig.cosmeticSet.items == null) return string.Empty;
+            if (VRRig.LocalRig.cosmeticSet?.items == null) return string.Empty;
             List<string> items = new List<string>();
             for (int i = 0; i < VRRig.LocalRig.cosmeticSet.items.Length; i++)
             {
@@ -611,7 +611,7 @@ namespace ShibaGTGenesisReborn.Libs
 
         public static void SyncCosmeticsToNetwork()
         {
-            if (VRRig.LocalRig == null || NetworkingLibrary.Instance == null || !NetworkingLibrary.Instance.NetworkEnabled) return;
+            if (!NetworkingLibrary.Instance.NetworkEnabled) return;
             string cosmeticString = GetLocalCosmeticString();
             if (!string.IsNullOrEmpty(cosmeticString))
                 NetworkingLibrary.Instance.SendCosmeticUpdate(cosmeticString);

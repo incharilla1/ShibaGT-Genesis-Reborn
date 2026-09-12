@@ -177,8 +177,8 @@ namespace ShibaGTGenesisReborn.Menu
                 
                 new ButtonInfo { buttonText = "Collideable Monkeys", method =() => mods.CollideableMonkeys(), disableMethod =() => mods.DisableCollideableMonkeys(), isTogglable = true, toolTip = "Enable solid collisions on other monkeys to walk and stand on them"},
                 
-                new ButtonInfo { buttonText = "Loud Microphone", method =() => mods.LoudMicrophone(), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Boost microphone volume (25x)"},
-                new ButtonInfo { buttonText = "Earrape Mic", method =() => mods.LoudMicrophone(25f), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Extreme microphone volume boost (100x)"},
+                new ButtonInfo { buttonText = "Loud Microphone", method =() => mods.LoudMicrophone(), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Boost microphone volume (15x)"},
+                new ButtonInfo { buttonText = "Earrape Mic", method =() => mods.LoudMicrophone(25f), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Extreme microphone volume boost (25x)"},
                 new ButtonInfo { buttonText = "Mute Microphone", method =() => mods.MuteMicrophone(), disableMethod =() => mods.UnmuteMicrophone(), isTogglable = true, toolTip = "Mute local microphone transmission"},
                 new ButtonInfo { buttonText = "Microphone Echo", method =() => mods.MicrophoneEcho(true), disableMethod =() => mods.MicrophoneEcho(false), isTogglable = true, toolTip = "Echo your voice for other players"},
                 new ButtonInfo { buttonText = "Chipmunk Mic", method =() => mods.SetMicrophonePitch(1.6f), disableMethod =() => mods.ResetMicrophonePitch(), isTogglable = true, toolTip = "High pitch voice modulation"},
@@ -274,30 +274,26 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Projectile Orbit", method =() => mods.ProjectileOrbit(), isTogglable = true, toolTip = "Orbiting shield of projectiles"},
                 new ButtonInfo { buttonText = "Projectile Rain", method =() => mods.ProjectileRain(), isTogglable = true, toolTip = "Rain projectiles from sky"},
                 new ButtonInfo { buttonText = "Projectile Halo", method =() => mods.ProjectileHalo(), isTogglable = true, toolTip = "Floating ring of projectiles above head"},
-                new ButtonInfo { buttonText = "Projectile Mortar Strike", method =() => mods.ProjectileMortarStrike(), isTogglable = true, toolTip = "Target player with gun to rain orbital barrage"},
-                new ButtonInfo { buttonText = "Projectile Fling Gun", method =() => mods.FlingGun(), isTogglable = true, toolTip = "Fling locked target with giant projectiles"},
+                new ButtonInfo { buttonText = "Projectile Mortar Strike", method =() => mods.ProjectileMortarStrike(), isTogglable = true, toolTip = "Target player with gun to rain orbital barrage"}
             },
 
             new ButtonInfo[]
             { // overpowered [8]
-                new ButtonInfo { buttonText = "lagpwr", overlapText = "Lag Power: Weak", method =() => Main.Change("lagpwr", ref mods.lagindex, mods.lagnames), isTogglable = false, toolTip = "Lag target player with events"},
-                new ButtonInfo { buttonText = "Lag Gun", method =() => mods.LagGun(), isTogglable = true, toolTip = "Lag target player with events"},
-                new ButtonInfo { buttonText = "Lag All", method =() => mods.LagAll(), isTogglable = true, toolTip = "Lag all players in room"},
+                new ButtonInfo { buttonText = "Target Spam (Master)", method =() => mods.TargetSpam(), isTogglable = true, toolTip = "Spam hits on all targets in map", needsMaster = true},
                 
-                new ButtonInfo { buttonText = "Target Spam (Master)", method =() => mods.TargetSpam(), isTogglable = true, toolTip = "Spam hits on all targets in map"},
+                new ButtonInfo { buttonText = "Destroy Gun (Master and Detected)", method =() => mods.DestroyGun(), isTogglable = true, toolTip = "i dunno", needsMaster = true},
+                new ButtonInfo { buttonText = "Destroy All (Master and Detected)", method =() => mods.DestroyAll(), isTogglable = true, toolTip = "i dunno (but better)", needsMaster = true},
                 
-                new ButtonInfo { buttonText = "Destroy Gun (Master and Detected)", method =() => mods.DestroyGun(), isTogglable = true, toolTip = "i dunno"},
-                new ButtonInfo { buttonText = "Destroy All (Master and Detected)", method =() => mods.DestroyAll(), isTogglable = true, toolTip = "i dunno (but better)"},
-                
-                new ButtonInfo { buttonText = "Become Guardian (Master)", method =() => mods.BecomeGuardian(), isTogglable = false, toolTip = "Take Guardian control in every active Guardian zone"},
-                new ButtonInfo { buttonText = "Eject Guardians (Master)", method =() => mods.EjectAllGuardians(), isTogglable = false, toolTip = "Remove the Guardian from every active Guardian zone"},
+                new ButtonInfo { buttonText = "Become Guardian (Master)", method =() => mods.BecomeGuardian(), isTogglable = false, toolTip = "Take Guardian control in every active Guardian zone", needsMaster = true},
+                new ButtonInfo { buttonText = "Eject Guardians (Master)", method =() => mods.EjectAllGuardians(), isTogglable = false, toolTip = "Remove the Guardian from every active Guardian zone", needsMaster = true},
                 
                 new ButtonInfo { buttonText = "Ghost Reactor God Mode", method =() => mods.GhostReactorGodMode(), disableMethod =() => mods.DisableGhostReactorGodMode(), isTogglable = true, toolTip = "Continuously revive, heal, shield, illuminate, and cloak yourself"},
                 new ButtonInfo { buttonText = "Kill All GR Enemies", method =() => mods.KillAllGhostReactorEnemies(), isTogglable = false, toolTip = "Instantly eliminate all current non-boss Ghost Reactor enemies"},
+                new ButtonInfo { buttonText = "GR Nuker (Master)", method =() => mods.GRNuker(), isTogglable = true, toolTip = "Nuke all enemies, boss, breakables, barriers, and hazards in Ghost Reactor", needsMaster = true},
                 
-                new ButtonInfo { buttonText = "Force Start Game (Master)", method =() => mods.ForceStartCurrentGame(), isTogglable = false, toolTip = "Force the active game mode to start"},
-                new ButtonInfo { buttonText = "Reset Current Game (Master)", method =() => mods.ResetCurrentGame(), isTogglable = false, toolTip = "Immediately reset the active game mode"},
-                new ButtonInfo { buttonText = "Freeze All (Master)", method =() => mods.FreezeAllPlayers(),  isTogglable = true, toolTip = "Continuously freeze every other Freeze Tag player"},
+                new ButtonInfo { buttonText = "Force Start Game (Master)", method =() => mods.ForceStartCurrentGame(), isTogglable = false, toolTip = "Force the active game mode to start", needsMaster = true},
+                new ButtonInfo { buttonText = "Reset Current Game (Master)", method =() => mods.ResetCurrentGame(), isTogglable = false, toolTip = "Immediately reset the active game mode", needsMaster = true},
+                new ButtonInfo { buttonText = "Freeze All (Master)", method =() => mods.FreezeAllPlayers(),  isTogglable = true, toolTip = "Continuously freeze every other Freeze Tag player", needsMaster = true},
                 
                 new ButtonInfo { buttonText = "Open All Doors", method =() => mods.SetAllDoors(true), isTogglable = false, toolTip = "Open loaded Ghost Reactor and elevator doors locally"},
                 new ButtonInfo { buttonText = "Close All Doors", method =() => mods.SetAllDoors(false), isTogglable = false, toolTip = "Close loaded Ghost Reactor and elevator doors locally"},
@@ -351,6 +347,8 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Text Size", overlapText = "Text Size: " + Settings.textSizeNames[Settings.textSizeIndex], isTogglable = false, method = () => Main.Change("Text Size", ref Settings.textSizeIndex, Settings.textSizeNames, () => Main.RecreateMenu()), toolTip = "Adjust button text sizing" },
                 new ButtonInfo { buttonText = "Streamer Mode", enableMethod =() => StreamerMode.Enable(), disableMethod =() => StreamerMode.Disable(), enabled = streamerMode, isTogglable = true, toolTip = "Hides menu and all mod visuals from recordings & spectator view"},
                 new ButtonInfo { buttonText = "Disable VRView HUD", enableMethod = () => Settings.disableVRViewHUD = true, disableMethod = () => Settings.disableVRViewHUD = false, isTogglable = true, enabled = Settings.disableVRViewHUD, toolTip = "Only display HUD overlays on PC screen" },
+                new ButtonInfo { buttonText = "Change Menu Title", method = () => Main.StartTitleChanger(), isTogglable = false, toolTip = "Type to change the menu title text" },
+                new ButtonInfo { buttonText = "Reset Menu Title", method = () => Main.ResetMenuTitle(), isTogglable = false, toolTip = "Reset menu title to default" },
                 new ButtonInfo { buttonText = "Panic Button", enableMethod =() => mods.EnablePanic(), disableMethod =() => mods.DisablePanic(), isTogglable = true, toolTip = "Disable all mods and disconnect safely"},
             },
 
@@ -391,8 +389,6 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Player Tracer", enableMethod = () => PlayerOptionsManager.IsTracerActive = true, disableMethod = () => PlayerOptionsManager.IsTracerActive = false, isTogglable = true, toolTip = "Draw line to player" },
                 new ButtonInfo { buttonText = "Copy Player Info", method = () => PlayerOptionsManager.CopyPlayerInfo(), isTogglable = false, toolTip = "Copy comprehensive player details" },
                 new ButtonInfo { buttonText = "Distance From Player", overlapText = "Distance: N/A", isTogglable = false, method = () => PlayerOptionsManager.UpdateDistanceDisplay(), toolTip = "Current distance from player" },
-                new ButtonInfo { buttonText = "Lag Mode", overlapText = "Lag Power: Weak", method = () => Main.Change("Lag Mode", ref PlayerOptionsManager.selectedPlayerLagIndex, mods.lagnames), isTogglable = false, toolTip = "Change lag power for selected player" },
-                new ButtonInfo { buttonText = "Lag Player", enableMethod = () => PlayerOptionsManager.IsLagging = true, disableMethod = () => PlayerOptionsManager.IsLagging = false, isTogglable = true, toolTip = "Lag selected player" },
             },
 
             new ButtonInfo[]

@@ -18,8 +18,8 @@ namespace ShibaGTGenesisReborn.Libs
 
         public static readonly string[] bypassLayers =
         {
-            "GorillaTrigger",
-            "GorillaBoundary",
+            "Gorilla Trigger",
+            "Gorilla Boundary",
             "GorillaHand",
             "GorillaObject",
             "Zone",
@@ -48,14 +48,14 @@ namespace ShibaGTGenesisReborn.Libs
 
         public static Camera GetPcCamera()
         {
-            if (GorillaTagger.Instance?.thirdPersonCamera != null)
+            if (GorillaTagger.Instance.thirdPersonCamera != null)
             {
                 Camera cam = GorillaTagger.Instance.thirdPersonCamera.GetComponentInChildren<Camera>();
                 if (cam != null && cam.isActiveAndEnabled)
                     return cam;
             }
 
-            return Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+            return Camera.main ?? GorillaTagger.Instance.mainCamera?.GetComponent<Camera>();
         }
 
         public static void StartPcGun(Action action, bool lockOn)
@@ -72,10 +72,10 @@ namespace ShibaGTGenesisReborn.Libs
 
             Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Collide))
+            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Ignore))
                 hit.point = ray.origin + ray.direction * 100f;
 
-            Vector3 start = GorillaTagger.Instance?.rightHandTransform != null
+            Vector3 start = GorillaTagger.Instance.rightHandTransform != null
                 ? GorillaTagger.Instance.rightHandTransform.position
                 : cam.transform.position;
 
@@ -96,7 +96,7 @@ namespace ShibaGTGenesisReborn.Libs
 
             Ray ray = new Ray(hand.position, -hand.up);
 
-            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Collide))
+            if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, BypassLayers, QueryTriggerInteraction.Ignore))
                 hit.point = ray.origin + ray.direction * 100f;
 
             UpdateGun(ray, hit, action, lockOn, hand.position);

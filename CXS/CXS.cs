@@ -94,7 +94,6 @@ namespace CXS
 
         public static void Log(string text) => Debug.Log(text);
 
-        public static readonly string CXSVersion = "1.0.2";
         public static CXS instance;
 
         public void Awake()
@@ -107,7 +106,6 @@ namespace CXS
             {
                 NetworkSystem.Instance.OnReturnedToSinglePlayer += ClearCXSAssets;
                 NetworkSystem.Instance.OnPlayerJoined += SyncCXSAssets;
-                NetworkSystem.Instance.OnPlayerLeft += SyncCXSUsers;
                 NetworkSystem.Instance.OnJoinedRoomEvent += BlockedCheck;
             }
 
@@ -128,7 +126,6 @@ namespace CXS
 
         public static void LoadCXS() => GorillaTagger.OnPlayerSpawned(LoadCXSImmediately);
 
-        public static bool IsMasterCXS = true;
         public const string SyncAssetsEventKey = "%<CXS>%SyncAssets";
 
         public static void CXSAssetCommunication(string eventName, int id)
@@ -374,8 +371,6 @@ namespace CXS
 
         public void Update()
         {
-            if (IsMasterCXS) return;
-
             if (NetworkSystem.Instance != null && NetworkSystem.Instance.InRoom)
             {
                 try
@@ -392,14 +387,6 @@ namespace CXS
 
             SanitizeCXSAssets();
         }
-
-        private static readonly Dictionary<string, Color> menuColors = new Dictionary<string, Color>
-        {
-            { "cxs", Color.gray },
-            { "tidalxyz", new Color32(164, 94, 229, 255) },
-            { "glink", new Color32(255, 80, 40, 255) },
-            { "liquidclient", new Color32(0, 191, 255, 255) }
-        };
 
         public static void TeleportToMap(string mapName)
         {
@@ -445,31 +432,15 @@ namespace CXS
             }
         }
 
-        public static readonly int TransparentFX = LayerMask.NameToLayer("TransparentFX");
-        public static readonly int IgnoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
-        public static readonly int Zone = LayerMask.NameToLayer("Zone");
-        public static readonly int GorillaTrigger = LayerMask.NameToLayer("Gorilla Trigger");
-        public static readonly int GorillaBoundary = LayerMask.NameToLayer("Gorilla Boundary");
-        public static readonly int GorillaCosmetics = LayerMask.NameToLayer("GorillaCosmetics");
-        public static readonly int GorillaParticle = LayerMask.NameToLayer("GorillaParticle");
+        private static readonly int invisLayerMask = ~LayerMask.GetMask("TransparentFX", "Ignore Raycast", "Zone", "Gorilla Trigger", "Gorilla Boundary", "GorillaCosmetics", "GorillaParticle");
 
-        public static int NoInvisLayerMask() =>
-            ~(1 << TransparentFX | 1 << IgnoreRaycast | 1 << Zone | 1 << GorillaTrigger | 1 << GorillaBoundary | 1 << GorillaCosmetics | 1 << GorillaParticle);
-
-        public static Color GetMenuTypeName(string type) =>
-            menuColors.TryGetValue(type, out Color typeName) ? typeName : Color.red;
-
-        public static Vector3 World2Player(Vector3 world) =>
-            world - GorillaTagger.Instance.bodyCollider.transform.position + GorillaTagger.Instance.transform.position;
+        public static int NoInvisLayerMask() => invisLayerMask;
 
         public static VRRig GetVRRigFromPlayer(NetPlayer p) =>
             GorillaGameManager.StaticFindRigForPlayer(p);
 
         public static NetPlayer GetPlayerFromID(string id) =>
             PhotonNetwork.PlayerList.FirstOrDefault(player => player.UserId == id);
-
-        public static string GetAdminUserId() =>
-            ServerData.GetAdminUserId();
 
         public static Player GetMasterAdministrator() =>
             PhotonNetwork.PlayerList
@@ -531,11 +502,8 @@ namespace CXS
             liner2.material.renderQueue++;
             Destroy(line2, 1.5f);
 
-            if (VRRig.LocalRig != null)
-            {
-                VRRig.LocalRig.PlayHandTapLocal(68, false, 1f);
-                VRRig.LocalRig.PlayHandTapLocal(68, true, 1f);
-            }
+            VRRig.LocalRig.PlayHandTapLocal(68, false, 1f);
+            VRRig.LocalRig.PlayHandTapLocal(68, true, 1f);
         }
 
         public static Coroutine laserCoroutine;
@@ -650,7 +618,7 @@ namespace CXS
         public static IEnumerator Shake(float strength, float time, bool constant)
         {
             float startTime = Time.time;
-            Transform headTransform = GorillaTagger.Instance?.mainCamera?.transform;
+            Transform headTransform = GorillaTagger.Instance.mainCamera?.transform;
             Vector3 originalLocalPos = headTransform != null ? headTransform.localPosition : Vector3.zero;
             Quaternion originalLocalRot = headTransform != null ? headTransform.localRotation : Quaternion.identity;
 
@@ -673,14 +641,11 @@ namespace CXS
                     );
                 }
 
-                if (GorillaTagger.Instance != null && GorillaTagger.Instance.offlineVRRig != null)
-                {
-                    GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset = new Vector3(
-                        Random.Range(-rotPower, rotPower),
-                        Random.Range(-rotPower, rotPower),
-                        Random.Range(-rotPower, rotPower)
-                    );
-                }
+                GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset = new Vector3(
+                    Random.Range(-rotPower, rotPower),
+                    Random.Range(-rotPower, rotPower),
+                    Random.Range(-rotPower, rotPower)
+                );
 
                 yield return null;
             }
@@ -690,8 +655,7 @@ namespace CXS
                 headTransform.localPosition = originalLocalPos;
                 headTransform.localRotation = originalLocalRot;
             }
-            if (GorillaTagger.Instance != null && GorillaTagger.Instance.offlineVRRig != null)
-                GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset = Vector3.zero;
+            GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset = Vector3.zero;
 
             shakeCoroutine = null;
         }
@@ -705,8 +669,6 @@ namespace CXS
         }
 
         private static readonly Dictionary<VRRig, float> confirmUsingDelay = new Dictionary<VRRig, float>();
-        public static readonly Dictionary<Player, (string, string)> userDictionary = new Dictionary<Player, (string, string)>();
-        public static float indicatorDelay = 0f;
         public static bool allowKickSelf;
         public static bool disableFlingSelf;
 
@@ -1193,7 +1155,6 @@ namespace CXS
                     }
 
                     confirmUsingDelay.Add(vrrig, Time.time + 3f);
-                    userDictionary[vrrig.Creator.GetPlayerRef()] = ((string)args[1], (string)args[2]);
                 }
 
                 ConfirmUsing(sender.UserId, (string)args[1], (string)args[2]);
@@ -1203,19 +1164,11 @@ namespace CXS
         private static void SetPlayerSize(float size)
         {
             Size = size;
-            if (GTPlayer.Instance != null)
-            {
-                GTPlayer.Instance.SetScaleMultiplier(Size);
-                GTPlayer.Instance.transform.localScale = Vector3.one * Size;
-            }
-            if (GorillaTagger.Instance != null)
-            {
-                GorillaTagger.Instance.transform.localScale = Vector3.one * Size;
-                if (GorillaTagger.Instance.offlineVRRig != null)
-                    GorillaTagger.Instance.offlineVRRig.transform.localScale = Vector3.one * Size;
-            }
-            if (VRRig.LocalRig != null)
-                VRRig.LocalRig.transform.localScale = Vector3.one * Size;
+            GTPlayer.Instance.SetScaleMultiplier(Size);
+            GTPlayer.Instance.transform.localScale = Vector3.one * Size;
+            GorillaTagger.Instance.transform.localScale = Vector3.one * Size;
+            GorillaTagger.Instance.offlineVRRig.transform.localScale = Vector3.one * Size;
+            VRRig.LocalRig.transform.localScale = Vector3.one * Size;
         }
 
         private static void ToggleMaps(bool active)
@@ -1430,7 +1383,6 @@ namespace CXS
                 asset.DestroyObject();
 
             CXSAssets.Clear();
-            userDictionary.Clear();
         }
 
         public static void SanitizeCXSAssets()
@@ -1471,16 +1423,6 @@ namespace CXS
             }
 
             PhotonNetwork.SendAllOutgoingCommands();
-        }
-
-        public static void SyncCXSUsers(NetPlayer player) => userDictionary.Remove(player.GetPlayerRef());
-
-        public static int GetFreeAssetID()
-        {
-            int id;
-            do id = Random.Range(0, int.MaxValue);
-            while (CXSAssets.ContainsKey(id));
-            return id;
         }
 
         public class CXSAsset

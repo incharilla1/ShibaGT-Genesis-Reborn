@@ -9,7 +9,7 @@ namespace ShibaGTGenesisReborn.Patches
         private static bool Prefix(VRRig __instance)
         {
             if (__instance == null) return true;
-            bool isLocal = __instance.isLocal || __instance == VRRig.LocalRig || (GorillaTagger.Instance != null && __instance == GorillaTagger.Instance.offlineVRRig);
+            bool isLocal = __instance.isLocal || __instance == VRRig.LocalRig || (__instance == GorillaTagger.Instance.offlineVRRig);
             return !isLocal;
         }
     }

@@ -74,15 +74,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             if (!Done || Obj == null) return;
             var player = GTPlayer.Instance;
-            if (!player) return;
             if (Time.time > ignoreTimer)
             {
                 ignoreTimer = Time.time + 1.0f;
                 if (Obj.TryGetComponent(out Collider myCol))
                 {
                     IgnoreCollisionRecursive(myCol, player.transform);
-                    if (GorillaTagger.Instance.offlineVRRig != null)
-                        IgnoreCollisionRecursive(myCol, GorillaTagger.Instance.offlineVRRig.transform);
+                    IgnoreCollisionRecursive(myCol, GorillaTagger.Instance.offlineVRRig.transform);
                     if (player.bodyCollider) Physics.IgnoreCollision(myCol, player.bodyCollider, true);
                     if (player.headCollider) Physics.IgnoreCollision(myCol, player.headCollider, true);
                 }
@@ -148,7 +146,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             }
 
             var player = GTPlayer.Instance;
-            if (!player) return;
 
             if (!Hand)
             {
@@ -333,7 +330,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         static IEnumerator Load(string u, string t)
         {
-            while (GTPlayer.Instance == null || GTPlayer.Instance.RightHand.controllerTransform == null)
+            while (GTPlayer.Instance.RightHand.controllerTransform == null)
                 yield return null;
 
             if (!Directory.Exists(Dir)) Directory.CreateDirectory(Dir);
@@ -396,7 +393,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         {
             if (Obj) return;
             var player = GTPlayer.Instance;
-            if (player == null || player.RightHand.controllerTransform == null) return;
+            if (player.RightHand.controllerTransform == null) return;
             Transform rightHand = player.RightHand.controllerTransform;
             Obj = new GameObject("VapeObject");
             Obj.layer = 8;

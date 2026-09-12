@@ -10,6 +10,7 @@ using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Playables;
 
@@ -17,95 +18,20 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        [Setting] public static int lagindex;
-        public static int[] lagthings =
-        {
-            300,
-            1250,
-            3000
-        };
-
-        public static readonly string[] lagnames =
-        {
-            "Weak",
-            "Strong",
-            "Spike",
-        };
-
-        public static float[] lagcooldowns =
-        {
-            0.37f,
-            2.8f,
-            7.9f
-        };
-
-        public static float tagTimer;
-        public static float CDown;
-
-        public static void LagGun()
+        public static void DestroyGun()
         {
             GunLib.StartGun(() =>
             {
                 if (GunLib.LockedPlayer != null)
                 {
-                    if (Time.time > CDown)
-                    {
-                        RPCProt();
-                        for (int i = 0; i < lagthings[lagindex]; i++)
-                        {
-                            SendOPRaiseEvent202(GunLib.LockedPlayer);
-                        }
-                        CDown = Time.time + lagcooldowns[lagindex];
-                    }
+                    RPCProt();
+                    PhotonNetwork.OpRemoveCompleteCacheOfPlayer(RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer).ActorNumber);
                 }
             }, true);
         }
 
-        public static void LagAll()
-        {
-            if (Time.time > CDown)
-            {
-                RPCProt();
-                for (int i = 0; i < lagthings[lagindex]; i++)
-                {
-                    SendOPRaiseEvent202();
-                }
-                CDown = Time.time + lagcooldowns[lagindex];
-            }
-        }
-
-        public static void SendOPRaiseEvent202(VRRig p = null)
-        {
-            RaiseEventOptions o;
-            if (p != null)
-                o = new RaiseEventOptions { TargetActors = new int[] { p.Creator.ActorNumber }, CachingOption = EventCaching.DoNotCache };
-            else
-                o = new RaiseEventOptions { Receivers = ReceiverGroup.Others, CachingOption = EventCaching.DoNotCache };
-
-            PhotonNetwork.NetworkingClient.OpRaiseEvent(202, new object[]
-             {
-                -2147483647,
-                76,
-                float.NaN,
-             }, o, new SendOptions { DeliveryMode = DeliveryMode.Unreliable, Reliability = false, Encrypt = true });
-        }
-
-        public static void DestroyGun()
-        {
-            GunLib.StartGun(() =>
-             {
-                 if (GunLib.LockedPlayer != null)
-                 {
-                     if (!Main.RequireMasterClient("Destroy Gun")) return;
-                     RPCProt();
-                     PhotonNetwork.OpRemoveCompleteCacheOfPlayer(RigManager.GetPlayerFromVRRig(GunLib.LockedPlayer).ActorNumber);
-                 }
-             }, true);
-        }
-
         public static void DestroyAll()
         {
-            if (!Main.RequireMasterClient("Destroy All")) return;
             RPCProt();
             foreach (Player player in PhotonNetwork.PlayerListOthers)
             {
@@ -115,7 +41,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TargetSpam()
         {
-            if (!Main.RequireMasterClient("Target Spam")) return;
             foreach (HitTargetNetworkState target in GameObject.FindObjectsByType<HitTargetNetworkState>(FindObjectsSortMode.None))
             {
                 if (target == null) continue;
@@ -126,8 +51,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void BecomeGuardian()
         {
-            if (!Main.RequireMasterClient("Become Guardian")) return;
-
             int changed = 0;
             NetPlayer localPlayer = NetworkSystem.Instance.LocalPlayer;
             foreach (GorillaGuardianZoneManager zone in GorillaGuardianZoneManager.zoneManagers)
@@ -140,8 +63,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void EjectAllGuardians()
         {
-            if (!Main.RequireMasterClient("Eject Guardians")) return;
-
             int changed = 0;
             foreach (GorillaGuardianZoneManager zone in GorillaGuardianZoneManager.zoneManagers)
             {
@@ -160,9 +81,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (player.State == GRPlayer.GRPlayerState.Ghost)
                 player.OnPlayerRevive(reactor.grManager);
 
-            int allShieldEffects = (int)(GRPlayer.GRPlayerShieldFlags.Light |
-                                         GRPlayer.GRPlayerShieldFlags.Stealth |
-                                         GRPlayer.GRPlayerShieldFlags.Heal);
+            int allShieldEffects = (int)(GRPlayer.GRPlayerShieldFlags.Light | GRPlayer.GRPlayerShieldFlags.Stealth | GRPlayer.GRPlayerShieldFlags.Heal);
 
             if (player.Hp < player.MaxHp || player.ShieldHp < player.MaxShieldHp || !player.InStealthMode)
                 player.TryActivateShield(player.MaxShieldHp, allShieldEffects);
@@ -183,9 +102,103 @@ namespace ShibaGTGenesisReborn.Mods
             manager.InstantDeathForCurrentEnemies();
         }
 
+        private static float grNukeCooldown;
+
+        public static void GRNuker()
+        {
+            if (Time.time < grNukeCooldown || !NetworkSystem.Instance.InRoom) return;
+            grNukeCooldown = Time.time + 0.25f;
+
+            GhostReactor reactor = GhostReactor.instance ?? GameObject.FindAnyObjectByType<GhostReactor>();
+            if (reactor == null) return;
+
+            GhostReactorManager manager = reactor.grManager;
+            manager.InstantDeathForCurrentEnemies();
+
+            reactor.ClearAllRespawns();
+
+            foreach (GREnemyBossMoon moon in GameObject.FindObjectsByType<GREnemyBossMoon>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                moon.KillAllEyes();
+                moon.KillAllSummoned(false, true);
+                moon.SetHP(0);
+                moon.GotoDyingIdle();
+            }
+
+            foreach (GREnemyBossMoonEye eye in GameObject.FindObjectsByType<GREnemyBossMoonEye>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                eye.InstantKill();
+
+            foreach (GREnemyPhantom phantom in GameObject.FindObjectsByType<GREnemyPhantom>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                phantom.SetHP(0);
+                phantom.SetBehavior(GREnemyPhantom.Behavior.Return, true);
+                if (phantom.entity != null)
+                    phantom.entity.RequestState(phantom.entity.id, 0L);
+            }
+
+            foreach (GRBreakable breakable in GameObject.FindObjectsByType<GRBreakable>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (breakable.BrokenLocal) continue;
+                breakable.BreakLocal();
+                if (breakable.gameEntity != null)
+                    breakable.gameEntity.RequestState(breakable.gameEntity.id, 1L);
+            }
+
+            foreach (GRBarrierOverloadable barrier in GameObject.FindObjectsByType<GRBarrierOverloadable>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                barrier.SetState(GRBarrierOverloadable.State.Destroyed);
+                if (barrier.gameEntity != null)
+                    barrier.gameEntity.RequestState(barrier.gameEntity.id, 1L);
+            }
+
+            foreach (GRBarrierSpectral spectral in GameObject.FindObjectsByType<GRBarrierSpectral>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                spectral.ChangeHealth(0);
+                if (spectral.entity != null)
+                    spectral.entity.RequestState(spectral.entity.id, 0L);
+            }
+
+            foreach (GRMetalEnergyGate gate in GameObject.FindObjectsByType<GRMetalEnergyGate>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                gate.SetState(GRMetalEnergyGate.State.Open);
+                if (gate.gameEntity != null)
+                    gate.gameEntity.RequestState(gate.gameEntity.id, 1L);
+            }
+
+            foreach (GRHazardTower tower in GameObject.FindObjectsByType<GRHazardTower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                tower.nextFireTime = double.MaxValue;
+                tower.enabled = false;
+            }
+
+            foreach (GRSentientCore core in GameObject.FindObjectsByType<GRSentientCore>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                core.Sleep();
+
+            SetAllDoors(true);
+
+            GRPlayer localPlayer = GRPlayer.GetLocal();
+            if (localPlayer != null)
+            {
+                if (localPlayer.State == GRPlayer.GRPlayerState.Ghost && manager != null)
+                    localPlayer.OnPlayerRevive(manager);
+
+                int shieldFlags = (int)(GRPlayer.GRPlayerShieldFlags.Light | GRPlayer.GRPlayerShieldFlags.Stealth | GRPlayer.GRPlayerShieldFlags.Heal);
+                if (localPlayer.Hp < localPlayer.MaxHp || localPlayer.ShieldHp < localPlayer.MaxShieldHp || !localPlayer.InStealthMode)
+                    localPlayer.TryActivateShield(localPlayer.MaxShieldHp, shieldFlags);
+            }
+
+            if (manager != null)
+            {
+                foreach (GRPlayer player in GameObject.FindObjectsByType<GRPlayer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                {
+                    if (player != null && player.State == GRPlayer.GRPlayerState.Ghost)
+                        manager.RequestPlayerStateChange(player, GRPlayer.GRPlayerState.Alive);
+                }
+            }
+        }
+
         public static void ForceStartCurrentGame()
         {
-            if (!Main.RequireMasterClient("Force Start Game")) return;
             GorillaGameManager manager = GorillaGameManager.instance;
             if (manager == null) return;
 
@@ -194,7 +207,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void ResetCurrentGame()
         {
-            if (!Main.RequireMasterClient("Reset Current Game")) return;
             GorillaGameManager manager = GorillaGameManager.instance;
             if (manager == null) return;
 
@@ -203,7 +215,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void FreezeAllPlayers()
         {
-            if (!Main.RequireMasterClient("Freeze All Players")) return;
             if (!(GorillaGameManager.instance is GorillaFreezeTagManager manager)) return;
 
             foreach (NetPlayer player in NetworkSystem.Instance.AllNetPlayers)
@@ -247,5 +258,60 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        public static void EarRapeGun()
+        {
+            GunLib.StartGun(() =>
+            {
+                if (GunLib.LockedPlayer != null)
+                    BlastEarRape(GunLib.LockedPlayer);
+            }, true);
+        }
+
+        public static void EarRapeAll()
+        {
+            BlastEarRape(null);
+        }
+
+        private static void BlastEarRape(VRRig target = null)
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
+            RPCProt(true);
+
+            NetworkingLibrary.SendRigPosition(GorillaTagger.Instance.myVRRig.GetView, GorillaTagger.Instance.headCollider.transform.position);
+            
+            int[] loudIds = { 66, 67, 8, 12, 24, 32 };
+            for (int i = 0; i < 6; i++)
+            {
+                int sound = loudIds[i % loudIds.Length];
+                GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayHandTap", RpcTarget.Others, sound, (i % 2 == 0), 0.1f);
+            }
+        }
+
+        public static void BlindingFlashGun()
+        {
+            GunLib.StartGun(() =>
+            {
+                if (GunLib.LockedPlayer != null)
+                    TriggerBlindness(GunLib.LockedPlayer.headMesh.transform.position);
+            }, true);
+        }
+
+        public static void BlindingFlashAll()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (!rig.isLocal)
+                    TriggerBlindness(rig.headMesh.transform.position);
+            }
+        }
+
+        private static void TriggerBlindness(Vector3 targetHead)
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
+            RPCProt(true);
+            VRRig.LocalRig.rightHandTransform.position = targetHead;
+            GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, targetHead, Quaternion.identity, 1f, 0.5f, true, true);
+            GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayGeodeEffect", RpcTarget.All, targetHead);
+        }
     }
 }

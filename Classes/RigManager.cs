@@ -31,7 +31,7 @@ namespace ShibaGTGenesisReborn.Classes
         {
             float min = maxDistance;
             VRRig outRig = null;
-            Vector3 localPos = GorillaTagger.Instance != null ? GorillaTagger.Instance.headCollider.transform.position : (VRRig.LocalRig != null ? VRRig.LocalRig.transform.position : Vector3.zero);
+            Vector3 localPos = GorillaTagger.Instance.headCollider.transform.position;
 
             foreach (VRRig vrrig in VRRigCache.ActiveRigs)
             {

@@ -8,6 +8,7 @@ using ShibaGTGenesisReborn.Mods.Custom;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -42,6 +43,138 @@ namespace ShibaGTGenesisReborn.Libs
         private bool isSubscribed;
         private float lastCosmeticCheck;
         private string lastSyncedCosmetics;
+        private bool wasInRoom;
+        private readonly Dictionary<string, Mesh> meshCache = new Dictionary<string, Mesh>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Texture2D> textureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> loadingProps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private class PropDefinition
+        {
+            public string Key;
+            public string ModelUrl;
+            public string TextureUrl;
+            public string[] LocalModelFiles;
+            public string[] LocalTextureFiles;
+            public Vector3 DefaultScale = Vector3.one;
+            public bool HasAudio;
+            public Func<Mesh> GetStaticMesh;
+            public Action<Mesh> SetStaticMesh;
+            public Func<Texture2D> GetStaticTexture;
+            public Action<Texture2D> SetStaticTexture;
+        }
+
+        private static readonly PropDefinition[] PropDefs = new PropDefinition[]
+        {
+            new PropDefinition
+            {
+                Key = "Boombox",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/boombox.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/boomboxmesh.png",
+                LocalModelFiles = new[] { "boombox.obj" },
+                LocalTextureFiles = new[] { "boomboxmesh.png", "boombox.png" },
+                DefaultScale = Vector3.one * 1.25f,
+                HasAudio = true,
+                GetStaticMesh = () => BoomboxManager.CM,
+                SetStaticMesh = m => BoomboxManager.CM = m,
+                GetStaticTexture = () => BoomboxManager.CT,
+                SetStaticTexture = t => BoomboxManager.CT = t
+            },
+            new PropDefinition
+            {
+                Key = "Maxwell",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/assets/refs/heads/main/maxwell.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/assets/refs/heads/main/Maxwell.png",
+                LocalModelFiles = new[] { "maxwell.obj" },
+                LocalTextureFiles = new[] { "Maxwell.png", "maxwell.png" },
+                DefaultScale = Vector3.one * 0.5f,
+                HasAudio = true,
+                GetStaticMesh = () => MaxwellHolder.CM,
+                SetStaticMesh = m => MaxwellHolder.CM = m,
+                GetStaticTexture = () => MaxwellHolder.CT,
+                SetStaticTexture = t => MaxwellHolder.CT = t
+            },
+            new PropDefinition
+            {
+                Key = "Grosh",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/Grosh.Holdable.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/iidktexture.png",
+                LocalModelFiles = new[] { "grosh.obj", "Grosh.Holdable.obj" },
+                LocalTextureFiles = new[] { "iidktexture.png", "grosh.png" },
+                DefaultScale = new Vector3(0.1f, 0.1f, 0.1f),
+                HasAudio = true,
+                GetStaticMesh = () => GroshHolder.CM,
+                SetStaticMesh = m => GroshHolder.CM = m,
+                GetStaticTexture = () => GroshHolder.CT,
+                SetStaticTexture = t => GroshHolder.CT = t
+            },
+            new PropDefinition
+            {
+                Key = "Tung",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/TungTungTungSahur.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/shaded.png",
+                LocalModelFiles = new[] { "tungtung.obj", "TungTungTungSahur.obj" },
+                LocalTextureFiles = new[] { "shaded.png", "tungtung.png" },
+                DefaultScale = new Vector3(0.045f, 0.045f, 0.045f),
+                HasAudio = true,
+                GetStaticMesh = () => SusTung.CM,
+                SetStaticMesh = m => SusTung.CM = m,
+                GetStaticTexture = () => SusTung.CT,
+                SetStaticTexture = t => SusTung.CT = t
+            },
+            new PropDefinition
+            {
+                Key = "Seal",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/fatseal.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/fatseal.jpeg",
+                LocalModelFiles = new[] { "fatseal.obj" },
+                LocalTextureFiles = new[] { "fatseal.jpeg", "fatseal.png" },
+                DefaultScale = Vector3.one * 0.35f,
+                HasAudio = false,
+                GetStaticMesh = () => FatSealSpammer.CM,
+                SetStaticMesh = m => FatSealSpammer.CM = m,
+                GetStaticTexture = () => FatSealSpammer.CT,
+                SetStaticTexture = t => FatSealSpammer.CT = t
+            },
+            new PropDefinition
+            {
+                Key = "Vape",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/juul.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/JUUL_BOI_Color.png",
+                LocalModelFiles = new[] { "vape.obj", "juul.obj" },
+                LocalTextureFiles = new[] { "JUUL_BOI_Color.png", "vape.png" },
+                DefaultScale = Vector3.one * 2f,
+                HasAudio = false,
+                GetStaticMesh = () => Vape.CM,
+                SetStaticMesh = m => Vape.CM = m,
+                GetStaticTexture = () => Vape.CT,
+                SetStaticTexture = t => Vape.CT = t
+            },
+            new PropDefinition
+            {
+                Key = "Bomb",
+                ModelUrl = "https://raw.githubusercontent.com/incharilla1/assets/refs/heads/main/Bomb.obj",
+                TextureUrl = "https://raw.githubusercontent.com/incharilla1/assets/refs/heads/main/Bomb.png",
+                LocalModelFiles = new[] { "Bomb.obj" },
+                LocalTextureFiles = new[] { "Bomb.png" },
+                DefaultScale = Vector3.one * 0.35f,
+                HasAudio = true,
+                GetStaticMesh = () => BombManager.bombMesh,
+                SetStaticMesh = m => BombManager.bombMesh = m,
+                GetStaticTexture = () => BombManager.bombTexture,
+                SetStaticTexture = t => BombManager.bombTexture = t
+            }
+        };
+
+        private static PropDefinition FindPropDefinition(string propName)
+        {
+            if (string.IsNullOrEmpty(propName)) return null;
+            for (int i = 0; i < PropDefs.Length; i++)
+            {
+                if (propName.IndexOf(PropDefs[i].Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return PropDefs[i];
+            }
+            return null;
+        }
         
         private class NetworkedObject
         {
@@ -103,10 +236,19 @@ namespace ShibaGTGenesisReborn.Libs
 
         void Update()
         {
-            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true)
+            {
+                if (wasInRoom)
+                {
+                    wasInRoom = false;
+                    OnLocalLeftRoom();
+                }
                 return;
+            }
 
-            if (VRRig.LocalRig != null && mods.cosmetXEnabled && Time.time - lastCosmeticCheck >= 0.25f)
+            wasInRoom = true;
+
+            if (mods.cosmetXEnabled && Time.time - lastCosmeticCheck >= 0.25f)
             {
                 lastCosmeticCheck = Time.time;
                 string currentStr = ModsLib.GetLocalCosmeticString();
@@ -119,21 +261,15 @@ namespace ShibaGTGenesisReborn.Libs
 
             if (trackedObjects.Count == 0)
                 return;
-            
-            if (Time.time - lastSyncTime >= syncInterval)
-            {
-                SendPendingUpdates();
-                lastSyncTime = Time.time;
-            }
-            
+
             CleanupDestroyedObjects();
             int localId = GetLocalPlayerId();
-            
+
             foreach (var kvp in trackedObjects)
             {
                 var info = kvp.Value;
                 if (info.gameObject == null) continue;
-                
+
                 if (info.ownerActorNumber != localId)
                 {
                     float dist = Vector3.Distance(info.gameObject.transform.position, info.targetPosition);
@@ -149,7 +285,21 @@ namespace ShibaGTGenesisReborn.Libs
                     }
                     continue;
                 }
-                
+
+                Transform t = info.gameObject.transform;
+                if (t.position != info.position || Quaternion.Angle(t.rotation, info.rotation) > 0.5f)
+                {
+                    info.position = t.position;
+                    info.rotation = t.rotation;
+                    pendingSync.Add(kvp.Key);
+                }
+
+                if (t.localScale != info.scale)
+                {
+                    info.scale = t.localScale;
+                    SendEvent(ScaleEvent, ReceiverGroup.Others, kvp.Key, info.scale);
+                }
+
                 if (info.gameObject.name.Contains("Boombox"))
                 {
                     AudioSource aud = info.gameObject.GetComponent<AudioSource>();
@@ -164,7 +314,7 @@ namespace ShibaGTGenesisReborn.Libs
                         }
                     }
                 }
-                
+
                 if (info.gameObject.name.Contains("Vape"))
                 {
                     bool isSmoking = Vape.isExhaling;
@@ -175,6 +325,30 @@ namespace ShibaGTGenesisReborn.Libs
                     }
                 }
             }
+
+            if (Time.time - lastSyncTime >= syncInterval)
+            {
+                SendPendingUpdates();
+                lastSyncTime = Time.time;
+            }
+        }
+
+        private void OnLocalLeftRoom()
+        {
+            List<string> toRemove = new List<string>();
+            int localId = GetLocalPlayerId();
+            foreach (var kvp in trackedObjects)
+            {
+                if (kvp.Value.ownerActorNumber != localId)
+                {
+                    if (kvp.Value.gameObject != null)
+                        Destroy(kvp.Value.gameObject);
+                    toRemove.Add(kvp.Key);
+                }
+            }
+            for (int i = 0; i < toRemove.Count; i++)
+                trackedObjects.Remove(toRemove[i]);
+            pendingSync.Clear();
         }
 
         private void OnEventRaised(byte eventCode, object customData, int senderActorNumber)
@@ -244,6 +418,7 @@ namespace ShibaGTGenesisReborn.Libs
             Quaternion rotation = (Quaternion)args[3];
             int ownerActor = args[4] is int actor ? actor : senderActorNumber;
             string propName = args.Length > 5 ? args[5] as string : "";
+            Vector3? scale = (args.Length > 6 && args[6] is Vector3 s) ? (Vector3?)s : null;
             
             GameObject obj = FindTrackedObject(objectId);
             if (obj != null)
@@ -254,37 +429,47 @@ namespace ShibaGTGenesisReborn.Libs
                     info.targetRotation = rotation;
                     info.lastUpdate = Time.time;
                     info.ownerActorNumber = ownerActor;
+                    if (scale.HasValue)
+                    {
+                        info.scale = scale.Value;
+                        obj.transform.localScale = scale.Value;
+                    }
                 }
             }
             else
             {
-                TryCreateNetworkedObject(objectId, position, rotation, ownerActor, propName);
+                TryCreateNetworkedObject(objectId, position, rotation, ownerActor, propName, scale);
             }
+        }
+
+        private VRRig FindRigForActor(int actorNumber)
+        {
+            if (VRRigCache.ActiveRigs != null)
+            {
+                foreach (VRRig rig in VRRigCache.ActiveRigs)
+                {
+                    if (rig != null && !rig.isLocal && rig.Creator != null && rig.Creator.ActorNumber == actorNumber)
+                        return rig;
+                }
+            }
+
+            if (NetworkSystem.Instance != null)
+            {
+                NetPlayer player = NetworkSystem.Instance.GetPlayer(actorNumber);
+                if (player != null)
+                    return GorillaGameManager.StaticFindRigForPlayer(player);
+            }
+
+            return null;
         }
 
         private void HandleCosmeticSync(object[] args, int senderActorNumber)
         {
-            if (args.Length < 3 || CosmeticsController.instance == null) return;
+            if (args.Length < 3) return;
             string cosmeticString = args[2] as string;
             if (string.IsNullOrEmpty(cosmeticString)) return;
 
-            VRRig targetRig = null;
-            foreach (VRRig rig in VRRigCache.ActiveRigs)
-            {
-                if (rig != null && !rig.isLocal && rig.Creator != null && rig.Creator.ActorNumber == senderActorNumber)
-                {
-                    targetRig = rig;
-                    break;
-                }
-            }
-
-            if (targetRig == null && NetworkSystem.Instance != null)
-            {
-                NetPlayer player = NetworkSystem.Instance.GetPlayer(senderActorNumber);
-                if (player != null)
-                    targetRig = GorillaGameManager.StaticFindRigForPlayer(player);
-            }
-
+            VRRig targetRig = FindRigForActor(senderActorNumber);
             if (targetRig != null && targetRig.cosmeticSet != null && targetRig.cosmeticsObjectRegistry != null)
             {
                 string[] items = cosmeticString.Split(',');
@@ -382,13 +567,40 @@ namespace ShibaGTGenesisReborn.Libs
             if (string.IsNullOrEmpty(url)) 
                 yield break;
 
-            AudioType type = AudioType.UNKNOWN;
-            if (url.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)) type = AudioType.MPEG;
-            else if (url.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)) type = AudioType.OGGVORBIS;
-            else if (url.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)) type = AudioType.WAV;
+            string targetUrl = url;
+            if (!url.Contains("://"))
+            {
+                if (File.Exists(url))
+                {
+                    targetUrl = "file://" + Path.GetFullPath(url);
+                }
+                else
+                {
+                    string fileName = Path.GetFileName(url);
+                    string local = ModsLib.FindLocalAsset(fileName, 
+                        Path.Combine(ModsLib.GenesisDirectory, fileName),
+                        Path.Combine(BoomboxManager.BoomboxDirectory, fileName));
+                    if (!string.IsNullOrEmpty(local) && File.Exists(local))
+                    {
+                        targetUrl = "file://" + Path.GetFullPath(local);
+                    }
+                    else if (File.Exists(BoomboxManager.P_Aud))
+                    {
+                        targetUrl = "file://" + Path.GetFullPath(BoomboxManager.P_Aud);
+                    }
+                    else
+                    {
+                        yield break;
+                    }
+                }
+            }
 
-            string fullUrl = url.Contains("://") ? url : "file://" + url;
-            using UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(fullUrl, type);
+            AudioType type = AudioType.UNKNOWN;
+            if (targetUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)) type = AudioType.MPEG;
+            else if (targetUrl.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)) type = AudioType.OGGVORBIS;
+            else if (targetUrl.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)) type = AudioType.WAV;
+
+            using UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(targetUrl, type);
             yield return req.SendWebRequest();
             if (req.result == UnityWebRequest.Result.Success)
             {
@@ -396,7 +608,11 @@ namespace ShibaGTGenesisReborn.Libs
                 if (clip != null)
                 {
                     audioClipCache[url] = clip;
-                    if (aud != null) aud.clip = clip;
+                    if (aud != null)
+                    {
+                        aud.clip = clip;
+                        if (!aud.isPlaying) aud.Play();
+                    }
                 }
             }
         }
@@ -410,8 +626,13 @@ namespace ShibaGTGenesisReborn.Libs
             bool isSmoking = (bool)args[2];
             
             GameObject obj = FindTrackedObject(objectId);
-            if (obj != null && obj.name.Contains("Vape") && isSmoking)
-                Vape.TriggerExhale();
+            if (obj != null && isSmoking && trackedObjects.TryGetValue(objectId, out NetworkedObject info))
+            {
+                VRRig rig = FindRigForActor(info.ownerActorNumber);
+                if (rig != null && rig.headMesh != null)
+                {
+                }
+            }
         }
 
         private void HandleVisualizer(object[] args)
@@ -443,10 +664,26 @@ namespace ShibaGTGenesisReborn.Libs
                     aud.volume = volume;
                     aud.pitch = pitch;
                     
-                    if (isPlaying && !aud.isPlaying)
+                    if (isPlaying)
                     {
                         aud.time = time;
-                        aud.Play();
+                        if (aud.clip != null)
+                        {
+                            if (!aud.isPlaying) aud.Play();
+                        }
+                        else
+                        {
+                            string defaultAud = BoomboxManager.P_Aud;
+                            if (audioClipCache.TryGetValue(defaultAud, out AudioClip cached))
+                            {
+                                aud.clip = cached;
+                                aud.Play();
+                            }
+                            else
+                            {
+                                StartCoroutine(LoadAudioClip(defaultAud, aud));
+                            }
+                        }
                     }
                     else if (!isPlaying && aud.isPlaying)
                     {
@@ -486,7 +723,8 @@ namespace ShibaGTGenesisReborn.Libs
                     kvp.Value.gameObject.transform.position, 
                     kvp.Value.gameObject.transform.rotation, 
                     kvp.Value.ownerActorNumber,
-                    kvp.Value.propName ?? kvp.Value.gameObject.name);
+                    kvp.Value.propName ?? kvp.Value.gameObject.name,
+                    kvp.Value.gameObject.transform.localScale);
                 
                 if (kvp.Value.scale != Vector3.one)
                     SendEventToActor(ScaleEvent, senderActorNumber, kvp.Key, kvp.Value.scale);
@@ -519,7 +757,8 @@ namespace ShibaGTGenesisReborn.Libs
                     kvp.Value.gameObject.transform.position,
                     kvp.Value.gameObject.transform.rotation,
                     kvp.Value.ownerActorNumber,
-                    kvp.Value.propName ?? kvp.Value.gameObject.name);
+                    kvp.Value.propName ?? kvp.Value.gameObject.name,
+                    kvp.Value.gameObject.transform.localScale);
                 
                 if (kvp.Value.scale != Vector3.one)
                     SendEventToActor(ScaleEvent, player.ActorNumber, kvp.Key, kvp.Value.scale);
@@ -535,7 +774,7 @@ namespace ShibaGTGenesisReborn.Libs
                     SendEventToActor(VapeSmokeEvent, player.ActorNumber, kvp.Key, Vape.isExhaling);
             }
 
-            if (VRRig.LocalRig != null && mods.cosmetXEnabled)
+            if (mods.cosmetXEnabled)
             {
                 string cosmeticStr = ModsLib.GetLocalCosmeticString();
                 if (!string.IsNullOrEmpty(cosmeticStr))
@@ -565,7 +804,7 @@ namespace ShibaGTGenesisReborn.Libs
             
             string objectId = FindObjectId(obj);
             if (string.IsNullOrEmpty(objectId))
-                objectId = GenerateObjectId();
+                objectId = Guid.NewGuid().ToString("N").Substring(0, 16);
             
             NetworkedObject info = new NetworkedObject
             {
@@ -593,7 +832,8 @@ namespace ShibaGTGenesisReborn.Libs
                 info.position,
                 info.rotation,
                 info.ownerActorNumber,
-                obj.name);
+                obj.name,
+                info.scale);
             
             if (info.scale != Vector3.one)
                 SendEvent(ScaleEvent, ReceiverGroup.Others, objectId, info.scale);
@@ -769,7 +1009,8 @@ namespace ShibaGTGenesisReborn.Libs
                         info.gameObject.transform.position,
                         info.gameObject.transform.rotation,
                         info.ownerActorNumber,
-                        info.propName ?? info.gameObject.name);
+                        info.propName ?? info.gameObject.name,
+                        info.gameObject.transform.localScale);
                     syncCount++;
                 }
             }
@@ -819,9 +1060,9 @@ namespace ShibaGTGenesisReborn.Libs
         private GameObject FindTrackedObject(string objectId) =>
             trackedObjects.TryGetValue(objectId, out NetworkedObject info) ? info.gameObject : null;
 
-        private void TryCreateNetworkedObject(string objectId, Vector3 position, Quaternion rotation, int ownerActor, string propName = "")
+        private void TryCreateNetworkedObject(string objectId, Vector3 position, Quaternion rotation, int ownerActor, string propName = "", Vector3? scale = null)
         {
-            GameObject obj = CreateRemoteObject(propName, position, rotation);
+            GameObject obj = CreateRemoteObject(propName, position, rotation, scale);
             if (obj == null) 
                 return;
             
@@ -841,77 +1082,212 @@ namespace ShibaGTGenesisReborn.Libs
             trackedObjects[objectId] = info;
         }
 
-        private GameObject CreateRemoteObject(string propName, Vector3 position, Quaternion rotation)
+        private GameObject CreateRemoteObject(string propName, Vector3 position, Quaternion rotation, Vector3? scale = null)
         {
-            GameObject obj;
-            Mesh mesh = null;
-            Texture2D texture = null;
+            GameObject obj = new GameObject(propName + "_Remote");
+            obj.transform.position = position;
+            obj.transform.rotation = rotation;
 
-            if (propName.Contains("Boombox"))
+            PropDefinition prop = FindPropDefinition(propName);
+            obj.transform.localScale = scale ?? (prop != null ? prop.DefaultScale : Vector3.one);
+
+            MeshFilter mf = obj.AddComponent<MeshFilter>();
+            MeshRenderer mr = obj.AddComponent<MeshRenderer>();
+
+            if (prop != null && prop.HasAudio)
             {
-                mesh = BoomboxManager.CM;
-                texture = BoomboxManager.CT;
+                AudioSource aud = obj.AddComponent<AudioSource>();
+                aud.spatialBlend = 1f;
+                aud.maxDistance = 15f;
+                aud.rolloffMode = AudioRolloffMode.Linear;
+                if (prop.Key == "Boombox")
+                {
+                    aud.loop = true;
+                    aud.volume = BoomboxManager.Volume;
+                }
+                else if (prop.Key == "Maxwell")
+                {
+                    if (MaxwellHolder.MeowClip != null) aud.clip = MaxwellHolder.MeowClip;
+                }
+                else if (prop.Key == "Tung")
+                {
+                    if (SusTung.CA != null) aud.clip = SusTung.CA;
+                }
             }
-            else if (propName.Contains("Maxwell"))
+
+            if (prop != null)
             {
-                mesh = MaxwellHolder.CM;
-                texture = MaxwellHolder.CT;
-                if (mesh == null)
-                    MaxwellHolder.DownloadAssets();
+                if (TryGetOrLoadAssetsSync(prop, out Mesh mesh, out Texture2D tex))
+                {
+                    mf.sharedMesh = mesh;
+                    mr.material = ModsLib.CreateItemMaterial(tex);
+                }
+                else
+                {
+                    mr.enabled = false;
+                    StartCoroutine(LoadPropAssetsAsync(prop, obj));
+                }
             }
-            else if (propName.Contains("Grosh"))
+            else
             {
-                mesh = GroshHolder.CM;
-                texture = GroshHolder.CT;
+                mr.material = ModsLib.CreateItemMaterial(Texture2D.whiteTexture);
             }
-            else if (propName.Contains("Tung"))
+
+            return obj;
+        }
+
+        private bool TryGetOrLoadAssetsSync(PropDefinition prop, out Mesh mesh, out Texture2D tex)
+        {
+            mesh = null;
+            tex = null;
+
+            if (meshCache.TryGetValue(prop.Key, out Mesh cm)) mesh = cm;
+            else if (prop.GetStaticMesh?.Invoke() != null) mesh = prop.GetStaticMesh();
+
+            if (textureCache.TryGetValue(prop.Key, out Texture2D ct)) tex = ct;
+            else if (prop.GetStaticTexture?.Invoke() != null) tex = prop.GetStaticTexture();
+
+            if (mesh == null)
             {
-                mesh = SusTung.CM;
-                texture = SusTung.CT;
+                string objPath = null;
+                for (int i = 0; i < prop.LocalModelFiles.Length; i++)
+                {
+                    string f = prop.LocalModelFiles[i];
+                    objPath = ModsLib.FindLocalAsset(f, Path.Combine(ModsLib.GenesisDirectory, f));
+                    if (!string.IsNullOrEmpty(objPath) && File.Exists(objPath)) break;
+                }
+                if (!string.IsNullOrEmpty(objPath) && File.Exists(objPath))
+                {
+                    try
+                    {
+                        mesh = ModsLib.ParseObj(File.ReadAllText(objPath));
+                    }
+                    catch { }
+                }
             }
-            else if (propName.Contains("Vape"))
+
+            if (tex == null)
             {
-                mesh = Vape.CM;
-                texture = Vape.CT;
-            }
-            else if (propName.Contains("Seal"))
-            {
-                mesh = FatSealSpammer.CM;
-                texture = FatSealSpammer.CT;
-            }
-            else if (propName.Contains("Bomb"))
-            {
-                mesh = BombManager.bombMesh;
-                texture = BombManager.bombTexture;
+                string texPath = null;
+                for (int i = 0; i < prop.LocalTextureFiles.Length; i++)
+                {
+                    string f = prop.LocalTextureFiles[i];
+                    texPath = ModsLib.FindLocalAsset(f, Path.Combine(ModsLib.GenesisDirectory, f));
+                    if (!string.IsNullOrEmpty(texPath) && File.Exists(texPath)) break;
+                }
+                if (!string.IsNullOrEmpty(texPath) && File.Exists(texPath))
+                {
+                    try
+                    {
+                        byte[] bytes = File.ReadAllBytes(texPath);
+                        tex = new Texture2D(2, 2);
+                        tex.LoadImage(bytes);
+                    }
+                    catch { }
+                }
             }
 
             if (mesh != null)
             {
-                obj = new GameObject(propName + "_Remote");
-                MeshFilter mf = obj.AddComponent<MeshFilter>();
-                mf.mesh = mesh;
-                MeshRenderer mr = obj.AddComponent<MeshRenderer>();
-                Shader shader = Shader.Find("GorillaTag/UberShader")
-                    ?? Shader.Find("Universal Render Pipeline/Lit")
-                    ?? Shader.Find("Standard");
-                Material mat = new Material(shader);
-                if (texture != null)
-                {
-                    mat.mainTexture = texture;
-                    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", texture);
-                }
-                mr.material = mat;
+                meshCache[prop.Key] = mesh;
+                prop.SetStaticMesh?.Invoke(mesh);
             }
-            else
+            if (tex != null)
             {
-                obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                obj.name = propName + "_Remote";
-                if (obj.TryGetComponent<Collider>(out var c)) Destroy(c);
+                textureCache[prop.Key] = tex;
+                prop.SetStaticTexture?.Invoke(tex);
             }
 
-            obj.transform.position = position;
-            obj.transform.rotation = rotation;
-            return obj;
+            return mesh != null && tex != null;
+        }
+
+        private IEnumerator LoadPropAssetsAsync(PropDefinition prop, GameObject targetObj)
+        {
+            if (loadingProps.Contains(prop.Key))
+            {
+                while (loadingProps.Contains(prop.Key))
+                    yield return null;
+
+                if (targetObj != null && meshCache.TryGetValue(prop.Key, out Mesh m) && textureCache.TryGetValue(prop.Key, out Texture2D t))
+                    ApplyAssetsToObject(targetObj, m, t);
+                yield break;
+            }
+
+            loadingProps.Add(prop.Key);
+            string genesisDir = ModsLib.GenesisDirectory;
+            if (!Directory.Exists(genesisDir)) Directory.CreateDirectory(genesisDir);
+
+            Mesh mesh = null;
+            Texture2D tex = null;
+            meshCache.TryGetValue(prop.Key, out mesh);
+            textureCache.TryGetValue(prop.Key, out tex);
+
+            if (mesh == null && !string.IsNullOrEmpty(prop.ModelUrl))
+            {
+                using UnityWebRequest r = UnityWebRequest.Get(prop.ModelUrl);
+                yield return r.SendWebRequest();
+                if (r.result == UnityWebRequest.Result.Success && !r.downloadHandler.text.StartsWith("<") && !r.downloadHandler.text.StartsWith("404"))
+                {
+                    string objData = r.downloadHandler.text;
+                    try
+                    {
+                        mesh = ModsLib.ParseObj(objData);
+                        if (prop.LocalModelFiles.Length > 0)
+                            File.WriteAllText(Path.Combine(genesisDir, prop.LocalModelFiles[0]), objData);
+                    }
+                    catch { }
+                }
+            }
+
+            if (tex == null && !string.IsNullOrEmpty(prop.TextureUrl))
+            {
+                using UnityWebRequest tr = UnityWebRequestTexture.GetTexture(prop.TextureUrl);
+                yield return tr.SendWebRequest();
+                if (tr.result == UnityWebRequest.Result.Success)
+                {
+                    tex = DownloadHandlerTexture.GetContent(tr);
+                    if (prop.LocalTextureFiles.Length > 0)
+                        File.WriteAllBytes(Path.Combine(genesisDir, prop.LocalTextureFiles[0]), tr.downloadHandler.data);
+                }
+            }
+
+            if (mesh != null)
+            {
+                meshCache[prop.Key] = mesh;
+                prop.SetStaticMesh?.Invoke(mesh);
+            }
+            if (tex != null)
+            {
+                textureCache[prop.Key] = tex;
+                prop.SetStaticTexture?.Invoke(tex);
+            }
+
+            loadingProps.Remove(prop.Key);
+
+            if (targetObj != null)
+                ApplyAssetsToObject(targetObj, mesh, tex);
+
+            foreach (var kvp in trackedObjects)
+            {
+                if (kvp.Value?.gameObject != null && kvp.Value.propName != null &&
+                    kvp.Value.propName.IndexOf(prop.Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    ApplyAssetsToObject(kvp.Value.gameObject, mesh, tex);
+                }
+            }
+        }
+
+        private void ApplyAssetsToObject(GameObject obj, Mesh mesh, Texture2D tex)
+        {
+            if (obj == null) return;
+            MeshFilter mf = obj.GetComponent<MeshFilter>();
+            MeshRenderer mr = obj.GetComponent<MeshRenderer>();
+            if (mf != null && mesh != null) mf.sharedMesh = mesh;
+            if (mr != null)
+            {
+                mr.material = ModsLib.CreateItemMaterial(tex);
+                mr.enabled = true;
+            }
         }
 
         private int GetLocalPlayerId()
@@ -931,19 +1307,22 @@ namespace ShibaGTGenesisReborn.Libs
         // making something that works like dogshit that took 10h (which i already did)
         // i was working on it from 6am to 4pm
         // mine looks different enough imo
-        public static void SendRigPosition(PhotonView view, Vector3 position, int[] targets = null)
+        public static void SendRigPosition(PhotonView view, Vector3 position, int[] targets = null, bool reliable = false)
         {
             if (!NetworkSystem.Instance.InRoom || view == null) return;
 
-            Vector3 previous = view.transform.position;
+            Vector3 prevView = view.transform.position;
+            Vector3 prevRig = VRRig.LocalRig.transform.position;
             view.transform.position = position;
+            VRRig.LocalRig.transform.position = position;
             List<object> payload = PhotonNetwork.OnSerializeWrite(view);
-            view.transform.position = previous;
+            view.transform.position = prevView;
+            VRRig.LocalRig.transform.position = prevRig;
             if (payload == null || payload.Count == 0) return;
 
             PhotonNetwork.RaiseEventBatch batch = new PhotonNetwork.RaiseEventBatch
             {
-                Reliable = view.Synchronization == ViewSynchronization.ReliableDeltaCompressed || view.mixedModeIsReliable,
+                Reliable = reliable || view.Synchronization == ViewSynchronization.ReliableDeltaCompressed || view.mixedModeIsReliable,
                 Group = view.Group
             };
 
@@ -961,10 +1340,7 @@ namespace ShibaGTGenesisReborn.Libs
                 batch.Reliable ? SendOptions.SendReliable : SendOptions.SendUnreliable
             );
             viewBatch.Clear();
-        }
-
-        private string GenerateObjectId() =>
-            Guid.NewGuid().ToString("N").Substring(0, 16);
+        }   
     }
 
     public static class NetworkExtensions

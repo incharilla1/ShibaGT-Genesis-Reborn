@@ -71,7 +71,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         static void SpawnSealVR()
         {
             var player = GTPlayer.Instance;
-            if (!player) return;
             Transform hand = player.RightHand.controllerTransform;
             if (!hand) return;
 
@@ -83,7 +82,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         static void SpawnSealPC()
         {
             var player = GTPlayer.Instance;
-            if (!player) return;
             Camera cam = Camera.main;
             if (!cam) return;
 
@@ -102,7 +100,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         static void BuildSeal(Vector3 position, Quaternion rotation, Vector3 velocity)
         {
             var player = GTPlayer.Instance;
-            if (!player) return;
 
             GameObject seal = new GameObject("FatSeal");
             seal.layer = 8;
@@ -140,8 +137,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             rb.angularVelocity = UnityEngine.Random.insideUnitSphere * 8f;
 
             ModsLib.IgnoreCollisionRecursive(col, player.transform);
-            if (GorillaTagger.Instance && GorillaTagger.Instance.offlineVRRig != null)
-                ModsLib.IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
+            ModsLib.IgnoreCollisionRecursive(col, GorillaTagger.Instance.offlineVRRig.transform);
             if (player.bodyCollider) Physics.IgnoreCollision(col, player.bodyCollider, true);
             if (player.headCollider) Physics.IgnoreCollision(col, player.headCollider, true);
 

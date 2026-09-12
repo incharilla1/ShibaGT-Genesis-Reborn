@@ -411,7 +411,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         private static Transform GetCameraTransform()
         {
-            if (GorillaTagger.Instance != null && GorillaTagger.Instance.mainCamera != null)
+            if (GorillaTagger.Instance.mainCamera != null)
             {
                 return GorillaTagger.Instance.mainCamera.transform;
             }
@@ -441,16 +441,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         private static Vector3 GetHandPalmPosition()
         {
-            if (GTPlayer.Instance != null)
+            Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
+            if (rightController != null)
             {
-                Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
-                if (rightController != null)
-                {
-                    return rightController.position + rightController.rotation * GTPlayer.Instance.RightHand.handOffset;
-                }
+                return rightController.position + rightController.rotation * GTPlayer.Instance.RightHand.handOffset;
             }
 
-            if (GorillaTagger.Instance != null && GorillaTagger.Instance.rightHandTransform != null)
+            if (GorillaTagger.Instance.rightHandTransform != null)
             {
                 return GorillaTagger.Instance.rightHandTransform.position + GorillaTagger.Instance.rightHandTransform.forward * 0.08f;
             }
@@ -460,16 +457,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
         private static Quaternion GetHandPalmRotation()
         {
-            if (GTPlayer.Instance != null)
+            Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
+            if (rightController != null)
             {
-                Transform rightController = GTPlayer.Instance.RightHand.controllerTransform;
-                if (rightController != null)
-                {
-                    return rightController.rotation * GTPlayer.Instance.RightHand.handRotOffset;
-                }
+                return rightController.rotation * GTPlayer.Instance.RightHand.handRotOffset;
             }
 
-            if (GorillaTagger.Instance != null && GorillaTagger.Instance.rightHandTransform != null)
+            if (GorillaTagger.Instance.rightHandTransform != null)
             {
                 return GorillaTagger.Instance.rightHandTransform.rotation;
             }

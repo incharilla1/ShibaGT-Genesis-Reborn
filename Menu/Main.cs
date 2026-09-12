@@ -62,7 +62,7 @@ namespace ShibaGTGenesisReborn.Menu
                 bool toOpen = ControllerInputPoller.instance != null && ((!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton));
                 bool keyboardOpen = UnityInput.Current != null && UnityInput.Current.GetKey(keyboardButton);
 
-                if (barkMenu && !isPCMenu && GorillaTagger.Instance?.bodyCollider != null)
+                if (barkMenu && !isPCMenu && GorillaTagger.Instance.bodyCollider != null)
                 {
                     CheckBarkMenu();
                     toOpen = barkMenuOpen;
@@ -105,7 +105,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 else
                 {
-                    if (isSearching)
+                    if (isSearching || isChangingTitle)
                     {
                         RecenterMenu(rightHanded, isPCMenu);
                         HandlePCTyping();
@@ -152,7 +152,7 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 if (fpsObject != null)
                 {
-                    fpsObject.text = isSearching ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
+                    fpsObject.text = (isSearching || isChangingTitle) ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
                 }
 
                 if (!Loaded)
@@ -170,6 +170,16 @@ namespace ShibaGTGenesisReborn.Menu
                         ButtonInfo button = category[j];
                         if (button != null && button.enabled && button.method != null)
                         {
+                            if (button.needsMaster)
+                            {
+                                if (!PhotonNetwork.IsMasterClient && !NetworkSystem.Instance.IsMasterClient)
+                                {
+                                    button.enabled = false;
+                                    try { button.disableMethod?.Invoke(); } catch { }
+                                    continue;
+                                }
+                            }
+
                             try
                             {
                                 button.method.Invoke();
@@ -582,7 +592,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }.AddComponent<Text>();
             text.font = currentFont;
-            text.text = isSearching ? "" : PluginInfo.Name;
+            text.text = (isSearching || isChangingTitle) ? "" : (string.IsNullOrEmpty(menuTitle) ? PluginInfo.Name : menuTitle);
             text.fontSize = 1;
             text.color = textColors[0];
             text.supportRichText = true;
@@ -606,7 +616,7 @@ namespace ShibaGTGenesisReborn.Menu
                     }
                 }.AddComponent<Text>();
                 fpsObject.font = currentFont;
-                fpsObject.text = isSearching ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
+                fpsObject.text = (isSearching || isChangingTitle) ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
                 fpsObject.color = textColors[0];
                 fpsObject.fontSize = 1;
                 fpsObject.supportRichText = true;
@@ -823,7 +833,7 @@ namespace ShibaGTGenesisReborn.Menu
                 rectt.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
 
-            if (isSearching && showSearchKeyboard)
+            if ((isSearching && showSearchKeyboard) || isChangingTitle)
             {
                 RenderVirtualKeyboard();
                 return;
@@ -1101,7 +1111,7 @@ namespace ShibaGTGenesisReborn.Menu
 
         private static void HandlePageInputs()
         {
-            if (Settings.pageButtonIndex < 2 || InputHandler.Instance == null) return;
+            if (Settings.pageButtonIndex < 2) return;
 
             if (Settings.pageButtonIndex == 2)
             {
@@ -1149,7 +1159,7 @@ namespace ShibaGTGenesisReborn.Menu
         {
             if (!isKeyboardCondition)
             {
-                if (isSearching)
+                if (isSearching || isChangingTitle)
                 {
                     menu.transform.position = pinnedMenuPosition;
                     menu.transform.rotation = pinnedMenuRotation;
@@ -1505,12 +1515,62 @@ namespace ShibaGTGenesisReborn.Menu
             if (buttonText.StartsWith("vkey_"))
             {
                 string key = buttonText.Substring(5);
-                if (searchQuery.Length < 24)
+                if (isChangingTitle)
                 {
-                    searchQuery += key;
-                    SettingsMods.UpdateSearchResults();
+                    if (titleInput.Length < 32)
+                    {
+                        titleInput += key;
+                        RecreateMenu();
+                    }
+                }
+                else
+                {
+                    if (searchQuery.Length < 24)
+                    {
+                        searchQuery += key;
+                        SettingsMods.UpdateSearchResults();
+                        RecreateMenu();
+                    }
+                }
+                return;
+            }
+
+            if (buttonText == "Title_Backspace")
+            {
+                if (titleInput.Length > 0)
+                {
+                    titleInput = titleInput.Substring(0, titleInput.Length - 1);
                     RecreateMenu();
                 }
+                return;
+            }
+
+            if (buttonText == "Title_Space")
+            {
+                if (titleInput.Length < 32 && titleInput.Length > 0 && !titleInput.EndsWith(" "))
+                {
+                    titleInput += " ";
+                    RecreateMenu();
+                }
+                return;
+            }
+
+            if (buttonText == "Title_Clear")
+            {
+                titleInput = "";
+                RecreateMenu();
+                return;
+            }
+
+            if (buttonText == "Title_Apply")
+            {
+                ApplyTitleChange();
+                return;
+            }
+
+            if (buttonText == "Title_Cancel")
+            {
+                CloseTitleChanger(false);
                 return;
             }
 
@@ -1610,6 +1670,9 @@ namespace ShibaGTGenesisReborn.Menu
                         NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"{target.buttonText} is remotely disabled.", 3f);
                         return;
                     }
+
+                    if (target.needsMaster && !target.enabled && !RequireMasterClient(target.buttonText))
+                        return;
 
                     string displayName = string.IsNullOrEmpty(target.toolTip) ? target.buttonText : target.toolTip;
 
@@ -1890,8 +1953,11 @@ namespace ShibaGTGenesisReborn.Menu
                 transform = { parent = canvasObject.transform }
             }.AddComponent<Text>();
             searchBoxText.font = currentFont;
-            string displayText = string.IsNullOrEmpty(searchQuery) ? "<color=grey>Type here...</color>" : searchQuery + "_";
-            searchBoxText.text = $"<color=yellow>Search:</color> {displayText}";
+            string displayText = isChangingTitle
+                ? (string.IsNullOrEmpty(titleInput) ? "<color=grey>Type title...</color>" : titleInput + "_")
+                : (string.IsNullOrEmpty(searchQuery) ? "<color=grey>Type here...</color>" : searchQuery + "_");
+            string headerPrefix = isChangingTitle ? "<color=yellow>Title:</color> " : "<color=yellow>Search:</color> ";
+            searchBoxText.text = $"{headerPrefix}{displayText}";
             searchBoxText.supportRichText = true;
             searchBoxText.fontSize = 1;
             searchBoxText.color = textColors[0];
@@ -1933,13 +1999,23 @@ namespace ShibaGTGenesisReborn.Menu
                 float y = 0.36f - i * 0.09f;
                 CreateKey(0.56f, y, z3, 0.082f, 0.075f, KeyboardRow3[i], "vkey_" + KeyboardRow3[i]);
             }
-            CreateKey(0.56f, -0.315f, z3, 0.17f, 0.075f, "<-", "Search_Backspace");
+            CreateKey(0.56f, -0.315f, z3, 0.17f, 0.075f, "<-", isChangingTitle ? "Title_Backspace" : "Search_Backspace");
 
             float z4 = -0.18f;
-            CreateKey(0.56f, 0.27f, z4, 0.28f, 0.075f, "Space", "Search_Space");
-            CreateKey(0.56f, -0.01f, z4, 0.22f, 0.075f, "Clear", "Search_Clear");
-            int matchCount = Buttons.buttons.Length > 24 && Buttons.buttons[24] != null ? Buttons.buttons[24].Length : 0;
-            CreateKey(0.56f, -0.28f, z4, 0.28f, 0.075f, $"Results ({matchCount})", "Search_ShowResults");
+            if (isChangingTitle)
+            {
+                CreateKey(0.56f, 0.30f, z4, 0.20f, 0.075f, "Space", "Title_Space");
+                CreateKey(0.56f, 0.09f, z4, 0.18f, 0.075f, "Clear", "Title_Clear");
+                CreateKey(0.56f, -0.11f, z4, 0.18f, 0.075f, "Apply", "Title_Apply");
+                CreateKey(0.56f, -0.30f, z4, 0.17f, 0.075f, "Cancel", "Title_Cancel");
+            }
+            else
+            {
+                CreateKey(0.56f, 0.27f, z4, 0.28f, 0.075f, "Space", "Search_Space");
+                CreateKey(0.56f, -0.01f, z4, 0.22f, 0.075f, "Clear", "Search_Clear");
+                int matchCount = Buttons.buttons.Length > 24 && Buttons.buttons[24] != null ? Buttons.buttons[24].Length : 0;
+                CreateKey(0.56f, -0.28f, z4, 0.28f, 0.075f, $"Results ({matchCount})", "Search_ShowResults");
+            }
         }
 
         private static void RenderSearchResultsHeader()
@@ -1958,8 +2034,6 @@ namespace ShibaGTGenesisReborn.Menu
                 reference = null;
                 buttonCollider = null;
             }
-
-            if (GorillaTagger.Instance == null) return;
 
             leftReference = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             leftReference.transform.parent = GorillaTagger.Instance.leftHandTransform;
@@ -2013,10 +2087,8 @@ namespace ShibaGTGenesisReborn.Menu
                 if (menu != null && !isPCMenu)
                 {
                     pinnedMenuPosition = menu.transform.position;
-                    Vector3 headPos = GorillaTagger.Instance != null && GorillaTagger.Instance.headCollider != null
-                        ? GorillaTagger.Instance.headCollider.transform.position
-                        : (Camera.main != null ? Camera.main.transform.position : menu.transform.position + Vector3.back);
-
+                    Vector3 headPos = GorillaTagger.Instance.headCollider.transform.position;
+                    
                     Vector3 toHead = headPos - menu.transform.position;
                     toHead.y = 0f;
                     float yaw = toHead.sqrMagnitude > 0.001f ? Mathf.Atan2(toHead.x, toHead.z) * Mathf.Rad2Deg : 0f;
@@ -2117,6 +2189,9 @@ namespace ShibaGTGenesisReborn.Menu
             new TypeKey(Key.NumpadDivide, KeyCode.KeypadDivide, '/')
         };
 
+        private static float backspaceHoldTimer;
+        private static float backspaceRepeatTimer;
+
         private static void HandlePCTyping()
         {
             try
@@ -2127,24 +2202,56 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Escape)))
                 {
-                    ToggleSearchMode();
+                    if (isChangingTitle) CloseTitleChanger(false);
+                    else ToggleSearchMode();
                     return;
                 }
 
                 if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || (UnityInput.Current != null && (UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.KeypadEnter))))
                 {
-                    showSearchKeyboard = false;
-                    buttonsType = 24;
-                    pageNumber = 0;
-                    SettingsMods.UpdateSearchResults();
-                    RecreateMenu();
+                    if (isChangingTitle)
+                    {
+                        ApplyTitleChange();
+                    }
+                    else
+                    {
+                        showSearchKeyboard = false;
+                        buttonsType = 24;
+                        pageNumber = 0;
+                        SettingsMods.UpdateSearchResults();
+                        RecreateMenu();
+                    }
                     return;
                 }
 
                 bool changed = false;
-                if ((kb != null && kb.backspaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Backspace)))
+                bool backspaceDown = (kb != null && kb.backspaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Backspace));
+                bool backspaceHeld = (kb != null && kb.backspaceKey.isPressed) || (UnityInput.Current != null && UnityInput.Current.GetKey(KeyCode.Backspace));
+
+                bool shouldDelete = false;
+                if (backspaceDown)
                 {
-                    if (searchQuery.Length > 0)
+                    shouldDelete = true;
+                    backspaceHoldTimer = Time.unscaledTime + 0.4f;
+                    backspaceRepeatTimer = Time.unscaledTime;
+                }
+                else if (backspaceHeld && Time.unscaledTime >= backspaceHoldTimer && Time.unscaledTime >= backspaceRepeatTimer)
+                {
+                    shouldDelete = true;
+                    backspaceRepeatTimer = Time.unscaledTime + 0.04f;
+                }
+
+                if (shouldDelete)
+                {
+                    if (isChangingTitle)
+                    {
+                        if (titleInput.Length > 0)
+                        {
+                            titleInput = titleInput.Substring(0, titleInput.Length - 1);
+                            changed = true;
+                        }
+                    }
+                    else if (searchQuery.Length > 0)
                     {
                         searchQuery = searchQuery.Substring(0, searchQuery.Length - 1);
                         changed = true;
@@ -2152,7 +2259,15 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 else if ((kb != null && kb.spaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Space)))
                 {
-                    if (searchQuery.Length < 24 && searchQuery.Length > 0 && !searchQuery.EndsWith(" "))
+                    if (isChangingTitle)
+                    {
+                        if (titleInput.Length < 32 && titleInput.Length > 0 && !titleInput.EndsWith(" "))
+                        {
+                            titleInput += ' ';
+                            changed = true;
+                        }
+                    }
+                    else if (searchQuery.Length < 24 && searchQuery.Length > 0 && !searchQuery.EndsWith(" "))
                     {
                         searchQuery += ' ';
                         changed = true;
@@ -2165,7 +2280,16 @@ namespace ShibaGTGenesisReborn.Menu
                         TypeKey k = PCKeys[i];
                         if ((kb != null && kb[k.InputKey].wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(k.LegacyKey)))
                         {
-                            if (searchQuery.Length < 24)
+                            if (isChangingTitle)
+                            {
+                                if (titleInput.Length < 32)
+                                {
+                                    titleInput += isShift ? k.Upper : k.Lower;
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                            else if (searchQuery.Length < 24)
                             {
                                 searchQuery += isShift ? k.Upper : k.Lower;
                                 changed = true;
@@ -2177,25 +2301,71 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (changed)
                 {
-                    SettingsMods.UpdateSearchResults();
+                    if (!isChangingTitle) SettingsMods.UpdateSearchResults();
                     RecreateMenu();
                 }
             }
             catch { }
         }
 
+        public static void StartTitleChanger()
+        {
+            if (isSearching) ToggleSearchMode();
+            isChangingTitle = true;
+            titleInput = menuTitle;
+
+            if (menu != null && !isPCMenu)
+            {
+                pinnedMenuPosition = menu.transform.position;
+                Vector3 headPos = GorillaTagger.Instance.headCollider.transform.position;
+
+                Vector3 toHead = headPos - menu.transform.position;
+                toHead.y = 0f;
+                float yaw = toHead.sqrMagnitude > 0.001f ? Mathf.Atan2(toHead.x, toHead.z) * Mathf.Rad2Deg : 0f;
+
+                pinnedMenuRotation = Quaternion.Euler(-90f, yaw - 90f, 0f);
+                menu.transform.position = pinnedMenuPosition;
+                menu.transform.rotation = pinnedMenuRotation;
+                menu.transform.parent = null;
+                CreateDualReferences();
+            }
+            RecreateMenu();
+        }
+
+        public static void ApplyTitleChange()
+        {
+            menuTitle = string.IsNullOrWhiteSpace(titleInput) ? PluginInfo.Name : titleInput;
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Menu title: {menuTitle}");
+            CloseTitleChanger(false);
+        }
+
+        public static void ResetMenuTitle()
+        {
+            menuTitle = PluginInfo.Name;
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "Reset menu title to default");
+            RecreateMenu();
+        }
+
+        public static void CloseTitleChanger(bool apply = false)
+        {
+            if (apply)
+            {
+                menuTitle = string.IsNullOrWhiteSpace(titleInput) ? PluginInfo.Name : titleInput;
+            }
+            isChangingTitle = false;
+            titleInput = "";
+            DestroyDualReferences();
+            if (reference == null && !isPCMenu)
+            {
+                CreateReference(rightHanded);
+            }
+            RecreateMenu();
+        }
+
         public static bool RequireMasterClient(string action)
         {
-            bool isMaster = (PhotonNetwork.InRoom && PhotonNetwork.IsMasterClient) ||
-                            (NetworkSystem.Instance != null &&
-                             NetworkSystem.Instance.InRoom &&
-                             NetworkSystem.Instance.IsMasterClient);
-
-            if (isMaster) return true;
-
-            NotificationLib.SendNotification(
-                NotificationLib.NotificationType.Alert,
-                $"{action} needs master");
+            if (PhotonNetwork.IsMasterClient || NetworkSystem.Instance.IsMasterClient) return true;
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"{action} needs master");
             return false;
         }
 

@@ -54,7 +54,6 @@ namespace ShibaGTGenesisReborn.Mods
             if (!NetworkSystem.Instance.InRoom) return;
             try
             {
-                if (MonkeAgent.instance == null) return;
                 MonkeAgent.instance.rpcErrorMax = int.MaxValue;
                 MonkeAgent.instance.rpcCallLimit = int.MaxValue;
                 MonkeAgent.instance.logErrorMax = int.MaxValue;
@@ -377,7 +376,7 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        private static GTRecorder GetActiveGTRecorder()
+        internal static GTRecorder GetActiveGTRecorder()
         {
             if (NetworkSystem.Instance?.LocalRecorder is GTRecorder netGt) return netGt;
             if (NetworkSystem.Instance?.LocalRecorder != null)
@@ -391,8 +390,8 @@ namespace ShibaGTGenesisReborn.Mods
                 GTRecorder comp = NetworkSystem.Instance.VoiceConnection.PrimaryRecorder.GetComponent<GTRecorder>();
                 if (comp != null) return comp;
             }
-            if (GorillaTagger.Instance?.myRecorder is GTRecorder myGt) return myGt;
-            if (GorillaTagger.Instance?.myRecorder != null)
+            if (GorillaTagger.Instance.myRecorder is GTRecorder myGt) return myGt;
+            if (GorillaTagger.Instance.myRecorder != null)
             {
                 GTRecorder comp = GorillaTagger.Instance.myRecorder.GetComponent<GTRecorder>();
                 if (comp != null) return comp;
@@ -400,28 +399,29 @@ namespace ShibaGTGenesisReborn.Mods
             return Object.FindFirstObjectByType<GTRecorder>();
         }
 
+        private static bool micMuted;
+        private static bool micTransmit;
+        private static float micVolume = 1f;
+
         public static void LoudMicrophone(float volumeMultiplier = 15f)
         {
             if (!NetworkSystem.Instance.InRoom) return;
             GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
+            micVolume = volumeMultiplier;
             recorder.AllowVolumeAdjustment = true;
-            recorder.VolumeAdjustment = volumeMultiplier;
-            recorder.VoiceDetection = false;
-            recorder.TransmitEnabled = true;
+            recorder.VolumeAdjustment = micMuted ? 0f : micVolume;
         }
 
         public static void ResetMicrophoneVolume()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
             GTRecorder recorder = GetActiveGTRecorder();
+            micVolume = 1f;
             if (recorder == null) return;
 
-            recorder.AllowVolumeAdjustment = false;
-            recorder.VolumeAdjustment = 1f;
-            recorder.VoiceDetection = true;
-            recorder.VoiceDetectionThreshold = 0.07f;
+            recorder.AllowVolumeAdjustment = micMuted;
+            recorder.VolumeAdjustment = micMuted ? 0f : 1f;
         }
 
         public static void MuteMicrophone()
@@ -430,28 +430,27 @@ namespace ShibaGTGenesisReborn.Mods
             GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
+            if (!micMuted) micTransmit = recorder.TransmitEnabled;
+            micMuted = true;
             recorder.AllowVolumeAdjustment = true;
             recorder.VolumeAdjustment = 0f;
             recorder.TransmitEnabled = false;
-            recorder.VoiceDetectionThreshold = 1f;
 
-            if (GorillaTagger.Instance?.offlineVRRig != null)
-                GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = false;
+            GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = false;
         }
 
         public static void UnmuteMicrophone()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
             GTRecorder recorder = GetActiveGTRecorder();
+            bool wasMuted = micMuted;
+            micMuted = false;
             if (recorder == null) return;
 
-            recorder.AllowVolumeAdjustment = false;
-            recorder.VolumeAdjustment = 1f;
-            recorder.TransmitEnabled = true;
-            recorder.VoiceDetectionThreshold = 0.07f;
+            recorder.AllowVolumeAdjustment = micVolume != 1f;
+            recorder.VolumeAdjustment = micVolume;
+            if (wasMuted) recorder.TransmitEnabled = micTransmit;
 
-            if (GorillaTagger.Instance?.offlineVRRig != null)
-                GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = true;
+            GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = true;
         }
 
         public static bool microphoneEchoForOthers;
@@ -468,18 +467,15 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void MicrophoneEcho(bool enableEcho = true)
         {
-            if (!NetworkSystem.Instance.InRoom) return;
             microphoneEchoForOthers = enableEcho;
         }
 
         public static void HearSelf(bool enable = true)
         {
-            if (!NetworkSystem.Instance.InRoom) return;
             GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
             recorder.DebugEchoMode = enable;
-            if (enable && !recorder.TransmitEnabled) recorder.TransmitEnabled = true;
         }
 
         public static void SetMicrophonePitch(float pitch)
@@ -494,7 +490,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void ResetMicrophonePitch()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
             GTRecorder recorder = GetActiveGTRecorder();
             if (recorder == null) return;
 
@@ -549,13 +544,22 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void FixMicrophone()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
+            foreach (string name in new[] { "Loud Microphone", "Earrape Mic", "Mute Microphone", "Microphone Echo", "Chipmunk Mic", "Deep Voice Mic", "Robot Mic", "Radio Mic", "8-Bit Mic", "Underwater Mic", "Stutter Mic", "Voice Harmonizer", "Clean Microphone", "Hear Self" })
+            {
+                Classes.ButtonInfo button = Menu.Main.GetIndex(name);
+                button.enabled = false;
+            }
+            Custom.SoundboardManager.Stop();
+            micMuted = false;
+            micVolume = 1f;
             microphoneEchoForOthers = false;
             robotMic = false;
             radioMic = false;
             bitcrushMic = false;
             underwaterMic = false;
             stutterMic = false;
+            harmonizerMic = false;
+            cleanMic = false;
 
             GTRecorder recorder = GetActiveGTRecorder();
             if (recorder != null)
@@ -576,12 +580,9 @@ namespace ShibaGTGenesisReborn.Mods
                 recorder.RestartRecording(true);
             }
 
-            if (GorillaTagger.Instance?.offlineVRRig != null)
-            {
-                GorillaTagger.Instance.offlineVRRig.remoteUseReplacementVoice = false;
-                GorillaTagger.Instance.offlineVRRig.localUseReplacementVoice = false;
-                GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = true;
-            }
+            GorillaTagger.Instance.offlineVRRig.remoteUseReplacementVoice = false;
+            GorillaTagger.Instance.offlineVRRig.localUseReplacementVoice = false;
+            GorillaTagger.Instance.offlineVRRig.shouldSendSpeakingLoudness = true;
 
             if (GorillaComputer.instance != null)
             {

@@ -22,9 +22,9 @@ namespace ShibaGTGenesisReborn.Classes
             if (colorInfo.copyRigColors)
             {
                 Color rigColor = Color.white;
-                if (VRRig.LocalRig?.mainSkin?.material != null)
+                if (VRRig.LocalRig.mainSkin?.material != null)
                     rigColor = VRRig.LocalRig.mainSkin.material.color;
-                else if (GorillaTagger.Instance?.offlineVRRig?.mainSkin?.material != null)
+                else if (GorillaTagger.Instance.offlineVRRig.mainSkin?.material != null)
                     rigColor = GorillaTagger.Instance.offlineVRRig.mainSkin.material.color;
 
                 renderer.material.color = rigColor;

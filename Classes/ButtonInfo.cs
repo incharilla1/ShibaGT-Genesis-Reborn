@@ -25,5 +25,6 @@ namespace ShibaGTGenesisReborn.Classes
         public InputType? vrKey = null;
         public KeyCode pcKey = KeyCode.None;
         public KeybindMode keybindMode = KeybindMode.Toggle;
+        public bool needsMaster = false;
     }
 }

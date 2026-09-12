@@ -52,7 +52,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             if (Done && Obj)
             {
                 var player = GorillaLocomotion.GTPlayer.Instance;
-                if (!player) return;
 
                 if (!Hand)
                 {
@@ -71,8 +70,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                     if (Obj.TryGetComponent(out Collider myCol))
                     {
                         ModsLib.IgnoreCollisionRecursive(myCol, player.transform);
-                        if (GorillaTagger.Instance.offlineVRRig != null)
-                            ModsLib.IgnoreCollisionRecursive(myCol, GorillaTagger.Instance.offlineVRRig.transform);
+                        ModsLib.IgnoreCollisionRecursive(myCol, GorillaTagger.Instance.offlineVRRig.transform);
                         if (player.bodyCollider) Physics.IgnoreCollision(myCol, player.bodyCollider, true);
                         if (player.headCollider) Physics.IgnoreCollision(myCol, player.headCollider, true);
                     }
@@ -174,8 +172,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             Obj.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
 
-            if (GorillaLocomotion.GTPlayer.Instance)
-                ModsLib.IgnoreCollisionRecursive(col, GorillaLocomotion.GTPlayer.Instance.transform);
+            ModsLib.IgnoreCollisionRecursive(col, GorillaLocomotion.GTPlayer.Instance.transform);
 
             Done = true;
             

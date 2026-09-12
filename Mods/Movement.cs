@@ -131,7 +131,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void WASDFly()
         {
-            if (Settings.isSearching) return;
+            if (Settings.isSearching || Settings.isChangingTitle) return;
 
             Rigidbody rb = GorillaTagger.Instance.rigidbody;
             Transform cam = GorillaLocomotion.GTPlayer.Instance.GetControllerTransform(false).parent;
@@ -539,11 +539,11 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (catapultFlying && Time.time > catapultLaunchTime + 0.2f)
             {
-                bool touching = GTPlayer.Instance != null && (GTPlayer.Instance.IsHandTouching(true) || GTPlayer.Instance.IsHandTouching(false));
-                if (!touching && GorillaTagger.Instance != null && GorillaTagger.Instance.bodyCollider != null)
+                bool touching = GTPlayer.Instance.IsHandTouching(true) || GTPlayer.Instance.IsHandTouching(false);
+                if (!touching && GorillaTagger.Instance.bodyCollider != null)
                     touching = Physics.Raycast(GorillaTagger.Instance.bodyCollider.transform.position, Vector3.down, 0.8f, GunLib.BypassLayers);
 
-                if (!touching && GorillaTagger.Instance != null && GorillaTagger.Instance.rigidbody != null)
+                if (!touching && GorillaTagger.Instance.rigidbody != null)
                     touching = GorillaTagger.Instance.rigidbody.linearVelocity.magnitude < 1.5f || Time.time > catapultLaunchTime + 4f;
 
                 if (touching)

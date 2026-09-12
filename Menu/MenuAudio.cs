@@ -97,7 +97,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             if (audioSource == null)
             {
-                GameObject host = Main.Instance != null ? Main.Instance.gameObject : (GorillaTagger.Instance != null ? GorillaTagger.Instance.gameObject : null);
+                GameObject host = Main.Instance != null ? Main.Instance.gameObject : GorillaTagger.Instance.gameObject;
                 if (host != null)
                 {
                     audioSource = host.GetComponent<AudioSource>() ?? host.AddComponent<AudioSource>();

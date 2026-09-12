@@ -1,10 +1,7 @@
-using ShibaGTGenesisReborn;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Menu;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,9 +24,10 @@ namespace ShibaGTGenesisReborn.Libs
         }
 
         private static readonly Dictionary<string, float> _notificationTimestamps = new Dictionary<string, float>();
+        private static readonly List<string> _expiredKeys = new List<string>(8);
 
         private const float DEFAULT_NOTIFICATION_TIME = 3f;
-        private const float FADE_DURATION = 0.5f;
+        private const float FADE_DURATION = 0.4f;
 
         private GameObject _hudObj;
         private GameObject _hudObj2;
@@ -37,10 +35,14 @@ namespace ShibaGTGenesisReborn.Libs
 
         private Text _notificationText;
         private Material _notificationMaterial;
+        private CanvasGroup _canvasGroup;
 
         private readonly List<GameObject> _trackedObjects = new List<GameObject>();
-
         private bool _hasInitialized;
+
+        private float _currentAlpha;
+        private float _targetAlpha;
+        private Action _onFadeComplete;
 
         public static bool inRoom;
         public static bool RoomNotifications = true;
@@ -60,14 +62,9 @@ namespace ShibaGTGenesisReborn.Libs
         };
 
         public static string PreviousNotification { get; private set; }
-
         public static bool IsEnabled { get; set; } = true;
-
         public static NotificationLib Instance { get; private set; }
         public GameObject RootHUD => _hudObj2;
-
-        private CanvasGroup _canvasGroup;
-        private Coroutine _fadeCoroutine;
 
         private void Awake()
         {
@@ -91,12 +88,10 @@ namespace ShibaGTGenesisReborn.Libs
             if (_hasInitialized) return;
 
             _mainCamera = GameObject.Find("Main Camera");
-
             if (_mainCamera == null) return;
 
             _hudObj2 = CreateAndTrackHUDObject("HUD_Notification_Parent");
             _hudObj2.layer = 2;
-
             _hudObj2.transform.position = _mainCamera.transform.position + new Vector3(-1.5f, 0f, -4.5f);
 
             _hudObj = CreateAndTrackHUDObject("HUD_Notification", _hudObj2.transform);
@@ -107,7 +102,6 @@ namespace ShibaGTGenesisReborn.Libs
             canvas.worldCamera = _mainCamera.GetComponent<Camera>();
 
             _canvasGroup = _hudObj.AddComponent<CanvasGroup>();
-            _canvasGroup.alpha = 0f;
 
             CanvasScaler scaler = _hudObj.AddComponent<CanvasScaler>();
             scaler.dynamicPixelsPerUnit = 10f;
@@ -121,13 +115,19 @@ namespace ShibaGTGenesisReborn.Libs
             rect.rotation = Quaternion.Euler(0f, -250f, 0f);
 
             _notificationText = CreateTextElement("NotificationText", _hudObj, new Vector3(-1.2f, -0.75f, 0f), new Vector2(300f, 70f), 7);
-
-            _notificationText.font = Settings.currentFont;
+            _notificationText.font = Settings.currentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
             _notificationText.fontStyle = FontStyle.Bold;
             _notificationText.alignment = TextAnchor.MiddleCenter;
 
-            _notificationMaterial = new Material(Shader.Find("GUI/Text Shader"));
-            _notificationText.material = _notificationMaterial;
+            Shader shader = Shader.Find("GUI/Text Shader") ?? Shader.Find("UI/Default") ?? Shader.Find("Sprites/Default");
+            if (shader != null)
+            {
+                _notificationMaterial = new Material(shader);
+                _notificationText.material = _notificationMaterial;
+            }
+
+            SetAlpha(0f);
+            _hudObj.SetActive(false);
 
             _hasInitialized = true;
         }
@@ -145,19 +145,16 @@ namespace ShibaGTGenesisReborn.Libs
             text.rectTransform.localPosition = position;
 
             _trackedObjects.Add(obj);
-
             return text;
         }
 
         private GameObject CreateAndTrackHUDObject(string name, Transform parent = null)
         {
             GameObject obj = new GameObject(name);
-
             if (parent != null)
                 obj.transform.parent = parent;
 
             _trackedObjects.Add(obj);
-
             return obj;
         }
 
@@ -166,12 +163,14 @@ namespace ShibaGTGenesisReborn.Libs
             if (!_hasInitialized)
                 Init();
 
+            if (_mainCamera == null)
+                _mainCamera = GameObject.Find("Main Camera");
+
             if (_hudObj2 != null && _mainCamera != null)
-            {
                 _hudObj2.transform.SetPositionAndRotation(_mainCamera.transform.position, _mainCamera.transform.rotation);
-            }
 
             ProcessExpiredNotifications();
+            UpdateFadeAnimation();
         }
 
         private void ProcessExpiredNotifications()
@@ -179,31 +178,96 @@ namespace ShibaGTGenesisReborn.Libs
             if (_notificationTimestamps.Count == 0)
                 return;
 
+            _expiredKeys.Clear();
             float time = Time.time;
-            List<string> remove = new List<string>();
 
             foreach (var notification in _notificationTimestamps)
             {
                 if (time >= notification.Value)
-                    remove.Add(notification.Key);
+                    _expiredKeys.Add(notification.Key);
             }
 
-            if (remove.Count > 0)
+            if (_expiredKeys.Count > 0)
             {
-                foreach (string text in remove)
-                    _notificationTimestamps.Remove(text);
+                for (int i = 0; i < _expiredKeys.Count; i++)
+                    _notificationTimestamps.Remove(_expiredKeys[i]);
 
                 if (_notificationTimestamps.Count == 0)
                 {
-                    StartFade(0f, FADE_DURATION, () =>
-                    {
-                        UpdateNotificationText();
-                    });
+                    StartFade(0f, FADE_DURATION, UpdateNotificationText);
                 }
                 else
                 {
                     UpdateNotificationText();
                 }
+            }
+        }
+
+        private void UpdateFadeAnimation()
+        {
+            if (Mathf.Approximately(_currentAlpha, _targetAlpha))
+                return;
+
+            float step = FADE_DURATION > 0f ? Time.deltaTime / FADE_DURATION : 1f;
+            _currentAlpha = Mathf.MoveTowards(_currentAlpha, _targetAlpha, step);
+            SetAlpha(_currentAlpha);
+
+            if (Mathf.Approximately(_currentAlpha, _targetAlpha))
+            {
+                _currentAlpha = _targetAlpha;
+                SetAlpha(_currentAlpha);
+
+                Action callback = _onFadeComplete;
+                _onFadeComplete = null;
+                callback?.Invoke();
+
+                if (_currentAlpha <= 0f)
+                {
+                    if (_hudObj != null && _hudObj.activeSelf)
+                        _hudObj.SetActive(false);
+
+                    PreviousNotification = null;
+                }
+            }
+        }
+
+        private void SetAlpha(float alpha)
+        {
+            float t = Mathf.Clamp01(alpha);
+            float smoothAlpha = t * t * (3f - 2f * t);
+
+            if (_canvasGroup != null)
+                _canvasGroup.alpha = smoothAlpha;
+
+            if (_notificationMaterial != null && _notificationMaterial.HasProperty("_Color"))
+            {
+                Color color = _notificationMaterial.color;
+                color.a = smoothAlpha;
+                _notificationMaterial.color = color;
+            }
+
+            if (_notificationText != null)
+            {
+                Color textColor = _notificationText.color;
+                textColor.a = smoothAlpha;
+                _notificationText.color = textColor;
+            }
+        }
+
+        private void StartFade(float targetAlpha, float duration, Action onComplete = null)
+        {
+            _targetAlpha = targetAlpha;
+            _onFadeComplete = onComplete;
+
+            if (_targetAlpha > 0f && _hudObj != null && !_hudObj.activeSelf)
+                _hudObj.SetActive(true);
+
+            if (duration <= 0f)
+            {
+                _currentAlpha = targetAlpha;
+                SetAlpha(targetAlpha);
+                onComplete?.Invoke();
+                _onFadeComplete = null;
             }
         }
 
@@ -213,35 +277,15 @@ namespace ShibaGTGenesisReborn.Libs
                 _notificationText.text = string.Join(Environment.NewLine, _notificationTimestamps.Keys);
         }
 
-        private IEnumerator FadeCanvas(float targetAlpha, float duration, Action onComplete = null)
-        {
-            if (_canvasGroup == null) yield break;
-            float startAlpha = _canvasGroup.alpha;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                _canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, elapsed / duration);
-                yield return null;
-            }
-
-            _canvasGroup.alpha = targetAlpha;
-            onComplete?.Invoke();
-            _fadeCoroutine = null;
-        }
-
-        private void StartFade(float targetAlpha, float duration, Action onComplete = null)
-        {
-            if (_fadeCoroutine != null)
-                StopCoroutine(_fadeCoroutine);
-
-            _fadeCoroutine = StartCoroutine(FadeCanvas(targetAlpha, duration, onComplete));
-        }
-
         public static void SendNotification(NotificationType type, string content, float duration = DEFAULT_NOTIFICATION_TIME)
         {
-            if (!IsEnabled || string.IsNullOrEmpty(content) || Instance == null || Instance._notificationText == null)
+            if (!IsEnabled || string.IsNullOrEmpty(content) || Instance == null)
+                return;
+
+            if (!Instance._hasInitialized)
+                Instance.Init();
+
+            if (Instance._notificationText == null)
                 return;
 
             if (!_typeColors.TryGetValue(type, out string color))
@@ -262,14 +306,19 @@ namespace ShibaGTGenesisReborn.Libs
         public static void ClearAllNotifications()
         {
             _notificationTimestamps.Clear();
+            PreviousNotification = null;
 
             if (Instance != null)
-            {
-                Instance.StartFade(0f, FADE_DURATION, () =>
-                {
-                    Instance.UpdateNotificationText();
-                });
-            }
+                Instance.StartFade(0f, FADE_DURATION, Instance.UpdateNotificationText);
+        }
+
+        private void OnDestroy()
+        {
+            if (_hudObj2 != null)
+                Destroy(_hudObj2);
+
+            if (_notificationMaterial != null)
+                Destroy(_notificationMaterial);
         }
     }
 }

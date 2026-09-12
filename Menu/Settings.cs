@@ -32,6 +32,10 @@ namespace ShibaGTGenesisReborn
         [Setting] public static bool barkMenu = false;
         public static bool barkMenuOpen = false;
 
+        [Setting] public static string menuTitle = PluginInfo.Name;
+        public static bool isChangingTitle = false;
+        public static string titleInput = "";
+
         public static string searchQuery = "";
         public static bool isSearching = false;
         public static bool showSearchKeyboard = true;

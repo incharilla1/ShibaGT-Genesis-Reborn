@@ -49,7 +49,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             if (!Done && !Down && (CM == null || CT == null || MeowClip == null))
             {
                 Down = true;
-                Me.StartCoroutine(DownloadAndInitializeAssets(modelUrl, textureUrl, audioUrl));
+                Me.StartCoroutine(DownloadAndInitializeAssets(modelUrl, textureUrl, audioUrl, false));
             }
         }
 
@@ -63,7 +63,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             if (!Done && !Down && CM == null)
             {
                 Down = true;
-                Me.StartCoroutine(DownloadAndInitializeAssets(modelUrl, textureUrl, audioUrl));
+                Me.StartCoroutine(DownloadAndInitializeAssets(modelUrl, textureUrl, audioUrl, true));
             }
             else if (!Done && CM != null)
             {
@@ -73,7 +73,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             if (Done && Obj)
             {
                 GTPlayer player = GTPlayer.Instance;
-                if (!player) return;
 
                 if (!Hand)
                 {
@@ -92,8 +91,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                     if (Obj.TryGetComponent(out Collider catCollider))
                     {
                         IgnoreCollisionRecursive(catCollider, player.transform);
-                        if (GorillaTagger.Instance.offlineVRRig != null)
-                            IgnoreCollisionRecursive(catCollider, GorillaTagger.Instance.offlineVRRig.transform);
+                        IgnoreCollisionRecursive(catCollider, GorillaTagger.Instance.offlineVRRig.transform);
                         if (player.bodyCollider) Physics.IgnoreCollision(catCollider, player.bodyCollider, true);
                         if (player.headCollider) Physics.IgnoreCollision(catCollider, player.headCollider, true);
                     }
@@ -251,8 +249,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             Obj.transform.localScale = new Vector3(DefaultScale, DefaultScale, DefaultScale);
 
-            if (GTPlayer.Instance)
-                ModsLib.IgnoreCollisionRecursive(meshCollider, GTPlayer.Instance.transform);
+            ModsLib.IgnoreCollisionRecursive(meshCollider, GTPlayer.Instance.transform);
 
             Done = true;
 
@@ -262,7 +259,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 Obj.RegisterForNetwork();
         }
 
-        static IEnumerator DownloadAndInitializeAssets(string modelUrl, string textureUrl, string audioUrl)
+        static IEnumerator DownloadAndInitializeAssets(string modelUrl, string textureUrl, string audioUrl, bool spawnWhenDone = false)
         {
             string localAudio = ModsLib.FindLocalAsset("meow.mp3", CachedAudioPath);
             if (!string.IsNullOrEmpty(localAudio))
@@ -334,7 +331,8 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             if (!string.IsNullOrEmpty(objData) && !objData.StartsWith("<"))
             {
                 CM = ModsLib.ParseObj(objData);
-                Spawn();
+                if (spawnWhenDone)
+                    Spawn();
             }
             else
             {

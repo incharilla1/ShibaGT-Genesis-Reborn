@@ -477,7 +477,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         {
             if (hudVrObj != null) return;
 
-            Camera cam = Camera.main ?? GorillaTagger.Instance?.mainCamera?.GetComponent<Camera>();
+            Camera cam = Camera.main ?? GorillaTagger.Instance.mainCamera?.GetComponent<Camera>();
             if (cam == null) return;
 
             hudVrObj = new GameObject("VR_Spotify_HUD");

@@ -126,13 +126,12 @@ namespace ShibaGTGenesisReborn.Mods
                 CXS.CXS.TeleportPlayer(tagSelfOrigin);
                 tagSelfActive = false;
             }
-            if (VRRig.LocalRig != null)
-                VRRig.LocalRig.enabled = true;
+            VRRig.LocalRig.enabled = true;
         }
 
         public static void TagSelf()
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null) return;
+            if (!NetworkSystem.Instance.InRoom) return;
 
             if (IsRigInfected(VRRig.LocalRig))
             {
@@ -293,7 +292,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TagAura(float radius = 4f)
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
+            if (!NetworkSystem.Instance.InRoom || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
             float effectiveRadius = radius * (hitboxExpander ? hitboxExpanderMultiplier : 1f);
@@ -314,7 +313,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TagAssist(float assistRange = 9.5f, float pullSpeed = 30f)
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
+            if (!NetworkSystem.Instance.InRoom || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 localHead = GorillaTagger.Instance.headCollider.transform.position;
             VRRig closestTarget = null;
@@ -344,11 +343,8 @@ namespace ShibaGTGenesisReborn.Mods
                 GorillaTagger.Instance.rigidbody.linearVelocity = toTarget * pullSpeed;
                 GorillaTagger.Instance.rightHandTransform.position = targetHead;
                 GorillaTagger.Instance.leftHandTransform.position = targetHead;
-                if (VRRig.LocalRig != null)
-                {
-                    VRRig.LocalRig.rightHandTransform.position = targetHead;
-                    VRRig.LocalRig.leftHandTransform.position = targetHead;
-                }
+                VRRig.LocalRig.rightHandTransform.position = targetHead;
+                VRRig.LocalRig.leftHandTransform.position = targetHead;
 
                 if (closestDistance <= 4.5f * (hitboxExpander ? hitboxExpanderMultiplier : 1f))
                 {
@@ -363,13 +359,10 @@ namespace ShibaGTGenesisReborn.Mods
         public static void HitboxExpander()
         {
             hitboxExpander = true;
-            if (GorillaTagger.Instance != null)
-            {
-                GorillaTagger.Instance.maxTagDistance = 2.2f * hitboxExpanderMultiplier;
-                GorillaTagger.Instance.SetTagRadiusOverrideThisFrame(0.12f * hitboxExpanderMultiplier);
-            }
+            GorillaTagger.Instance.maxTagDistance = 2.2f * hitboxExpanderMultiplier;
+            GorillaTagger.Instance.SetTagRadiusOverrideThisFrame(0.12f * hitboxExpanderMultiplier);
 
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
+            if (!NetworkSystem.Instance.InRoom || !IsRigInfected(VRRig.LocalRig)) return;
 
             Vector3 rHand = GorillaTagger.Instance.rightHandTransform.position;
             Vector3 lHand = GorillaTagger.Instance.leftHandTransform.position;
@@ -392,13 +385,11 @@ namespace ShibaGTGenesisReborn.Mods
         public static void DisableHitboxExpander()
         {
             hitboxExpander = false;
-            if (GorillaTagger.Instance != null)
-                GorillaTagger.Instance.maxTagDistance = 2.2f;
+            GorillaTagger.Instance.maxTagDistance = 2.2f;
         }
 
         public static void SuperSwim(float power = 22f)
         {
-            if (GTPlayer.Instance == null || GorillaTagger.Instance == null) return;
             if (GTPlayer.Instance.InWater || GTPlayer.Instance.HeadInWater)
             {
                 Vector3 vel = GorillaTagger.Instance.rigidbody.linearVelocity;
@@ -411,7 +402,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TagPull(float range = 8f, float speed = 25f)
         {
-            if (!NetworkSystem.Instance.InRoom || VRRig.LocalRig == null || !IsRigInfected(VRRig.LocalRig)) return;
+            if (!NetworkSystem.Instance.InRoom || !IsRigInfected(VRRig.LocalRig)) return;
             if (!InputHandler.Instance.RightTrigger.IsPressed) return;
 
             VRRig target = RigManager.GetClosestUntaggedVRRig(range);

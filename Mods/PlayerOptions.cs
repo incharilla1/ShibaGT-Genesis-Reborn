@@ -19,15 +19,11 @@ namespace ShibaGTGenesisReborn.Mods
         public static bool IsFollowing;
         public static bool IsESPActive;
         public static bool IsTracerActive;
-        public static bool IsLagging;
-
-        public static int selectedPlayerLagIndex;
-        private static float lagCooldown;
         private static bool isSubscribed;
 
         public static void Initialize()
         {
-            if (isSubscribed || NetworkSystem.Instance == null) return;
+            if (isSubscribed) return;
             NetworkSystem.Instance.OnPlayerJoined += OnPlayerJoined;
             NetworkSystem.Instance.OnPlayerLeft += OnPlayerLeft;
             NetworkSystem.Instance.OnJoinedRoomEvent += RefreshPlayerList;
@@ -60,7 +56,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void RefreshPlayerList()
         {
-            if (NetworkSystem.Instance == null || !NetworkSystem.Instance.InRoom)
+            if (!NetworkSystem.Instance.InRoom)
             {
                 if (Buttons.buttons.Length > 19)
                     Buttons.buttons[19] = Array.Empty<ButtonInfo>();
@@ -136,14 +132,13 @@ namespace ShibaGTGenesisReborn.Mods
             IsFollowing = false;
             IsESPActive = false;
             IsTracerActive = false;
-            IsLagging = false;
         }
 
         public static void Update()
         {
-            if (SelectedPlayer == null || NetworkSystem.Instance == null || !NetworkSystem.Instance.InRoom)
+            if (SelectedPlayer == null || !NetworkSystem.Instance.InRoom)
             {
-                if (IsPiggybacking || IsSpectating || IsFollowing || IsESPActive || IsTracerActive || IsLagging)
+                if (IsPiggybacking || IsSpectating || IsFollowing || IsESPActive || IsTracerActive)
                     ResetPlayerToggles();
                 return;
             }
@@ -164,7 +159,7 @@ namespace ShibaGTGenesisReborn.Mods
                 Transform headTarget = rig.head.rigTarget != null ? rig.head.rigTarget.transform : rig.transform;
                 Vector3 camPos = headTarget.position - headTarget.forward * 1.5f + Vector3.up * 0.35f;
                 Quaternion camRot = Quaternion.LookRotation(headTarget.position - camPos);
-                if (GorillaTagger.Instance != null && GorillaTagger.Instance.thirdPersonCamera != null)
+                if (GorillaTagger.Instance.thirdPersonCamera != null)
                 {
                     GorillaTagger.Instance.thirdPersonCamera.transform.position = camPos;
                     GorillaTagger.Instance.thirdPersonCamera.transform.rotation = camRot;
@@ -211,14 +206,6 @@ namespace ShibaGTGenesisReborn.Mods
                 Object.Destroy(g, Time.deltaTime * 2f);
             }
 
-            if (IsLagging && !rig.isLocal && Time.time > lagCooldown)
-            {
-                for (int i = 0; i < mods.lagthings[selectedPlayerLagIndex]; i++)
-                    mods.SendOPRaiseEvent202(rig);
-
-                lagCooldown = Time.time + mods.lagcooldowns[selectedPlayerLagIndex];
-            }
-
             if (Main.buttonsType == 20)
                 UpdateDistanceDisplay();
         }
@@ -263,7 +250,7 @@ namespace ShibaGTGenesisReborn.Mods
             string id = SelectedPlayer?.UserId ?? "Unknown";
             string actor = SelectedPlayer?.ActorNumber.ToString() ?? "0";
             string pos = rig != null ? $"{rig.transform.position.x:F2}, {rig.transform.position.y:F2}, {rig.transform.position.z:F2}" : "Unknown";
-            float dist = rig != null && GorillaTagger.Instance?.bodyCollider != null ? Vector3.Distance(GorillaTagger.Instance.bodyCollider.transform.position, rig.transform.position) : 0f;
+            float dist = rig != null && GorillaTagger.Instance.bodyCollider != null ? Vector3.Distance(GorillaTagger.Instance.bodyCollider.transform.position, rig.transform.position) : 0f;
             bool isMaster = SelectedPlayer?.IsMasterClient ?? false;
             bool isTag = rig != null && rig.mainSkin != null && (rig.mainSkin.material.name.Contains("fected") || rig.mainSkin.material.name.Contains("It"));
 
@@ -278,7 +265,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (btn != null)
             {
                 VRRig rig = ResolveRig(SelectedPlayer);
-                if (rig != null && GorillaTagger.Instance?.bodyCollider != null)
+                if (rig != null && GorillaTagger.Instance.bodyCollider != null)
                 {
                     float dist = Vector3.Distance(GorillaTagger.Instance.bodyCollider.transform.position, rig.transform.position);
                     btn.overlapText = $"Distance: {dist:F1}m";

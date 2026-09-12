@@ -21,7 +21,7 @@ namespace ShibaGTGenesisReborn.Classes
             {
                 if (customAudio)
                     MenuAudio.PlayClickSound();
-                else if (VRRig.LocalRig != null)
+                else
                     VRRig.LocalRig.PlayHandTapLocal(8, rightHanded, 0.4f);
             }
             catch { }
@@ -32,14 +32,11 @@ namespace ShibaGTGenesisReborn.Classes
             if (Time.time > buttonCooldown && menu != null)
             {
                 buttonCooldown = Time.time + 0.15f;
-                if (GorillaTagger.Instance != null)
+                try
                 {
-                    try
-                    {
-                        GorillaTagger.Instance.StartVibration(rightHanded, GorillaTagger.Instance.tagHapticStrength / 2f, GorillaTagger.Instance.tagHapticDuration / 2f);
-                    }
-                    catch { }
+                    GorillaTagger.Instance.StartVibration(rightHanded, GorillaTagger.Instance.tagHapticStrength / 2f, GorillaTagger.Instance.tagHapticDuration / 2f);
                 }
+                catch { }
                 plaything();
                 Toggle(this.relatedText, this.buttonInfo);
             }

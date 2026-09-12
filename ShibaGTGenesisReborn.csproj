@@ -14,10 +14,8 @@
 	  <EmbeddedResource Include="Resources\heart.png" />
 	  <EmbeddedResource Include="Resources\search.png" />
 	  <Compile Remove="ascs\**" />
-	  <None Remove="ascs\**" /> <!-- assembly csharp decompiled for newest version so i can see what they changed -->
-	  <Compile Remove="Loader\**" />
-	  <None Remove="Loader\**" />
-	  <Compile Remove="Worker\**" />
+	  <None Remove="ascs\**" /> <!-- assembly csharp decompiled for newest gtag version -->
+	  <Compile Remove="Worker\**" /> <!-- cxs worker -->
 	  <None Remove="Worker\**" />
 	</ItemGroup>
 

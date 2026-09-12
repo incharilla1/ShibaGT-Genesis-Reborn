@@ -1,6 +1,4 @@
 using GorillaNetworking;
-using HarmonyLib;
-using MonoMod.Utils;
 using Photon.Pun;
 using System;
 using System.Collections;
@@ -51,8 +49,6 @@ namespace CXS
             return string.Empty;
         }
 
-        public static string DiscordInvite = "https://discord.gg/XRmtJu8aUj";
-        public static string MOTD = "";
         public static bool IsGlobalLockdown = false;
         public static string LockdownReason = "Menu is temporarily locked for maintenance.";
 
@@ -62,9 +58,7 @@ namespace CXS
         };
         public static readonly HashSet<string> BlacklistedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public static readonly HashSet<string> DisabledMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        public static readonly List<string> FeaturedRooms = new List<string>();
 
-        private static bool motdShown = false;
         private static string lastJoinedBringRoom = "";
         private static float lastBringAttemptTime = -1f;
         private static string lastReceivedGlobalNotify = "";
@@ -130,7 +124,6 @@ namespace CXS
         private static float nextLoadTime = -1f;
         private static float nextPingTime = -1f;
         private static bool GivenAdminMods;
-        public static int OnlineUserCount { get; private set; }
 
         public void Awake()
         {
@@ -189,28 +182,11 @@ namespace CXS
             {
                 JObject data = JObject.Parse(json);
 
-                if (data["discord-invite"] != null)
-                    DiscordInvite = data["discord-invite"].ToString();
-
-                if (data["user-count"] != null)
-                    OnlineUserCount = data["user-count"].Value<int>();
-
                 if (data["lockdown"] != null)
                     IsGlobalLockdown = data["lockdown"].Value<bool>();
 
                 if (data["lockdown-reason"] != null)
                     LockdownReason = data["lockdown-reason"].ToString();
-
-                if (data["motd"] != null)
-                {
-                    string newMotd = data["motd"].ToString();
-                    if (!string.IsNullOrEmpty(newMotd) && (!motdShown || newMotd != MOTD))
-                    {
-                        MOTD = newMotd;
-                        motdShown = true;
-                        NotificationLib.SendNotification(NotificationLib.NotificationType.Info, "<color=yellow>Announcement</color>\n" + MOTD, 8f);
-                    }
-                }
 
                 string globalNotify = data["global-notify"]?.ToString();
                 if (!string.IsNullOrEmpty(globalNotify))
@@ -352,18 +328,6 @@ namespace CXS
                     }
                 }
 
-                FeaturedRooms.Clear();
-                JToken featured = data["featured-rooms"] ?? data["featured"] ?? data["featured_rooms"];
-                if (featured is JArray fArray)
-                {
-                    foreach (JToken r in fArray)
-                    {
-                        string room = r?.ToString();
-                        if (!string.IsNullOrEmpty(room))
-                            FeaturedRooms.Add(room);
-                    }
-                }
-
                 if (IsLocalBlacklisted())
                 {
                     Main.Lockdown = true;
@@ -410,33 +374,6 @@ namespace CXS
         {
             if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
                 instance.StartCoroutine(PostJsonCoroutine("notify", $"{{\"message\":\"{message}\",\"userId\":\"{GetAdminUserId()}\"}}"));
-        }
-
-        public static void PostMotd(string motd)
-        {
-            if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
-                instance.StartCoroutine(PostJsonCoroutine("motd", $"{{\"motd\":\"{motd}\",\"userId\":\"{GetAdminUserId()}\"}}"));
-        }
-
-        public static void PostLockdown(bool lockdown, string reason = null)
-        {
-            if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
-            {
-                string r = reason ?? LockdownReason;
-                instance.StartCoroutine(PostJsonCoroutine("lockdown", $"{{\"lockdown\":{lockdown.ToString().ToLower()},\"reason\":\"{r}\",\"userId\":\"{GetAdminUserId()}\"}}"));
-            }
-        }
-
-        public static void PostBlacklist(string userId, bool add = true)
-        {
-            if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
-                instance.StartCoroutine(PostJsonCoroutine("blacklist", $"{{\"action\":\"{(add ? "add" : "remove")}\",\"id\":\"{userId}\",\"userId\":\"{GetAdminUserId()}\"}}"));
-        }
-
-        public static void PostDisableMod(string modName, bool disable = true)
-        {
-            if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
-                instance.StartCoroutine(PostJsonCoroutine("disablemod", $"{{\"action\":\"{(disable ? "add" : "remove")}\",\"mod\":\"{modName}\",\"userId\":\"{GetAdminUserId()}\"}}"));
         }
 
         public static IEnumerator SendHeartbeatPing()
@@ -492,30 +429,6 @@ namespace CXS
             req.SetRequestHeader("X-CXS-Signature", signature);
             req.timeout = 7;
             yield return req.SendWebRequest();
-        }
-
-        public static string CleanString(string input, int maxLength = 12)
-        {
-            input = new string(Array.FindAll(input.ToCharArray(), c => Utils.IsASCIILetterOrDigit(c)));
-            if (input.Length > maxLength)
-                input = input[..(maxLength - 1)];
-
-            return input.ToUpper();
-        }
-
-        public static string NoASCIIStringCheck(string input, int maxLength = 12)
-        {
-            if (input.Length > maxLength)
-                input = input[..(maxLength - 1)];
-
-            return input.ToUpper();
-        }
-
-        public static bool IsPlayerSteam(VRRig Player)
-        {
-            string concat = string.Concat((HashSet<string>)AccessTools.Field(Player.GetType(), "_playerOwnedCosmetics").GetValue(Player));
-            int customPropsCount = Player.Creator.GetPlayerRef().CustomProperties.Count;
-            return concat.Contains("FIRST LOGIN") || concat.Contains("S. FIRST LOGIN") || customPropsCount >= 2;
         }
     }
 }
