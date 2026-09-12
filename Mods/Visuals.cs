@@ -1091,5 +1091,59 @@ namespace ShibaGTGenesisReborn.Mods
                 roomVrText = null;
             }
         }
+
+        public static readonly string[] ModeratorCosmetics = new string[]
+        {
+            "LBAAD.", "LBAAK.", "LBAFL.", "LBAGS.", "LMAEW.", "LMAEY.", "LBACD."
+        };
+
+        public static bool HasModeratorCosmetics(VRRig rig)
+        {
+            if (rig == null || rig.isLocal) return false;
+
+            if (rig.cosmeticSet?.items != null)
+            {
+                for (int i = 0; i < rig.cosmeticSet.items.Length; i++)
+                {
+                    var item = rig.cosmeticSet.items[i];
+                    if (item.isNullItem || string.IsNullOrEmpty(item.itemName)) continue;
+
+                    for (int j = 0; j < ModeratorCosmetics.Length; j++)
+                    {
+                        if (item.itemName.IndexOf(ModeratorCosmetics[j], StringComparison.OrdinalIgnoreCase) >= 0)
+                            return true;
+                    }
+                }
+            }
+
+            if (rig.cosmetics != null)
+            {
+                for (int i = 0; i < rig.cosmetics.Count; i++)
+                {
+                    GameObject cosmeticObj = rig.cosmetics[i];
+                    if (cosmeticObj == null) continue;
+
+                    for (int j = 0; j < ModeratorCosmetics.Length; j++)
+                    {
+                        if (cosmeticObj.name.IndexOf(ModeratorCosmetics[j], StringComparison.OrdinalIgnoreCase) >= 0)
+                            return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public static void ModeratorESP()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (HasModeratorCosmetics(rig) && rig.mainSkin != null)
+                {
+                    rig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
+                    rig.mainSkin.material.color = Color.red;
+                }
+            }
+        }
     }
 }

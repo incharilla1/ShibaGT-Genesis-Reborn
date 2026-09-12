@@ -692,5 +692,20 @@ namespace ShibaGTGenesisReborn.Mods
 
             await NetworkSystem.Instance.ConnectToRoom(roomName, config);
         }
+
+        public static void AntiModerator()
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
+
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (HasModeratorCosmetics(rig))
+                {
+                    NetworkSystem.Instance.ReturnToSinglePlayer();
+                    PhotonNetwork.Disconnect();
+                    break;
+                }
+            }
+        }
     }
 }

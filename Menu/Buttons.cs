@@ -79,6 +79,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Rejoin Room", method =() => mods.RejoinRoom(), isTogglable = false, toolTip = "Reconnect to current room"},
                 
                 new ButtonInfo { buttonText = "Anti Earrape", enableMethod =() => mods.antiEarrape = true, disableMethod =() => mods.antiEarrape = false, isTogglable = true, enabled = mods.antiEarrape, toolTip = "Block spammed sounds from other players"},
+                new ButtonInfo { buttonText = "Anti Moderator", method =() => mods.AntiModerator(), isTogglable = true, toolTip = "Disconnect immediately if a moderator/admin is in the room"},
             },
 
             new ButtonInfo[]
@@ -256,6 +257,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Wireframe Hitbox ESP", method =() => mods.WireframeHitboxESP(), disableMethod =() => mods.DisableWireframeHitboxESP(), isTogglable = true, toolTip = "Draw wireframe hitboxes"},
                 new ButtonInfo { buttonText = "Infection Hitbox ESP", method =() => mods.InfectionWireframeHitboxESP(), disableMethod =() => mods.DisableWireframeHitboxESP(), isTogglable = true, toolTip = "Draw infection colored wireframe hitboxes"},
                 new ButtonInfo { buttonText = "Name Tags", method =() => mods.NameAndDistanceTags(), isTogglable = true, toolTip = "Show player name and distance"},
+                new ButtonInfo { buttonText = "Moderator ESP", method =() => mods.ModeratorESP(), isTogglable = true, toolTip = "Highlight players with Moderator, Admin, Finger Painter, or Stick badges"},
                 
                 new ButtonInfo { buttonText = "cursedgtag", overlapText = "Cursed Mode: Off", method =() => mods.CursedGTAG(), isTogglable = false, toolTip = "Change cursed time override"},
                 
