@@ -80,6 +80,7 @@ namespace ShibaGTGenesisReborn.Menu
                 
                 new ButtonInfo { buttonText = "Anti Earrape", enableMethod =() => mods.antiEarrape = true, disableMethod =() => mods.antiEarrape = false, isTogglable = true, enabled = mods.antiEarrape, toolTip = "Block spammed sounds from other players"},
                 new ButtonInfo { buttonText = "Anti Moderator", method =() => mods.AntiModerator(), isTogglable = true, toolTip = "Disconnect immediately if a moderator/admin is in the room"},
+                new ButtonInfo { buttonText = "Hide on Leaderboard", method =() => mods.HideOnLeaderboard(), isTogglable = true, toolTip = "Desync your name and swatch color on the scoreboard"},
             },
 
             new ButtonInfo[]

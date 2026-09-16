@@ -671,24 +671,30 @@ namespace ShibaGTGenesisReborn.Mods
             if (NetworkSystem.Instance.InRoom)
                 await NetworkSystem.Instance.ReturnToSinglePlayer();
 
+            GorillaNetworkJoinTrigger joinTrigger = PhotonNetworkController.Instance.currentJoinTrigger ?? GorillaComputer.instance.GetJoinTriggerForZone(lastmap ?? "forest");
+            if (joinTrigger == null) return;
+
+            PhotonNetworkController.Instance.currentJoinTrigger = joinTrigger;
+
+            if (PlayFab.PlayFabClientAPI.IsClientLoggedIn())
+                PhotonNetworkController.Instance.playFabAuthenticator?.SetDisplayName(NetworkSystem.Instance.GetMyNickName());
+
             string roomName = NetworkSystem.GetRandomRoomName();
             RoomConfig config = RoomConfig.AnyPublicConfig();
+            config.MaxPlayers = joinTrigger.GetRoomSize(false);
 
-            GorillaNetworkJoinTrigger joinTrigger = PhotonNetworkController.Instance.currentJoinTrigger ?? GorillaComputer.instance.GetJoinTriggerForZone(lastmap ?? "forest");
-            if (joinTrigger != null)
+            ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
             {
-                config.MaxPlayers = joinTrigger.GetRoomSize(false);
-                PhotonNetworkController.Instance.currentJoinTrigger = joinTrigger;
-                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
-                {
-                    { "gameMode", joinTrigger.GetFullDesiredGameModeString() },
-                    { "platform", PhotonNetworkController.Instance.platformTag },
-                    { "queueName", GorillaComputer.instance.currentQueue }
-                };
-                GorillaNetworking.ScheduledEvents.ScheduledEventMatchmaking.ApplyScheduledEventStateToHashes(props, out var searchFilter);
-                config.CustomProps = props;
-                config.SearchFilter = searchFilter;
-            }
+                { "gameMode", joinTrigger.GetFullDesiredGameModeString() },
+                { "platform", PhotonNetworkController.Instance.platformTag },
+                { "queueName", GorillaComputer.instance.currentQueue },
+                { "language", "en-US" },
+                { "fan_club", "false" }
+            };
+
+            GorillaNetworking.ScheduledEvents.ScheduledEventMatchmaking.ApplyScheduledEventStateToHashes(props, out var searchFilter);
+            config.CustomProps = props;
+            config.SearchFilter = searchFilter;
 
             await NetworkSystem.Instance.ConnectToRoom(roomName, config);
         }
@@ -704,6 +710,30 @@ namespace ShibaGTGenesisReborn.Mods
                     NetworkSystem.Instance.ReturnToSinglePlayer();
                     PhotonNetwork.Disconnect();
                     break;
+                }
+            }
+        }
+
+        public static void HideOnLeaderboard()
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
+
+            NetPlayer localPlayer = NetworkSystem.Instance.LocalPlayer;
+            if (localPlayer == null) return;
+
+            foreach (GorillaScoreBoard sb in GorillaScoreboardTotalUpdater.allScoreboards)
+            {
+                if (sb?.lines == null) continue;
+                for (int i = 0; i < sb.lines.Count; i++)
+                {
+                    GorillaPlayerScoreboardLine line = sb.lines[i];
+                    if (line?.linePlayer == localPlayer)
+                    {
+                        if (line.playerName != null)
+                            line.playerName.text = "gorilla" + UnityEngine.Random.Range(1000, 9999);
+                        if (line.playerSwatch != null)
+                            line.playerSwatch.color = Color.white;
+                    }
                 }
             }
         }
