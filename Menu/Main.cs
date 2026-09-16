@@ -28,14 +28,22 @@ namespace ShibaGTGenesisReborn.Menu
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            MenuAudio.Initialize();
-            Mods.Custom.BoomboxManager.Initialize();
-            Mods.Custom.SoundboardManager.Initialize();
-            Mods.Custom.SpotifyManager.Initialize();
-            Preferences.EnsureDirectory();
-            StreamerMode.EnsureInitialized();
-            Mods.PlayerOptionsManager.Initialize();
-            Preferences.Load();
+            GorillaTagger.OnPlayerSpawned(OnPlayerSpawned);
+        }
+
+        private static void OnPlayerSpawned() 
+        {
+            try 
+            {
+                MenuAudio.Initialize();
+                Mods.Custom.BoomboxManager.Initialize();
+                Mods.Custom.SoundboardManager.Initialize();
+                Mods.Custom.SpotifyManager.Initialize();
+                Preferences.EnsureDirectory();
+                StreamerMode.EnsureInitialized();
+                Mods.PlayerOptionsManager.Initialize();
+                Preferences.Load();
+            } catch { }
         }
 
         private void Update()
@@ -118,28 +126,31 @@ namespace ShibaGTGenesisReborn.Menu
                     }
                     else
                     {
-                        if (shoulderCamera != null)
+                        try
                         {
-                            shoulderCamera.transform.Find("CM vcam1")?.gameObject.SetActive(true);
-                        }
+                            if (shoulderCamera != null) 
+                                shoulderCamera.transform.Find("CM vcam1")?.gameObject.SetActive(true);
 
-                        Rigidbody comp = menu.AddComponent(typeof(Rigidbody)) as Rigidbody;
-                        if (rightHanded)
+                            if (menu != null)
+                                Destroy(menu);
+                        }
+                        catch (Exception ex)
                         {
-                            comp.linearVelocity = GorillaLocomotion.GTPlayer.Instance.RightHand.velocityTracker.GetAverageVelocity(true, 0);
+                            Debug.LogError($"[Genesis] Error destroying menu: {ex.Message}");
                         }
-                        else
+                        finally
                         {
-                            comp.linearVelocity = GorillaLocomotion.GTPlayer.Instance.LeftHand.velocityTracker.GetAverageVelocity(true, 0);
+                            menu = null;
+
+                            if (reference != null)
+                            {
+                                Destroy(reference);
+                                reference = null;
+                            }
+                            DestroyDualReferences();
+                            buttonCollider = null;
+                            isPCMenu = false;
                         }
-
-                        Destroy(menu);
-                        menu = null;
-
-                        Destroy(reference);
-                        reference = null;
-                        DestroyDualReferences();
-                        isPCMenu = false;
                     }
                 }
             }

@@ -137,6 +137,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Grappling Hook", method =() => mods.GrapplingHook(), disableMethod =() => mods.GrapplingHookDisable(), isTogglable = true, toolTip = "Aim and pull with grappling hook"},
                 
                 new ButtonInfo { buttonText = "Air Swim", method =() => mods.AirSwim(), disableMethod =() => mods.AirSwimDisable(), isTogglable = true, toolTip = "Swim through the air"},
+                new ButtonInfo { buttonText = "Super Swim", method =() => mods.SuperSwim(), isTogglable = true, toolTip = "Fast swim speed in water"},
                 new ButtonInfo { buttonText = "Jesus Monke", method =() => mods.JesusMonke(), disableMethod =() => mods.JesusMonkeDisable(), isTogglable = true, toolTip = "Walk and slide on water surfaces"},
                 
                 new ButtonInfo { buttonText = "Zipline Speed", method =() => mods.ZiplineSpeed(35f), disableMethod =() => mods.ZiplineSpeed(10f), isTogglable = true, toolTip = "Increase zipline speed"},
@@ -235,8 +236,6 @@ namespace ShibaGTGenesisReborn.Menu
                 
                 new ButtonInfo { buttonText = "Stun Grenade (LOUD)", method = () => StunGrenadeManager.StunLoop(), disableMethod = () => StunGrenadeManager.Kill(), isTogglable = true, toolTip = "Press RG to hold grenade, release to throw (3s timer)"},
                 new ButtonInfo { buttonText = "Bomb (LOUD)", method = () => BombManager.BombLoop(), disableMethod = () => BombManager.Kill(), isTogglable = true, toolTip = "Press RG to spawn a bomb (3s fuse)"},
-                
-                new ButtonInfo { buttonText = "Super Swim", method =() => mods.SuperSwim(), isTogglable = true, toolTip = "Fast swim speed in water"},
             },
 
             new ButtonInfo[]

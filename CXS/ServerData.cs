@@ -86,7 +86,7 @@ namespace CXS
             return OwnerAdminId;
         }
 
-        public static bool IsAdmin(string userId) => !string.IsNullOrEmpty(userId) && (userId == AdminUserId || userId == OwnerAdminId || Administrators.ContainsKey(userId));
+        public static bool IsAdmin(string userId) =>  !string.IsNullOrEmpty(userId) && (userId == AdminUserId || userId == OwnerAdminId || Administrators.ContainsKey(userId));
         public static bool IsLocalAdmin() => PhotonNetwork.LocalPlayer != null && IsAdmin(PhotonNetwork.LocalPlayer.UserId);
 
         public static bool IsBlacklisted(string userId) => !string.IsNullOrEmpty(userId) && BlacklistedIds.Contains(userId);

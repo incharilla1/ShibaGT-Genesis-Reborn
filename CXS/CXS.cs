@@ -442,7 +442,7 @@ namespace CXS
         public static NetPlayer GetPlayerFromID(string id) =>
             PhotonNetwork.PlayerList.FirstOrDefault(player => player.UserId == id);
 
-        public static Player GetMasterAdministrator() =>
+        public static Player GetMasterAdministrator() => 
             PhotonNetwork.PlayerList
                 .Where(player => ServerData.IsAdmin(player.UserId))
                 .OrderBy(player => player.ActorNumber)
