@@ -2,57 +2,81 @@ using BepInEx;
 using GorillaLocomotion;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
-using ShibaGTGenesisReborn.Menu;
 using System;
+using System.Linq;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        public static void GhostMonke()
+        private static bool gunLooking;
+        private static bool allLooking;
+        private static bool rigFrozen;
+        private static bool rigPaused;
+        private static bool ghostHeld;
+        private static bool invisHeld;
+        private static VRRig lookFreezeTarget;
+
+        public static void LookFreezeGun()
         {
-            if (InputHandler.Instance.LeftPrimary.IsPressed)
+            GunLib.StartGun(() => { }, true);
+            if (GunLib.LockedPlayer != null)
+                lookFreezeTarget = GunLib.LockedPlayer;
+            if (lookFreezeTarget != null && !VRRigCache.ActiveRigs.Contains(lookFreezeTarget))
+                lookFreezeTarget = null;
+
+            gunLooking = lookFreezeTarget != null && IsLookingAtRig(lookFreezeTarget);
+        }
+
+        public static void LookFreezeAll()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                GorillaTagger.Instance.offlineVRRig.enabled = false;
+                if (rig != null && !rig.isLocal && rig != VRRig.LocalRig && IsLookingAtRig(rig))
+                {
+                    allLooking = true;
+                    break;
+                }
+            }
+        }
+
+        public static void DisableLookFreezeGun()
+        {
+            lookFreezeTarget = null;
+            GunLib.CleanupPointer();
+        }
+
+        private static bool IsLookingAtRig(VRRig rig)
+        {
+            Transform head = rig.headConstraint;
+            Transform target = VRRig.LocalRig.headConstraint;
+            Vector3 direction = (target.position - head.position).normalized;
+            return Vector3.Dot(head.forward, direction) >= (rigFrozen ? 0.82f : 0.9f);
+        }
+
+        public static void GhostMonke() => ghostHeld = InputHandler.Instance.LeftPrimary.IsPressed || UnityInput.Current.GetKey(KeyCode.F);
+        public static void InvisMonke() => invisHeld = InputHandler.Instance.RightPrimary.IsPressed || UnityInput.Current.GetKey(KeyCode.B);
+
+        public static void UpdateRigTracking()
+        {
+            bool pause = ghostHeld || invisHeld || gunLooking || allLooking;
+            if (pause) 
+            {
                 VRRig.LocalRig.enabled = false;
-            }
-            else
-            {
-                GorillaTagger.Instance.offlineVRRig.enabled = true;
-                VRRig.LocalRig.enabled = true;
-            }
-        }
-
-        public static void GhostMonkeDisable()
-        {
-            GorillaTagger.Instance.offlineVRRig.enabled = true;
-            VRRig.LocalRig.enabled = true;
-        }
-
-        public static void InvisMonke()
-        {
-            if (InputHandler.Instance.RightPrimary.IsPressed)
-            {
                 GorillaTagger.Instance.offlineVRRig.enabled = false;
-                GorillaTagger.Instance.offlineVRRig.transform.position = new Vector3(0f, -9999f, 0f);
-                VRRig.LocalRig.enabled = false;
-                VRRig.LocalRig.transform.position = new Vector3(0f, -9999f, 0f);
+                TickSystem<object>.RemovePostTickCallback(VRRig.LocalRig); 
             }
-            else
-            {
-                GorillaTagger.Instance.offlineVRRig.enabled = true;
-                VRRig.LocalRig.enabled = true;
-            }
+            else if (rigPaused) TickSystem<object>.AddPostTickCallback(VRRig.LocalRig);
+            rigPaused = pause;
+
+            if (invisHeld) VRRig.LocalRig.transform.position = new Vector3(0f, -999f, 0f);
+
+            rigFrozen = gunLooking || allLooking;
+            gunLooking = allLooking = ghostHeld = invisHeld = false;
         }
 
-        public static void InvisMonkeDisable()
-        {
-            GorillaTagger.Instance.offlineVRRig.enabled = true;
-            VRRig.LocalRig.enabled = true;
-        }
-
+        private static Vector3 armlen = new Vector3(1f, 1f, 1f);
         public static void LongArms()
         {
             if (InputHandler.Instance.RightTrigger.IsPressed)
@@ -63,27 +87,10 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 GTPlayer.Instance.transform.localScale -= new Vector3(0.01f, 0.01f, 0.01f);
             }
-        }
-
-        public static void NormalArms()
-        {
-            GTPlayer.Instance.transform.localScale = new Vector3(1f, 1f, 1f);
-        }
-
-        public static void NoFinger()
-        {
-            ControllerInputPoller.instance.leftControllerGripFloat = 0f;
-            ControllerInputPoller.instance.rightControllerGripFloat = 0f;
-            ControllerInputPoller.instance.leftControllerIndexFloat = 0f;
-            ControllerInputPoller.instance.rightControllerIndexFloat = 0f;
-            ControllerInputPoller.instance.leftControllerPrimaryButton = false;
-            ControllerInputPoller.instance.leftControllerSecondaryButton = false;
-            ControllerInputPoller.instance.rightControllerPrimaryButton = false;
-            ControllerInputPoller.instance.rightControllerSecondaryButton = false;
-            ControllerInputPoller.instance.leftControllerPrimaryButtonTouch = false;
-            ControllerInputPoller.instance.leftControllerSecondaryButtonTouch = false;
-            ControllerInputPoller.instance.rightControllerPrimaryButtonTouch = false;
-            ControllerInputPoller.instance.rightControllerSecondaryButtonTouch = false;
+            else if (InputHandler.Instance.RightPrimary.IsPressed)
+            {
+                GTPlayer.Instance.transform.localScale = new Vector3(1f, 1f, 1f);
+            }
         }
 
         public static void SpazRig()

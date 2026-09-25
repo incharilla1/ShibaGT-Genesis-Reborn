@@ -35,12 +35,12 @@ namespace ShibaGTGenesisReborn.Classes
                     ButtonInfo btn = category[j];
                     if (!IsBindableMod(btn, i) || (!btn.vrKey.HasValue && btn.pcKey == KeyCode.None)) continue;
 
-                    bool vrDown = btn.vrKey.HasValue && InputHandler.Instance != null && InputHandler.Instance.GetInput(btn.vrKey.Value).WasPressed;
-                    bool pcDown = btn.pcKey != KeyCode.None && UnityInput.Current != null && UnityInput.Current.GetKeyDown(btn.pcKey);
-                    bool vrHeld = btn.vrKey.HasValue && InputHandler.Instance != null && InputHandler.Instance.GetInput(btn.vrKey.Value).IsPressed;
-                    bool pcHeld = btn.pcKey != KeyCode.None && UnityInput.Current != null && UnityInput.Current.GetKey(btn.pcKey);
-                    bool vrUp = btn.vrKey.HasValue && InputHandler.Instance != null && InputHandler.Instance.GetInput(btn.vrKey.Value).WasReleased;
-                    bool pcUp = btn.pcKey != KeyCode.None && UnityInput.Current != null && UnityInput.Current.GetKeyUp(btn.pcKey);
+                    bool vrDown = btn.vrKey.HasValue && InputHandler.Instance.GetInput(btn.vrKey.Value).WasPressed;
+                    bool pcDown = btn.pcKey != KeyCode.None && UnityInput.Current.GetKeyDown(btn.pcKey);
+                    bool vrHeld = btn.vrKey.HasValue && InputHandler.Instance.GetInput(btn.vrKey.Value).IsPressed;
+                    bool pcHeld = btn.pcKey != KeyCode.None &&  UnityInput.Current.GetKey(btn.pcKey);
+                    bool vrUp = btn.vrKey.HasValue && InputHandler.Instance.GetInput(btn.vrKey.Value).WasReleased;
+                    bool pcUp = btn.pcKey != KeyCode.None && UnityInput.Current.GetKeyUp(btn.pcKey);
 
                     switch (btn.keybindMode)
                     {
@@ -93,50 +93,44 @@ namespace ShibaGTGenesisReborn.Classes
 
             InputType menuVrButton = Settings.rightHanded ? InputType.RightPrimary : InputType.LeftSecondary;
 
-            if (InputHandler.Instance != null)
+            if (InputHandler.Instance.GetInput(menuVrButton).WasPressed)
             {
-                if (InputHandler.Instance.GetInput(menuVrButton).WasPressed)
-                {
-                    CancelListening("Keybinding cancelled");
-                    return;
-                }
+                CancelListening("Keybinding cancelled");
+                return;
+            }
 
-                InputType[] pressed = InputHandler.Instance.GetCurrentlyPressedInputs();
-                for (int i = 0; i < pressed.Length; i++)
+            InputType[] pressed = InputHandler.Instance.GetCurrentlyPressedInputs();
+            for (int i = 0; i < pressed.Length; i++)
+            {
+                if (pressed[i] == menuVrButton) continue;
+                ListeningButton.vrKey = pressed[i];
+                ListeningButton.keybindMode = DefaultMode;
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Bound {ListeningButton.buttonText} to VR: {pressed[i]}");
+                ListeningButton = null;
+                Preferences.Save();
+                RefreshKeybindMenu();
+                return;
+            }
+
+            if (UnityInput.Current.GetKeyDown(KeyCode.Escape))
+            {
+                CancelListening("Keybinding cancelled");
+                return;
+            }
+
+            for (int i = 0; i < AllKeys.Length; i++)
+            {
+                KeyCode key = AllKeys[i];
+                if (key == KeyCode.None || key == Settings.keyboardButton) continue;
+                if (UnityInput.Current.GetKeyDown(key))
                 {
-                    if (pressed[i] == menuVrButton) continue;
-                    ListeningButton.vrKey = pressed[i];
+                    ListeningButton.pcKey = key;
                     ListeningButton.keybindMode = DefaultMode;
-                    NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Bound {ListeningButton.buttonText} to VR: {pressed[i]}");
+                    NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Bound {ListeningButton.buttonText} to PC: {key}");
                     ListeningButton = null;
                     Preferences.Save();
                     RefreshKeybindMenu();
                     return;
-                }
-            }
-
-            if (UnityInput.Current != null)
-            {
-                if (UnityInput.Current.GetKeyDown(KeyCode.Escape))
-                {
-                    CancelListening("Keybinding cancelled");
-                    return;
-                }
-
-                for (int i = 0; i < AllKeys.Length; i++)
-                {
-                    KeyCode key = AllKeys[i];
-                    if (key == KeyCode.None || key == Settings.keyboardButton) continue;
-                    if (UnityInput.Current.GetKeyDown(key))
-                    {
-                        ListeningButton.pcKey = key;
-                        ListeningButton.keybindMode = DefaultMode;
-                        NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"Bound {ListeningButton.buttonText} to PC: {key}");
-                        ListeningButton = null;
-                        Preferences.Save();
-                        RefreshKeybindMenu();
-                        return;
-                    }
                 }
             }
         }

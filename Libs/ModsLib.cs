@@ -592,11 +592,6 @@ namespace ShibaGTGenesisReborn.Libs
             return GetPlayerPlatform(player).IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        public static bool IsSteamUser(VRRig rig)
-        {
-            return IsSteamUser(rig?.creator);
-        }
-
         public static string GetLocalCosmeticString()
         {
             if (VRRig.LocalRig.cosmeticSet?.items == null) return string.Empty;

@@ -62,13 +62,14 @@ namespace ShibaGTGenesisReborn.Menu
                 }
                 DestroyDualReferences();
                 barkMenuOpen = false;
+                Mods.mods.UpdateRigTracking();
                 return;
             }
             
             try
             {
-                bool toOpen = ControllerInputPoller.instance != null && ((!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton));
-                bool keyboardOpen = UnityInput.Current != null && UnityInput.Current.GetKey(keyboardButton);
+                bool toOpen = rightHanded ? InputHandler.Instance.RightPrimary.IsPressed : InputHandler.Instance.LeftSecondary.IsPressed;
+                bool keyboardOpen = UnityInput.Current.GetKey(keyboardButton);
 
                 if (barkMenu && !isPCMenu && GorillaTagger.Instance.bodyCollider != null)
                 {
@@ -85,13 +86,10 @@ namespace ShibaGTGenesisReborn.Menu
 
                 try
                 {
-                    bool rightMouse = Mouse.current != null && Mouse.current.rightButton.isPressed;
-                    bool leftMouse = Mouse.current != null && Mouse.current.leftButton.isPressed;
-                    bool rightGrab = ControllerInputPoller.instance != null && ControllerInputPoller.instance.rightGrab;
-                    if (InputHandler.Instance != null)
-                    {
-                        InputHandler.Instance.RightGrip.IsPressed = rightMouse ? leftMouse : rightGrab;
-                    }
+                    bool rightMouse = Mouse.current.rightButton.isPressed;
+                    bool leftMouse = Mouse.current.leftButton.isPressed;
+                    bool rightGrab = ControllerInputPoller.instance.rightGrab;
+                    InputHandler.Instance.RightGrip.IsPressed = rightMouse ? leftMouse : rightGrab;
                 }
                 catch { }
 
@@ -203,6 +201,7 @@ namespace ShibaGTGenesisReborn.Menu
                     }
                 }
 
+                Mods.mods.UpdateRigTracking();
                 Mods.PlayerOptionsManager.Update();
                 KeybindManager.Update();
                 if (Time.frameCount % 240 == 0) UpdateBoardText();
@@ -1126,12 +1125,12 @@ namespace ShibaGTGenesisReborn.Menu
 
             if (Settings.pageButtonIndex == 2)
             {
-                if (InputHandler.Instance.RightGrip.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.E)))
+                if (InputHandler.Instance.RightGrip.WasPressed || (isPCMenu && UnityInput.Current.GetKeyDown(KeyCode.E)))
                 {
                     MenuAudio.PlayClickSound();
                     NextPage();
                 }
-                else if (InputHandler.Instance.LeftGrip.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Q)))
+                else if (InputHandler.Instance.LeftGrip.WasPressed || (isPCMenu && UnityInput.Current.GetKeyDown(KeyCode.Q)))
                 {
                     MenuAudio.PlayClickSound();
                     PreviousPage();
@@ -1139,12 +1138,12 @@ namespace ShibaGTGenesisReborn.Menu
             }
             else if (Settings.pageButtonIndex == 3)
             {
-                if (InputHandler.Instance.RightTrigger.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.RightArrow)))
+                if (InputHandler.Instance.RightTrigger.WasPressed || (isPCMenu && UnityInput.Current.GetKeyDown(KeyCode.RightArrow)))
                 {
                     MenuAudio.PlayClickSound();
                     NextPage();
                 }
-                else if (InputHandler.Instance.LeftTrigger.WasPressed || (isPCMenu && UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.LeftArrow)))
+                else if (InputHandler.Instance.LeftTrigger.WasPressed || (isPCMenu && UnityInput.Current.GetKeyDown(KeyCode.LeftArrow)))
                 {
                     MenuAudio.PlayClickSound();
                     PreviousPage();
@@ -1162,7 +1161,7 @@ namespace ShibaGTGenesisReborn.Menu
                 CreateMenu();
                 isMenuAnimating = false;
                 if (menu != null) menu.transform.localScale = defaultMenuScale;
-                RecenterMenu(rightHanded, isPCMenu || (UnityInput.Current != null && UnityInput.Current.GetKey(keyboardButton)));
+                RecenterMenu(rightHanded, isPCMenu || UnityInput.Current.GetKey(keyboardButton));
             }
         }
 
@@ -1262,10 +1261,7 @@ namespace ShibaGTGenesisReborn.Menu
                     bool isClick = false;
                     try
                     {
-                        if (Mouse.current != null)
-                        {
-                            isClick = Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.leftButton.isPressed;
-                        }
+                        isClick = Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.leftButton.isPressed;
                     }
                     catch { }
 
@@ -1442,10 +1438,7 @@ namespace ShibaGTGenesisReborn.Menu
             }
             else
             {
-                bool buttonPress = ControllerInputPoller.instance != null && 
-                    ((!rightHanded && ControllerInputPoller.instance.leftControllerSecondaryButton) || 
-                     (rightHanded && ControllerInputPoller.instance.rightControllerPrimaryButton));
-
+                bool buttonPress = rightHanded ? InputHandler.Instance.RightPrimary.IsPressed : InputHandler.Instance.LeftPrimary.IsPressed;
                 if (buttonPress)
                 {
                     barkMenuOpen = false;
@@ -2208,17 +2201,17 @@ namespace ShibaGTGenesisReborn.Menu
             try
             {
                 Keyboard kb = Keyboard.current;
-                bool isShift = (kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed))
-                    || (UnityInput.Current != null && (UnityInput.Current.GetKey(KeyCode.LeftShift) || UnityInput.Current.GetKey(KeyCode.RightShift)));
+                bool isShift = (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed)
+                    || UnityInput.Current.GetKey(KeyCode.LeftShift) || UnityInput.Current.GetKey(KeyCode.RightShift);
 
-                if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Escape)))
+                if (kb.escapeKey.wasPressedThisFrame || UnityInput.Current.GetKeyDown(KeyCode.Escape))
                 {
                     if (isChangingTitle) CloseTitleChanger(false);
                     else ToggleSearchMode();
                     return;
                 }
 
-                if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || (UnityInput.Current != null && (UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.KeypadEnter))))
+                if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.KeypadEnter))
                 {
                     if (isChangingTitle)
                     {
@@ -2236,8 +2229,8 @@ namespace ShibaGTGenesisReborn.Menu
                 }
 
                 bool changed = false;
-                bool backspaceDown = (kb != null && kb.backspaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Backspace));
-                bool backspaceHeld = (kb != null && kb.backspaceKey.isPressed) || (UnityInput.Current != null && UnityInput.Current.GetKey(KeyCode.Backspace));
+                bool backspaceDown = kb.backspaceKey.wasPressedThisFrame || UnityInput.Current.GetKeyDown(KeyCode.Backspace);
+                bool backspaceHeld = kb.backspaceKey.isPressed || UnityInput.Current.GetKey(KeyCode.Backspace);
 
                 bool shouldDelete = false;
                 if (backspaceDown)
@@ -2268,7 +2261,7 @@ namespace ShibaGTGenesisReborn.Menu
                         changed = true;
                     }
                 }
-                else if ((kb != null && kb.spaceKey.wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(KeyCode.Space)))
+                else if (kb.spaceKey.wasPressedThisFrame || UnityInput.Current.GetKeyDown(KeyCode.Space))
                 {
                     if (isChangingTitle)
                     {
@@ -2289,7 +2282,7 @@ namespace ShibaGTGenesisReborn.Menu
                     for (int i = 0; i < PCKeys.Length; i++)
                     {
                         TypeKey k = PCKeys[i];
-                        if ((kb != null && kb[k.InputKey].wasPressedThisFrame) || (UnityInput.Current != null && UnityInput.Current.GetKeyDown(k.LegacyKey)))
+                        if ((kb != null && kb[k.InputKey].wasPressedThisFrame) || UnityInput.Current.GetKeyDown(k.LegacyKey))
                         {
                             if (isChangingTitle)
                             {

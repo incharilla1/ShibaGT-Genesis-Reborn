@@ -49,8 +49,7 @@ namespace ShibaGTGenesisReborn.Mods.Custom
 
             if (XRSettings.isDeviceActive)
             {
-                bool vrPressed = InputHandler.Instance != null
-                    && InputHandler.Instance.RightTrigger.IsPressed;
+                bool vrPressed = InputHandler.Instance.RightTrigger.IsPressed;
                 if (vrPressed && Time.time - lastSpawn >= SpawnInterval)
                 {
                     lastSpawn = Time.time;

@@ -194,7 +194,6 @@ namespace ShibaGTGenesisReborn.Mods
             ResetStickyHands();
             ReSlip();
             FixHead();
-            NormalArms();
         }
 
         public static void DisablePanic()

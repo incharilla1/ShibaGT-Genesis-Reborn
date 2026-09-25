@@ -155,11 +155,13 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Rig [4]
-                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), disableMethod =() => mods.GhostMonkeDisable(), isTogglable = true, toolTip = "Freeze your rig (Hold Left Primary / F)"},
-                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), disableMethod =() => mods.InvisMonkeDisable(), isTogglable = true, toolTip = "Invisible monkey (Hold Right Primary / B)"},
+                new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Freeze your rig (Hold Left Primary / F)"},
+                new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey (Hold Right Primary / B)"},
                 
-                new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), disableMethod =() => mods.NormalArms(), isTogglable = true, toolTip = "Long arms"},
-                new ButtonInfo { buttonText = "No Fingers", method =() => mods.NoFinger(), isTogglable = true, toolTip = "No fingers"},
+                new ButtonInfo { buttonText = "Look Freeze Gun", method =() => mods.LookFreezeGun(), disableMethod =() => mods.DisableLookFreezeGun(), isTogglable = true, toolTip = "Select a player with the gun; freeze while they look at you"},
+                new ButtonInfo { buttonText = "Look Freeze All", method =() => mods.LookFreezeAll(), isTogglable = true, toolTip = "Freeze while any player looks at you"},
+                
+                new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), isTogglable = true, toolTip = "Right Trigger to get longer arms, Left Trigger to get shorter arms and Right Prim"},
                 
                 new ButtonInfo { buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey"},
                 new ButtonInfo { buttonText = "Upside Down Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "neck upsidedown"},
