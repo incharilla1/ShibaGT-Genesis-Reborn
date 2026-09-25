@@ -59,6 +59,8 @@ namespace ShibaGTGenesisReborn.Mods
         public static GameObject checkpoint;
         private static bool teleporting;
         private static float teleportTime;
+        private static bool noclipHeld;
+        private static bool noclipKeyToggled;
 
         private static bool dragging;
         private static float yaw, pitch, anchorX, anchorY;
@@ -112,13 +114,20 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void Noclip()
         {
-            bool active = GunLib.IsXRDeviceActive()
-                ? InputHandler.Instance.RightTrigger.IsPressed
-                : (Mouse.current?.rightButton.isPressed ?? false) || UnityInput.Current.GetKey(KeyCode.E);
-            Noclipistuff(active);
+            if (!Settings.isSearching && !Settings.isChangingTitle &&
+                ((Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) || UnityInput.Current.GetKeyDown(KeyCode.E)))
+                noclipKeyToggled = !noclipKeyToggled;
+            bool active = (GunLib.IsXRDeviceActive() && InputHandler.Instance.RightTrigger.IsPressed) || noclipKeyToggled;
+            noclipHeld = active;
+            Noclipistuff(noclipHeld || teleporting);
         }
 
-        public static void NoclipDisable() => Noclipistuff(false);
+        public static void NoclipDisable()
+        {
+            noclipHeld = false;
+            noclipKeyToggled = false;
+            Noclipistuff(teleporting);
+        }
 
         public static void CarMonkeyandfly(float speed, bool fly)
         {
@@ -307,7 +316,14 @@ namespace ShibaGTGenesisReborn.Mods
             }
 
             if (checkpoint == null)
+            {
+                if (teleporting)
+                {
+                    teleporting = false;
+                    Noclipistuff(noclipHeld);
+                }
                 return;
+            }
 
             if (InputHandler.Instance.RightPrimary.WasPressed && !teleporting)
             {
@@ -333,8 +349,8 @@ namespace ShibaGTGenesisReborn.Mods
 
                 if (teleportTime <= 0)
                 {
-                    Noclipistuff(false);
                     teleporting = false;
+                    Noclipistuff(noclipHeld);
                 }
             }
             else
@@ -348,6 +364,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void CheckPointDisable()
         {
+            if (teleporting) Noclipistuff(noclipHeld);
+            teleporting = false;
             if (checkpoint != null)
             {
                 Object.Destroy(checkpoint);
@@ -357,10 +375,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void Noclipistuff(bool b)
         {
-            foreach (MeshCollider collider in Resources.FindObjectsOfTypeAll<MeshCollider>())
-            {
-                collider.enabled = !b;
-            }
+            foreach (MeshCollider v in Resources.FindObjectsOfTypeAll<MeshCollider>())
+                v.enabled = !b;
         }
 
         public static void SlideControl(float control) => GTPlayer.Instance.slideControl = control;

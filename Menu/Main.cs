@@ -18,6 +18,48 @@ namespace ShibaGTGenesisReborn.Menu
 {
     public class Main : MonoBehaviour
     {
+        private static Transform draggingHand;
+        private static Vector3 dragOffset;
+        private static Quaternion dragRotation;
+
+        private static void UpdateFloatingMenuDrag()
+        {
+            if (isPCMenu) return;
+            Transform left = leftReference?.transform.parent;
+            Transform right = rightReference?.transform.parent;
+            bool leftGrip = InputHandler.Instance.LeftGrip.IsPressed;
+            bool rightGrip = InputHandler.Instance.RightGrip.IsPressed;
+            if ((draggingHand == left && !leftGrip) || (draggingHand == right && !rightGrip)) draggingHand = null;
+            if (draggingHand == null)
+            {
+                Transform[] hands =
+                {
+                    leftGrip ? left : null,
+                    rightGrip ? right : null
+                };
+                foreach (Transform hand in hands)
+                {
+                    if (hand == null) continue;
+                    Vector3 point = menu.transform.InverseTransformPoint(hand.position);
+                    Vector3 corner = new Vector3(0.56f, Mathf.Sign(point.y) * 0.5f, Mathf.Sign(point.z) * 0.5f);
+                    if (Vector3.Distance(hand.position, menu.transform.TransformPoint(corner)) > 0.1f) continue;
+                    draggingHand = hand;
+                    dragOffset = Quaternion.Inverse(hand.rotation) * (menu.transform.position - hand.position);
+                    dragRotation = Quaternion.Inverse(hand.rotation) * menu.transform.rotation;
+                    break;
+                }
+            }
+            if (draggingHand == null) return;
+            Vector3 position = draggingHand.position + draggingHand.rotation * dragOffset;
+            pinnedMenuRotation = draggingHand.rotation * dragRotation;
+            if (isSearching)
+            {
+                Transform head = GorillaTagger.Instance.headCollider.transform;
+                pinnedMenuPosition = position - head.position;
+            }
+            else pinnedMenuPosition = position;
+        }
+
         public static Main Instance { get; private set; }
 
         public static bool Loaded;
@@ -115,7 +157,7 @@ namespace ShibaGTGenesisReborn.Menu
                     {
                         RecenterMenu(rightHanded, isPCMenu);
                         HandlePCTyping();
-                        HandlePageInputs();
+                        if (draggingHand == null) HandlePageInputs();
                     }
                     else if (toOpen || keyboardOpen)
                     {
@@ -1169,8 +1211,19 @@ namespace ShibaGTGenesisReborn.Menu
         {
             if (!isKeyboardCondition)
             {
-                if (isSearching || isChangingTitle)
+                if (isSearching)
                 {
+                    UpdateFloatingMenuDrag();
+                    Transform head = GorillaTagger.Instance.headCollider.transform;
+                    menu.transform.position = head.position + pinnedMenuPosition;
+                    menu.transform.rotation = pinnedMenuRotation;
+                    ApplyOpenAnimation();
+                    return;
+                }
+
+                if (isChangingTitle)
+                {
+                    UpdateFloatingMenuDrag();
                     menu.transform.position = pinnedMenuPosition;
                     menu.transform.rotation = pinnedMenuRotation;
                     ApplyOpenAnimation();
@@ -2080,6 +2133,7 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void ToggleSearchMode()
         {
+            draggingHand = null;
             isSearching = !isSearching;
             if (isSearching)
             {
@@ -2090,15 +2144,16 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (menu != null && !isPCMenu)
                 {
-                    pinnedMenuPosition = menu.transform.position;
-                    Vector3 headPos = GorillaTagger.Instance.headCollider.transform.position;
+                    Transform head = GorillaTagger.Instance.headCollider.transform;
+                    Vector3 headPos = head.position;
+                    pinnedMenuPosition = menu.transform.position - headPos;
                     
                     Vector3 toHead = headPos - menu.transform.position;
                     toHead.y = 0f;
                     float yaw = toHead.sqrMagnitude > 0.001f ? Mathf.Atan2(toHead.x, toHead.z) * Mathf.Rad2Deg : 0f;
 
                     pinnedMenuRotation = Quaternion.Euler(-90f, yaw - 90f, 0f);
-                    menu.transform.position = pinnedMenuPosition;
+                    menu.transform.position = headPos + pinnedMenuPosition;
                     menu.transform.rotation = pinnedMenuRotation;
                     menu.transform.parent = null;
                     CreateDualReferences();
@@ -2305,6 +2360,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (changed)
                 {
+                    VRRig.LocalRig.PlayHandTapLocal(66, rightHanded, 0.4f);
                     if (!isChangingTitle) SettingsMods.UpdateSearchResults();
                     RecreateMenu();
                 }
@@ -2314,6 +2370,7 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void StartTitleChanger()
         {
+            draggingHand = null;
             if (isSearching) ToggleSearchMode();
             isChangingTitle = true;
             titleInput = menuTitle;
@@ -2352,6 +2409,7 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void CloseTitleChanger(bool apply = false)
         {
+            draggingHand = null;
             if (apply)
             {
                 menuTitle = string.IsNullOrWhiteSpace(titleInput) ? PluginInfo.Name : titleInput;

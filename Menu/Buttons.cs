@@ -168,6 +168,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Broken Neck", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 90f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "broken neck"},
                 new ButtonInfo { buttonText = "Backwards Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.y = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "backwards head"},
                 new ButtonInfo { buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously"},
+                
                 new ButtonInfo { buttonText = "Copy Gun", method =() => mods.CopyGun(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Shoot a player to copy their rig pose and position"},
             },
 

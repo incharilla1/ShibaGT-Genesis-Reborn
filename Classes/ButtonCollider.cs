@@ -37,7 +37,10 @@ namespace ShibaGTGenesisReborn.Classes
                     GorillaTagger.Instance.StartVibration(rightHanded, GorillaTagger.Instance.tagHapticStrength / 2f, GorillaTagger.Instance.tagHapticDuration / 2f);
                 }
                 catch { }
-                plaything();
+                if (relatedText.StartsWith("vkey_") || relatedText.EndsWith("_Backspace") || relatedText.EndsWith("_Space") || relatedText.EndsWith("_Clear"))
+                    VRRig.LocalRig.PlayHandTapLocal(66, rightHanded, 0.4f);
+                else
+                    plaything();
                 Toggle(this.relatedText, this.buttonInfo);
             }
         }
