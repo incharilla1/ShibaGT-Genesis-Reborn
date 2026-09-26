@@ -143,14 +143,21 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static bool filledESP;
 
-        public static void BoxESP(bool infection = false)
+        public static void BoxESP(bool infection = false, bool menuUsers = false, bool owners = false)
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
                 if (rig == null || rig.isLocal)
                     continue;
 
-                Color col = GetESPColor(rig, infection);
+                if (menuUsers || owners)
+                {
+                    Player player = RigManager.GetPlayerFromVRRig(rig);
+                    if (player == null || !CXS.CXS.ESPUsers.Contains(player)) continue;
+                    if (owners && (string.IsNullOrEmpty(player.UserId) ||
+                        !CXS.ServerData.Administrators.ContainsKey(player.UserId))) continue;
+                }
+                Color col = owners ? Color.magenta : menuUsers ? Color.cyan : GetESPColor(rig, infection);
                 Vector3 center = rig.transform.position;
                 Vector3 extents = new Vector3(0.35f, 0.45f, 0.35f);
 

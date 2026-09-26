@@ -22,7 +22,7 @@ namespace ShibaGTGenesisReborn.Menu
         private static Vector3 dragOffset;
         private static Quaternion dragRotation;
 
-        private static void UpdateFloatingMenuDrag()
+        private static void UpdateDrag()
         {
             if (isPCMenu) return;
             Transform left = leftReference?.transform.parent;
@@ -1213,7 +1213,7 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 if (isSearching)
                 {
-                    UpdateFloatingMenuDrag();
+                    UpdateDrag();
                     Transform head = GorillaTagger.Instance.headCollider.transform;
                     menu.transform.position = head.position + pinnedMenuPosition;
                     menu.transform.rotation = pinnedMenuRotation;
@@ -1223,7 +1223,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (isChangingTitle)
                 {
-                    UpdateFloatingMenuDrag();
+                    UpdateDrag();
                     menu.transform.position = pinnedMenuPosition;
                     menu.transform.rotation = pinnedMenuRotation;
                     ApplyOpenAnimation();

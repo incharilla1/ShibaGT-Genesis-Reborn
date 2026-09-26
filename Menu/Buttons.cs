@@ -107,8 +107,8 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // Movement [3]
-                new ButtonInfo { buttonText = "Platforms", method =() => mods.Platforms(), isTogglable = true, toolTip = "Spawn platforms on trigger/grip"},
-                new ButtonInfo { buttonText = "Invis Platforms", method =() => mods.Platforms(true), isTogglable = true, toolTip = "Spawn invisible platforms"},
+                new ButtonInfo { buttonText = "Platforms", method =() => mods.Platforms(), disableMethod =() => mods.ResetPlatforms(), isTogglable = true, toolTip = "Spawn platforms on trigger/grip"},
+                new ButtonInfo { buttonText = "Invis Platforms", method =() => mods.Platforms(true), disableMethod =() => mods.ResetPlatforms(), isTogglable = true, toolTip = "Spawn invisible platforms"},
                 
                 new ButtonInfo { buttonText = "Noclip (RT)", method =() => mods.Noclip(), disableMethod =() => mods.NoclipDisable(), isTogglable = true, toolTip = "Hold right trigger to phase through walls"},
                 
@@ -143,7 +143,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Zipline Speed", method =() => mods.ZiplineSpeed(35f), disableMethod =() => mods.ZiplineSpeed(10f), isTogglable = true, toolTip = "Increase zipline speed"},
                 new ButtonInfo { buttonText = "Catapult", method =() => mods.Catapult(), isTogglable = true, toolTip = "Shoot pointer to launch yourself"},
                 
-                new ButtonInfo { buttonText = "Sticky Hands", method =() => mods.StickyHands(), disableMethod =() => mods.ResetStickyHands(), isTogglable = true, toolTip = "Hold grip on surfaces to stick"},
+                new ButtonInfo { buttonText = "Sticky Hands", enableMethod =() => mods.stickyHands = true, disableMethod =() => mods.ResetStickyHands(), isTogglable = true, toolTip = "Stick on contact, hold grip to release that hand"},
                 
                 new ButtonInfo { buttonText = "PiggyBack", method =() => mods.PiggyBack(), disableMethod =() => mods.PiggyBackDisable(), isTogglable = true, toolTip = "Ride on another player's back"},
                 new ButtonInfo { buttonText = "Follow Player", method =() => mods.FollowPlayer(), disableMethod =() => mods.FollowPlayerDisable(), isTogglable = true, toolTip = "Always follow slightly behind a player"},
@@ -260,6 +260,8 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Wireframe Hitbox ESP", method =() => mods.WireframeHitboxESP(), disableMethod =() => mods.DisableWireframeHitboxESP(), isTogglable = true, toolTip = "Draw wireframe hitboxes"},
                 new ButtonInfo { buttonText = "Infection Hitbox ESP", method =() => mods.InfectionWireframeHitboxESP(), disableMethod =() => mods.DisableWireframeHitboxESP(), isTogglable = true, toolTip = "Draw infection colored wireframe hitboxes"},
                 new ButtonInfo { buttonText = "Name Tags", method =() => mods.NameAndDistanceTags(), isTogglable = true, toolTip = "Show player name and distance"},
+                new ButtonInfo { buttonText = "Menu Users ESP", enableMethod =() => CXS.CXS.SetESP(false, true), method =() => mods.BoxESP(menuUsers: true), disableMethod =() => CXS.CXS.SetESP(false, false), isTogglable = true, toolTip = "Highlight Genesis menu users"},
+                new ButtonInfo { buttonText = "Owner ESP", enableMethod =() => CXS.CXS.SetESP(true, true), method =() => mods.BoxESP(owners: true), disableMethod =() => CXS.CXS.SetESP(true, false), isTogglable = true, toolTip = "Highlight CXS admins"},
                 new ButtonInfo { buttonText = "Moderator ESP", method =() => mods.ModeratorESP(), isTogglable = true, toolTip = "Highlight players with Moderator, Admin, Finger Painter, or Stick badges"},
                 
                 new ButtonInfo { buttonText = "cursedgtag", overlapText = "Cursed Mode: Off", method =() => mods.CursedGTAG(), isTogglable = false, toolTip = "Change cursed time override"},

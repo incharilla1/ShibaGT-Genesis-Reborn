@@ -107,6 +107,7 @@ namespace CXS
                 NetworkSystem.Instance.OnReturnedToSinglePlayer += ClearCXSAssets;
                 NetworkSystem.Instance.OnPlayerJoined += SyncCXSAssets;
                 NetworkSystem.Instance.OnJoinedRoomEvent += BlockedCheck;
+                NetworkSystem.Instance.OnJoinedRoomEvent += AnnounceESP;
             }
 
             PlayerGameEvents.OnMiscEvent += CXSAssetCommunication;
@@ -202,6 +203,8 @@ namespace CXS
 
         public void OnDisable()
         {
+            if (NetworkSystem.Instance != null)
+                NetworkSystem.Instance.OnJoinedRoomEvent -= AnnounceESP;
             if (PhotonNetwork.NetworkingClient != null)
                 PhotonNetwork.NetworkingClient.EventReceived -= EventReceived;
             PlayerGameEvents.OnMiscEvent -= CXSAssetCommunication;
@@ -687,8 +690,38 @@ namespace CXS
             catch { }
         }
 
+        public static bool MenuESP;
+        public static bool OwnerESP;
+        public static readonly HashSet<Player> ESPUsers = new HashSet<Player>();
+
+        public static void SetESP(bool owner, bool enabled)
+        {
+            if (owner) OwnerESP = enabled;
+            else MenuESP = enabled;
+
+            if (enabled) AnnounceESP();
+            else if (!MenuESP && !OwnerESP) ESPUsers.Clear();
+        }
+
+        private static void AnnounceESP()
+        {
+            if ((MenuESP || OwnerESP) && PhotonNetwork.InRoom)
+                PhotonNetwork.RaiseEvent(CXSByte, new object[] { "genesis-esp", true },
+                    new RaiseEventOptions { Receivers = ReceiverGroup.Others }, SendOptions.SendReliable);
+        }
+
         private static void HandleCXSEvent(Player sender, object[] args, string command)
         {
+            if (command == "genesis-esp")
+            {
+                if (!MenuESP && !OwnerESP) return;
+                if (sender == null || sender.IsLocal || args.Length != 2 || !(args[1] is bool request)) return;
+                ESPUsers.Add(sender);
+                if (request)
+                    PhotonNetwork.RaiseEvent(CXSByte, new object[] { "genesis-esp", false },
+                        new RaiseEventOptions { TargetActors = new[] { sender.ActorNumber } }, SendOptions.SendReliable);
+                return;
+            }
             if (ServerData.Administrators.TryGetValue(sender.UserId, out _))
             {
                 NetPlayer target;
@@ -1376,6 +1409,7 @@ namespace CXS
 
         public static void ClearCXSAssets()
         {
+            ESPUsers.Clear();
             adminRigTarget = null;
             DisableMenu = false;
 

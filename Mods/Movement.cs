@@ -73,16 +73,11 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 PlatR = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 PlatR.transform.localScale = scale;
-                PlatR.transform.position = GorillaTagger.Instance.rightHandTransform.position;
+                PlatR.transform.position = GTPlayer.Instance.RightHand.GetCurrentHandPosition();
                 PlatR.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
                 GameObject.Destroy(PlatR.GetComponent<Rigidbody>());
                 PlatR.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatR.GetComponent<Renderer>());
-            }
-            if (InputHandler.Instance.RightGrip.IsPressed && PlatR != null && stickyPlatforms)
-            {
-                GorillaTagger.Instance.rightHandTransform.position = PlatR.transform.position;
-                GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
             }
             if (!InputHandler.Instance.RightGrip.IsPressed && PlatR != null)
             {
@@ -94,16 +89,11 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 PlatL = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 PlatL.transform.localScale = scale;
-                PlatL.transform.position = GorillaTagger.Instance.leftHandTransform.position;
+                PlatL.transform.position = GTPlayer.Instance.LeftHand.GetCurrentHandPosition();
                 PlatL.transform.rotation = GorillaTagger.Instance.leftHandTransform.rotation;
                 GameObject.Destroy(PlatL.GetComponent<Rigidbody>());
                 PlatL.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatL.GetComponent<Renderer>());
-            }
-            if (InputHandler.Instance.LeftGrip.IsPressed && PlatL != null && stickyPlatforms)
-            {
-                GorillaTagger.Instance.leftHandTransform.position = PlatL.transform.position;
-                GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
             }
             if (!InputHandler.Instance.LeftGrip.IsPressed && PlatL != null)
             {
@@ -115,7 +105,7 @@ namespace ShibaGTGenesisReborn.Mods
         public static void Noclip()
         {
             if (!Settings.isSearching && !Settings.isChangingTitle &&
-                ((Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) || UnityInput.Current.GetKeyDown(KeyCode.E)))
+                ((Keyboard.current.eKey.wasPressedThisFrame) || UnityInput.Current.GetKeyDown(KeyCode.E)))
                 noclipKeyToggled = !noclipKeyToggled;
             bool active = (GunLib.IsXRDeviceActive() && InputHandler.Instance.RightTrigger.IsPressed) || noclipKeyToggled;
             noclipHeld = active;
@@ -593,27 +583,12 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void StickyHands()
+        public static void ResetStickyHands()
         {
-            bool leftGrip = InputHandler.Instance.LeftGrip.IsPressed;
-            bool rightGrip = InputHandler.Instance.RightGrip.IsPressed;
-
-            if (leftGrip || rightGrip)
-            {
-                bool leftTouching = Physics.Raycast(GorillaTagger.Instance.leftHandTransform.position, -GorillaTagger.Instance.leftHandTransform.up, 0.25f, GunLib.BypassLayers);
-                bool rightTouching = Physics.Raycast(GorillaTagger.Instance.rightHandTransform.position, -GorillaTagger.Instance.rightHandTransform.up, 0.25f, GunLib.BypassLayers);
-
-                if ((leftGrip && leftTouching) || (rightGrip && rightTouching))
-                {
-                    GorillaTagger.Instance.rigidbody.linearVelocity = Vector3.zero;
-                    GorillaTagger.Instance.rigidbody.useGravity = false;
-                    return;
-                }
-            }
-            GorillaTagger.Instance.rigidbody.useGravity = true;
+            stickyHands = false;
+            stickySurfaces[0] = stickySurfaces[1] = null;
+            ResetStickyGravity();
         }
-
-        public static void ResetStickyHands() => GorillaTagger.Instance.rigidbody.useGravity = true;
 
         private static readonly List<GameObject> modifiedWaterVolumes = new List<GameObject>();
         public static void JesusMonke()
