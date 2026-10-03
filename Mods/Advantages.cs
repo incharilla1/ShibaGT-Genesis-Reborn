@@ -1,4 +1,3 @@
-using CXS;
 using ExitGames.Client.Photon;
 using GorillaGameModes;
 using GorillaLocomotion;
@@ -61,14 +60,11 @@ namespace ShibaGTGenesisReborn.Mods
 
             PhotonView pv = RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig);
             if (pv != null && PhotonNetwork.MasterClient != null)
-                NetworkingLibrary.SendRigPosition(pv, targetPos, new int[] { PhotonNetwork.MasterClient.ActorNumber });
+                NetworkingLibrary.SendRigPosition(targetPos, new int[] { PhotonNetwork.MasterClient.ActorNumber }, view: pv);
 
             Player targetPlayer = RigManager.GetPlayerFromVRRig(p);
-            if (targetPlayer != null)
-            {
-                GameMode.ReportTag(targetPlayer);
-                PhotonNetwork.SendAllOutgoingCommands();
-            }
+            GameMode.ReportTag(targetPlayer);
+            PhotonNetwork.SendAllOutgoingCommands();
 
             CXS.CXS.TeleportPlayer(originalPos);
         }
@@ -118,20 +114,26 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static Vector3 tagSelfOrigin;
         private static bool tagSelfActive;
+        private static VRRig tagSelfTarget;
 
         public static void DisableTagSelf()
         {
             if (tagSelfActive)
             {
-                CXS.CXS.TeleportPlayer(tagSelfOrigin);
+                GTPlayer.Instance.TeleportTo(tagSelfOrigin, GTPlayer.Instance.transform.rotation, false, false);
                 tagSelfActive = false;
             }
+            tagSelfTarget = null;
             VRRig.LocalRig.enabled = true;
         }
 
         public static void TagSelf()
         {
-            if (!NetworkSystem.Instance.InRoom) return;
+            if (!NetworkSystem.Instance.InRoom)
+            {
+                DisableTagSelf();
+                return;
+            }
 
             if (IsRigInfected(VRRig.LocalRig))
             {
@@ -145,49 +147,41 @@ namespace ShibaGTGenesisReborn.Mods
                 return;
             }
 
-            if (!tagSelfActive)
-            {
-                tagSelfOrigin = GTPlayer.Instance.transform.position;
-                tagSelfActive = true;
-            }
-
-            VRRig target = null;
+            VRRig target = tagSelfTarget;
+            if (target != null && (!VRRigCache.ActiveRigs.Contains(target) || !IsRigInfected(target)))
+                target = null;
             float min = float.MaxValue;
             Vector3 localBody = GorillaTagger.Instance.bodyCollider.transform.position;
 
-            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            if (target == null)
             {
-                if (rig != null && !rig.isLocal && rig != VRRig.LocalRig && IsRigInfected(rig))
+                foreach (VRRig rig in VRRigCache.ActiveRigs)
                 {
-                    Vector3 rigPos = rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position;
-                    float d = Vector3.Distance(localBody, rigPos);
-                    if (d < min)
+                    if (rig != null && !rig.isLocal && rig != VRRig.LocalRig && IsRigInfected(rig))
                     {
-                        min = d;
-                        target = rig;
+                        float d = (localBody - rig.head.rigTarget.position).sqrMagnitude;
+                        if (d < min)
+                        {
+                            min = d;
+                            target = rig;
+                        }
                     }
                 }
             }
 
             if (target != null)
             {
-                RPCProt();
+                if (!tagSelfActive)
+                {
+                    tagSelfOrigin = GTPlayer.Instance.transform.position;
+                    tagSelfActive = true;
+                }
+                tagSelfTarget = target;
                 Vector3 handPos = target.rightHandTransform != null ? target.rightHandTransform.position : (target.leftHandTransform != null ? target.leftHandTransform.position : target.transform.position);
-                Vector3 bodyOffset = GorillaTagger.Instance.bodyCollider.transform.position - GTPlayer.Instance.transform.position;
-                Vector3 targetPos = handPos - bodyOffset;
+                Vector3 headOffset = GorillaTagger.Instance.headCollider.transform.position - GorillaTagger.Instance.bodyCollider.transform.position;
+                Vector3 targetPos = handPos + headOffset;
 
                 CXS.CXS.TeleportPlayer(targetPos);
-
-                PhotonView pv = RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig);
-                if (pv != null)
-                {
-                    Player targetPlayer = RigManager.GetPlayerFromVRRig(target);
-                    int[] targets = targetPlayer != null && PhotonNetwork.MasterClient != null
-                        ? new int[] { PhotonNetwork.MasterClient.ActorNumber, targetPlayer.ActorNumber }
-                        : (PhotonNetwork.MasterClient != null ? new int[] { PhotonNetwork.MasterClient.ActorNumber } : null);
-
-                    NetworkingLibrary.SendRigPosition(pv, targetPos, targets);
-                }
             }
         }
 

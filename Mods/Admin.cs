@@ -1,7 +1,7 @@
-using CXS;
 using Photon.Pun;
 using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
+using CXS;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using System;
@@ -96,7 +96,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("kick", GunLib.LockedPlayer.Creator.ActorNumber, GunLib.LockedPlayer.Creator.UserId);
@@ -108,7 +108,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("silkick", GunLib.LockedPlayer.Creator.ActorNumber, GunLib.LockedPlayer.Creator.UserId);
@@ -120,7 +120,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("crash", GunLib.LockedPlayer.Creator.ActorNumber);
@@ -132,7 +132,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.3f;
                     CXS.CXS.ExecuteCommand("vibrate", GunLib.LockedPlayer.Creator.ActorNumber, 3, 3f);
@@ -144,7 +144,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("Slow", GunLib.LockedPlayer.Creator.ActorNumber);
@@ -156,7 +156,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 1.0f;
                     CXS.CXS.ExecuteCommand("sleep", GunLib.LockedPlayer.Creator.ActorNumber, 5000);
@@ -168,7 +168,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 1.0f;
                     CXS.CXS.ExecuteCommand("block", GunLib.LockedPlayer.Creator.ActorNumber, 3600L);
@@ -180,7 +180,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("togglemenu", GunLib.LockedPlayer.Creator.ActorNumber, true);
@@ -192,7 +192,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("togglemenu", GunLib.LockedPlayer.Creator.ActorNumber, false);
@@ -204,7 +204,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && GunLib.spherepointer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && GunLib.spherepointer != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("tp", GunLib.LockedPlayer.Creator.ActorNumber, GunLib.spherepointer.transform.position);
@@ -216,7 +216,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("vel", GunLib.LockedPlayer.Creator.ActorNumber, new Vector3(0f, 65f, 0f));
@@ -228,7 +228,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("rocket", GunLib.LockedPlayer.Creator.ActorNumber);
@@ -240,7 +240,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("blind", GunLib.LockedPlayer.Creator.ActorNumber);
@@ -255,7 +255,7 @@ namespace ShibaGTGenesisReborn.Mods
                 if (Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.4f;
-                    Vector3 targetPos = GunLib.LockedPlayer != null ? GunLib.LockedPlayer.headMesh.transform.position : (GunLib.spherepointer != null ? GunLib.spherepointer.transform.position : Vector3.zero);
+                    Vector3 targetPos = GunLib.LockedPlayer != null && GunLib.LockedPlayer.headMesh != null ? GunLib.LockedPlayer.headMesh.transform.position : (GunLib.spherepointer != null ? GunLib.spherepointer.transform.position : Vector3.zero);
                     if (targetPos != Vector3.zero)
                     {
                         CXS.CXS.LightningStrike(targetPos);
@@ -269,7 +269,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("shake", GunLib.LockedPlayer.Creator.ActorNumber, 1.5f, 4f, true);
@@ -281,7 +281,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("mute", ReceiverGroup.Others, GunLib.LockedPlayer.Creator.UserId);
@@ -293,7 +293,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("unmute", ReceiverGroup.Others, GunLib.LockedPlayer.Creator.UserId);
@@ -305,7 +305,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GunLib.StartGun(() =>
             {
-                if (GunLib.LockedPlayer != null && Time.time > actionDelay)
+                if (GunLib.LockedPlayer != null && GunLib.LockedPlayer.Creator != null && Time.time > actionDelay)
                 {
                     actionDelay = Time.time + 0.5f;
                     CXS.CXS.ExecuteCommand("spatial", GunLib.LockedPlayer.Creator.ActorNumber, false);

@@ -16,6 +16,7 @@ namespace ShibaGTGenesisReborn.Mods
         private static bool rigPaused;
         private static bool ghostHeld;
         private static bool invisHeld;
+        private static bool remoteHeld;
         private static VRRig lookFreezeTarget;
 
         public static void LookFreezeGun()
@@ -31,6 +32,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void LookFreezeAll()
         {
+            allLooking = false;
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
                 if (rig != null && !rig.isLocal && rig != VRRig.LocalRig && IsLookingAtRig(rig))
@@ -44,15 +46,15 @@ namespace ShibaGTGenesisReborn.Mods
         public static void DisableLookFreezeGun()
         {
             lookFreezeTarget = null;
+            gunLooking = false;
             GunLib.CleanupPointer();
         }
 
         private static bool IsLookingAtRig(VRRig rig)
         {
-            Transform head = rig.headConstraint;
-            Transform target = VRRig.LocalRig.headConstraint;
-            Vector3 direction = (target.position - head.position).normalized;
-            return Vector3.Dot(head.forward, direction) >= (rigFrozen ? 0.82f : 0.9f);
+            Vector3 direction = (VRRig.LocalRig.head.rigTarget.position - rig.head.rigTarget.position).normalized;
+            Vector3 forward = rig.head.rigTarget.parent.rotation * rig.head.syncRotation * Vector3.forward;
+            return Vector3.Dot(forward, direction) >= (rigFrozen ? 0.8f : 0.85f);
         }
 
         public static void GhostMonke() => ghostHeld = InputHandler.Instance.LeftPrimary.IsPressed || UnityInput.Current.GetKey(KeyCode.F);
@@ -60,23 +62,17 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void UpdateRigTracking()
         {
-            bool pause = ghostHeld || invisHeld || gunLooking || allLooking;
-            if (pause) 
-            {
-                VRRig.LocalRig.enabled = false;
-                GorillaTagger.Instance.offlineVRRig.enabled = false;
-                TickSystem<object>.RemovePostTickCallback(VRRig.LocalRig); 
-            }
-            else if (rigPaused) TickSystem<object>.AddPostTickCallback(VRRig.LocalRig);
+            bool pause = ghostHeld || invisHeld || gunLooking || allLooking || remoteHeld;
+            if (pause && !rigPaused) TickSystem<object>.RemovePostTickCallback(VRRig.LocalRig);
+            else if (!pause && rigPaused) TickSystem<object>.AddPostTickCallback(VRRig.LocalRig);
             rigPaused = pause;
 
             if (invisHeld) VRRig.LocalRig.transform.position = new Vector3(0f, -999f, 0f);
 
             rigFrozen = gunLooking || allLooking;
-            gunLooking = allLooking = ghostHeld = invisHeld = false;
+            gunLooking = allLooking = ghostHeld = invisHeld = remoteHeld = false;
         }
 
-        private static Vector3 armlen = new Vector3(1f, 1f, 1f);
         public static void LongArms()
         {
             if (InputHandler.Instance.RightTrigger.IsPressed)
@@ -118,7 +114,8 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (GunLib.LockedPlayer == null) return;
 
-                NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), GunLib.LockedPlayer.transform.position);
+                remoteHeld = true;
+                NetworkingLibrary.SendRigPosition(GunLib.LockedPlayer.transform.position);
                 VRRig.LocalRig.transform.rotation = GunLib.LockedPlayer.transform.rotation;
 
                 VRRig.LocalRig.head.rigTarget.transform.localPosition = GunLib.LockedPlayer.head.rigTarget.transform.localPosition;

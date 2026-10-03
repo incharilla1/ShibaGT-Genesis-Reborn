@@ -20,6 +20,8 @@ namespace ShibaGTGenesisReborn
 
         public static Font currentFont = (Resources.GetBuiltinResource(typeof(Font), "Arial.ttf") as Font);
 
+        [Setting] public static bool autoSaveSettings = true;
+
         [Setting] public static bool fpsCounter = true;
         [Setting] public static bool disconnectButton = true;
         [Setting] public static bool SettingsButton = true;
@@ -67,15 +69,6 @@ namespace ShibaGTGenesisReborn
             "Chunky 3D",
             "Bordered",
             "Compact"
-        };
-
-        [Setting] public static int textSizeIndex = 0;
-        public static readonly string[] textSizeNames =
-        {
-            "Auto",
-            "Small",
-            "Medium",
-            "Large"
         };
 
         [Setting] public static int pageButtonIndex = 0;

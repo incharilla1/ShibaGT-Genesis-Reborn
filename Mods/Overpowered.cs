@@ -1,23 +1,22 @@
 using ExitGames.Client.Photon;
 using GorillaNetworking;
-using GorillaTag;
-using GorillaTag.CosmeticSystem;
 using GorillaTagScripts;
-using Liv.Lck.Tablet;
 using Photon.Pun;
 using Photon.Realtime;
+using Photon.Voice.PUN;
+using Photon.Voice.Unity;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
-using ShibaGTGenesisReborn.Menu;
-using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
-using UnityEngine.Playables;
 
 namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
+        private static float nextTargetSpam;
         public static void DestroyGun()
         {
             GunLib.StartGun(() =>
@@ -41,6 +40,9 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void TargetSpam()
         {
+            if (Time.time < nextTargetSpam) return;
+            nextTargetSpam = Time.time + 1f;
+
             foreach (HitTargetNetworkState target in GameObject.FindObjectsByType<HitTargetNetworkState>(FindObjectsSortMode.None))
             {
                 if (target == null) continue;
@@ -91,7 +93,12 @@ namespace ShibaGTGenesisReborn.Mods
         {
             GRPlayer player = GRPlayer.GetLocal();
             if (player != null)
+            {
                 player.ClearStealthMode();
+                player.SetShieldHp(0);
+                player.shieldFlags = 0;
+                player.RefreshPlayerVisuals();
+            }
         }
 
         public static void KillAllGhostReactorEnemies()
@@ -230,31 +237,29 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SetAllDoors(bool open)
         {
-            int changed = 0;
             foreach (GRDoorWrapper door in GameObject.FindObjectsByType<GRDoorWrapper>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                try
-                {
+                if (door.grDoor != null && door.grDoor.animation != null)
                     door.ToggleDoor(open);
-                    changed++;
-                }
-                catch { }
             }
 
-            GRElevator.ElevatorState elevatorState = open
-                ? GRElevator.ElevatorState.DoorOpen
-                : GRElevator.ElevatorState.DoorClosed;
+            foreach (GRShuttle shuttle in GameObject.FindObjectsByType<GRShuttle>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (open) shuttle.OpenDoorLocal();
+                else shuttle.CloseDoorLocal();
+            }
+
+            foreach (GTDoor door in GameObject.FindObjectsByType<GTDoor>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                door.currentState = open ? GTDoor.DoorState.Closed : GTDoor.DoorState.Open;
+                if (open) door.OpenDoor();
+                else door.CloseDoor();
+            }
 
             foreach (GRElevator elevator in GameObject.FindObjectsByType<GRElevator>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (elevator == null) continue;
-
-                try
-                {
-                    elevator.UpdateLocalState(elevatorState);
-                    changed++;
-                }
-                catch { }
+                if (elevator.upperDoor == null || elevator.lowerDoor == null || elevator.openTargetTop == null || elevator.closedTargetTop == null) continue;
+                elevator.UpdateLocalState(open ? GRElevator.ElevatorState.DoorBeginOpening : GRElevator.ElevatorState.DoorBeginClosing);
             }
         }
 
@@ -277,7 +282,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (!NetworkSystem.Instance.InRoom) return;
             RPCProt(true);
 
-            NetworkingLibrary.SendRigPosition(GorillaTagger.Instance.myVRRig.GetView, GorillaTagger.Instance.headCollider.transform.position);
+            NetworkingLibrary.SendRigPosition(GorillaTagger.Instance.headCollider.transform.position);
             
             int[] loudIds = { 66, 67, 8, 12, 24, 32 };
             for (int i = 0; i < 6; i++)
@@ -313,5 +318,55 @@ namespace ShibaGTGenesisReborn.Mods
             GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, targetHead, Quaternion.identity, 1f, 0.5f, true, true);
             GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayGeodeEffect", RpcTarget.All, targetHead);
         }
+
+        public static void StumpKickGun() 
+        {
+            GunLib.StartGun(() =>
+            {
+                if (GunLib.LockedPlayer != null)
+                    StumpKick(GunLib.LockedPlayer);
+            }, true);
+        }
+
+        public static void StumpKick(VRRig rig = null)
+        {
+            if (!PhotonNetwork.InRoom || !NetworkSystem.Instance.SessionIsPrivate) return;
+
+            int[] actors;
+
+            if (rig != null)
+            {
+                if (rig.isLocal) return;
+                Player player = RigManager.NetPlayerToPlayer(RigManager.GetPlayerFromVRRig(rig));
+                if (!GorillaComputer.instance.friendJoinCollider.playerIDsCurrentlyTouching.Contains(player.UserId)) return;
+
+                PhotonNetworkController.Instance.FriendIDList.Add(player.UserId);
+                actors = new int[] { player.ActorNumber };
+            }
+            else
+            {
+                actors = VRRigCache.ActiveRigs
+                    .Where(r => !r.isLocal && GorillaComputer.instance.friendJoinCollider.playerIDsCurrentlyTouching.Contains(r.Creator.UserId))
+                    .Select(r => {
+                        Player p = RigManager.NetPlayerToPlayer(RigManager.GetPlayerFromVRRig(r));
+                        PhotonNetworkController.Instance.FriendIDList.Add(p.UserId);
+                        return p.ActorNumber;
+                    }).ToArray();
+            }
+
+            if (actors.Length == 0) return;
+            Kick(actors);
+        }
+
+        private static void Kick(int[] targetActors)
+        {
+            PhotonNetworkController.Instance.FriendIDList.Clear();
+            PhotonNetworkController.Instance.shuffler = UnityEngine.Random.Range(0, 99).ToString().PadLeft(2, '0') + UnityEngine.Random.Range(0, 99999999).ToString().PadLeft(8, '0');
+            PhotonNetworkController.Instance.keyStr = UnityEngine.Random.Range(0, 99999999).ToString().PadLeft(8, '0');
+            RoomSystem.SendEvent(4, new object[] { PhotonNetworkController.Instance.shuffler, PhotonNetworkController.Instance.keyStr }, new NetEventOptions { TargetActors = targetActors }, false);
+
+            if (RPCProt())
+                mods.CreateRoom();
+        }        
     }
 }

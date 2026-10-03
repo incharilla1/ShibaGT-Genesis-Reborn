@@ -16,6 +16,8 @@ namespace ShibaGTGenesisReborn
     public static class Preferences
     {
         private static string ConfigPath => Path.Combine(ModsLib.GenesisDirectory, "genesisprefs.json");
+        private static string SettingsConfigPath => Path.Combine(ModsLib.GenesisDirectory, "genesis-settings.json");
+        private static float nextAutoSaveTime;
 
         private class ButtonState
         {
@@ -139,6 +141,11 @@ namespace ShibaGTGenesisReborn
                 }
             }
 
+            return new SavePayload { Buttons = buttons, Settings = BuildSettings() };
+        }
+
+        private static Dictionary<string, object> BuildSettings()
+        {
             EnsureAccessors();
             var settings = new Dictionary<string, object>(_accessors.Length);
             for (int i = 0; i < _accessors.Length; i++)
@@ -146,8 +153,24 @@ namespace ShibaGTGenesisReborn
                 ref var acc = ref _accessors[i];
                 settings[acc.Key] = acc.Getter();
             }
+            return settings;
+        }
 
-            return new SavePayload { Buttons = buttons, Settings = settings };
+        private static void ApplySettings(Dictionary<string, object> settings)
+        {
+            if (settings == null) return;
+            EnsureAccessors();
+            for (int i = 0; i < _accessors.Length; i++)
+            {
+                ref var acc = ref _accessors[i];
+                if (!settings.TryGetValue(acc.Key, out object val) && !settings.TryGetValue(acc.FallbackKey, out val)) continue;
+                try
+                {
+                    if (val is JToken token) acc.Setter(token.ToObject(acc.Type));
+                    else if (val != null) acc.Setter(Convert.ChangeType(val, acc.Type));
+                }
+                catch { }
+            }
         }
 
         private static void ApplyPayload(SavePayload payload)
@@ -155,28 +178,7 @@ namespace ShibaGTGenesisReborn
             if (payload == null) return;
             EnsureAccessors();
 
-            if (payload.Settings != null)
-            {
-                for (int i = 0; i < _accessors.Length; i++)
-                {
-                    ref var acc = ref _accessors[i];
-                    if (payload.Settings.TryGetValue(acc.Key, out object val) || payload.Settings.TryGetValue(acc.FallbackKey, out val))
-                    {
-                        try
-                        {
-                            if (val is JToken token)
-                            {
-                                acc.Setter(token.ToObject(acc.Type));
-                            }
-                            else if (val != null)
-                            {
-                                acc.Setter(Convert.ChangeType(val, acc.Type));
-                            }
-                        }
-                        catch { }
-                    }
-                }
-            }
+            ApplySettings(payload.Settings);
 
             Main.favoriteButtons.Clear();
             if (payload.Buttons != null)
@@ -263,6 +265,52 @@ namespace ShibaGTGenesisReborn
             catch
             {
                 SyncSettings();
+            }
+        }
+
+        public static void SaveSettings()
+        {
+            try
+            {
+                Directory.CreateDirectory(ModsLib.GenesisDirectory);
+                File.WriteAllText(SettingsConfigPath, JsonConvert.SerializeObject(BuildSettings(), Formatting.Indented));
+            }
+            catch { }
+        }
+
+        public static void LoadSettings()
+        {
+            if (!File.Exists(SettingsConfigPath)) return;
+            try
+            {
+                ApplySettings(JsonConvert.DeserializeObject<Dictionary<string, object>>(File.ReadAllText(SettingsConfigPath)));
+                ButtonInfo autoSaveButton = Main.GetIndex("Auto Save Settings");
+                if (autoSaveButton != null) autoSaveButton.enabled = Settings.autoSaveSettings;
+                SyncSettings();
+            }
+            catch { }
+        }
+
+        public static void SetAutoSaveSettings(bool enabled)
+        {
+            Settings.autoSaveSettings = enabled;
+            nextAutoSaveTime = enabled ? Time.unscaledTime + 30f : 0f;
+            SaveSettings();
+        }
+
+        public static void UpdateAutoSave()
+        {
+            if (!Settings.autoSaveSettings)
+            {
+                nextAutoSaveTime = 0f;
+                return;
+            }
+            if (nextAutoSaveTime <= 0f)
+                nextAutoSaveTime = Time.unscaledTime + 30f;
+            else if (Time.unscaledTime >= nextAutoSaveTime)
+            {
+                SaveSettings();
+                nextAutoSaveTime = Time.unscaledTime + 30f;
             }
         }
 

@@ -21,12 +21,17 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static string[] pullmodes =
         {
-            "Speed Boost",
+            "Light",
             "Legit",
+            "Speed Boost",
+            "High Jump",
             "Reset"
         };
 
-        [Setting] public static int pullmodeIndex = 0;
+        [Setting] public static int pullmodeIndex = 1;
+        [Setting] public static int movementSpeedIndex = 1;
+        public static readonly string[] movementSpeedNames = { "Slow", "Normal", "Fast" };
+        private static int appliedPullMode = -1;
         [Setting] public static int Platcolor;
         public static Color PlatColor = Color.blue;
         public static readonly Color[] PlatColors =
@@ -65,7 +70,6 @@ namespace ShibaGTGenesisReborn.Mods
         private static bool dragging;
         private static float yaw, pitch, anchorX, anchorY;
         private const float sensitivity = 360f * 1.33f;
-        private const float speed = 9f;
 
         public static void Platforms(bool Invis = false)
         {
@@ -73,8 +77,8 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 PlatR = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 PlatR.transform.localScale = scale;
-                PlatR.transform.position = GTPlayer.Instance.RightHand.GetCurrentHandPosition();
-                PlatR.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation;
+                PlatR.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation * GTPlayer.Instance.RightHand.handRotOffset;
+                PlatR.transform.position = GTPlayer.Instance.RightHand.handFollower.position - PlatR.transform.right * (scale.x * 0.5f + GTPlayer.Instance.minimumRaycastDistance * GTPlayer.Instance.scale);
                 GameObject.Destroy(PlatR.GetComponent<Rigidbody>());
                 PlatR.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatR.GetComponent<Renderer>());
@@ -89,8 +93,8 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 PlatL = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 PlatL.transform.localScale = scale;
-                PlatL.transform.position = GTPlayer.Instance.LeftHand.GetCurrentHandPosition();
-                PlatL.transform.rotation = GorillaTagger.Instance.leftHandTransform.rotation;
+                PlatL.transform.rotation = GorillaTagger.Instance.leftHandTransform.rotation * GTPlayer.Instance.LeftHand.handRotOffset;
+                PlatL.transform.position = GTPlayer.Instance.LeftHand.handFollower.position - PlatL.transform.right * (scale.x * 0.5f + GTPlayer.Instance.minimumRaycastDistance * GTPlayer.Instance.scale);
                 GameObject.Destroy(PlatL.GetComponent<Rigidbody>());
                 PlatL.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatL.GetComponent<Renderer>());
@@ -104,8 +108,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void Noclip()
         {
-            if (!Settings.isSearching && !Settings.isChangingTitle &&
-                ((Keyboard.current.eKey.wasPressedThisFrame) || UnityInput.Current.GetKeyDown(KeyCode.E)))
+            if (!Settings.isSearching && !Settings.isChangingTitle && UnityInput.Current.GetKeyDown(KeyCode.E))
                 noclipKeyToggled = !noclipKeyToggled;
             bool active = (GunLib.IsXRDeviceActive() && InputHandler.Instance.RightTrigger.IsPressed) || noclipKeyToggled;
             noclipHeld = active;
@@ -123,8 +126,8 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (InputHandler.Instance.RightSecondary.IsPressed)
             {
-                GorillaLocomotion.GTPlayer.Instance.transform.position += GorillaLocomotion.GTPlayer.Instance.headCollider.transform.forward * Time.deltaTime * speed;
-                if (fly) GorillaLocomotion.GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
+                GTPlayer.Instance.transform.position += GTPlayer.Instance.headCollider.transform.forward * Time.deltaTime * speed;
+                if (fly) GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
             }
         }
 
@@ -133,7 +136,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (Settings.isSearching || Settings.isChangingTitle) return;
 
             Rigidbody rb = GorillaTagger.Instance.rigidbody;
-            Transform cam = GorillaLocomotion.GTPlayer.Instance.GetControllerTransform(false).parent;
+            Transform cam = GTPlayer.Instance.GetControllerTransform(false).parent;
             rb.linearVelocity = Vector3.zero;
 
             if (Mouse.current.rightButton.isPressed)
@@ -163,14 +166,24 @@ namespace ShibaGTGenesisReborn.Mods
                 dragging = false;
             }
 
-            float dt = Time.deltaTime * speed * (UnityInput.Current.GetKey(KeyCode.LeftShift) ? 1.5f : 1f);
-            var t = rb.transform;
+            float dt = Time.deltaTime * (6f + movementSpeedIndex * 4f) * (UnityInput.Current.GetKey(KeyCode.LeftShift) ? 1.5f : 1f);
+            Transform t = rb.transform;
             if (UnityInput.Current.GetKey(KeyCode.W)) t.position += cam.forward * dt;
             if (UnityInput.Current.GetKey(KeyCode.S)) t.position -= cam.forward * dt;
             if (UnityInput.Current.GetKey(KeyCode.A)) t.position -= cam.right * dt;
             if (UnityInput.Current.GetKey(KeyCode.D)) t.position += cam.right * dt;
             if (UnityInput.Current.GetKey(KeyCode.Space)) t.position += Vector3.up * dt;
             if (UnityInput.Current.GetKey(KeyCode.LeftControl)) t.position += Vector3.down * dt;
+        }
+
+        public static void VelocityFly()
+        {
+            if (Settings.isSearching || Settings.isChangingTitle) return;
+            if (InputHandler.Instance.RightSecondary.IsPressed)
+            {
+                float flySpeed = 6f + movementSpeedIndex * 4f;
+                GorillaTagger.Instance.rigidbody.linearVelocity = GTPlayer.Instance.headCollider.transform.forward * flySpeed;
+            }
         }
 
         public static void TeleportGun()
@@ -203,7 +216,7 @@ namespace ShibaGTGenesisReborn.Mods
             VRRig.LocalRig.transform.position = targetPlayerPos;
             GorillaTagger.Instance.offlineVRRig.transform.position = targetPlayerPos;
 
-            NetworkingLibrary.SendRigPosition(RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig), targetPlayerPos);
+            NetworkingLibrary.SendRigPosition(targetPlayerPos);
 
             Physics.SyncTransforms();
             GTPlayer.Instance.ForceRigidBodySync();
@@ -211,6 +224,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void PullMod()
         {
+            if (appliedPullMode != pullmodeIndex) ApplyPullMode();
             bool leftTouch = GTPlayer.Instance.IsHandTouching(true);
             bool rightTouch = GTPlayer.Instance.IsHandTouching(false);
 
@@ -224,26 +238,32 @@ namespace ShibaGTGenesisReborn.Mods
             lastRightTouch = rightTouch;
         }
 
-        public static void ChangePullMode()
+        public static void ApplyPullMode()
         {
-            Main.Change("pullmode", ref pullmodeIndex, pullmodes, () =>
+            switch (pullmodeIndex)
             {
-                switch (pullmodeIndex)
-                {
-                    case 0:
-                        PullPower = 0.025f;
-                        UpHillPower = 0.02f;
-                        break;
-                    case 1:
-                        PullPower = 0.07f;
-                        UpHillPower = 0.065f;
-                        break;
-                    case 2:
-                        PullPower = 0.001f;
-                        UpHillPower = 0.001f;
-                        break;
-                }
-            });
+                case 0:
+                    PullPower = 0.035f;
+                    UpHillPower = 0.025f;
+                    break;
+                case 1:
+                    PullPower = 0.07f;
+                    UpHillPower = 0.065f;
+                    break;
+                case 2:
+                    PullPower = 0.11f;
+                    UpHillPower = 0.08f;
+                    break;
+                case 3:
+                    PullPower = 0.07f;
+                    UpHillPower = 0.13f;
+                    break;
+                case 4:
+                    PullPower = 0f;
+                    UpHillPower = 0f;
+                    break;
+            }
+            appliedPullMode = pullmodeIndex;
         }
 
         public static void GravityManager(Gravitytypes type)
@@ -953,52 +973,8 @@ namespace ShibaGTGenesisReborn.Mods
             _saved.Clear();
         }
 
-        private static readonly List<(GorillaSurfaceOverride surface, int originalIndex, float originalSlide)> savedSurfaces = new List<(GorillaSurfaceOverride, int, float)>();
-        private static float noSlipRefreshTimer;
-
-        public static void NoSlip()
-        {
-            if (savedSurfaces.Count == 0 || Time.time > noSlipRefreshTimer)
-            {
-                noSlipRefreshTimer = Time.time + 3f;
-                GorillaSurfaceOverride[] surfaces = Object.FindObjectsByType<GorillaSurfaceOverride>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-                for (int i = 0; i < surfaces.Length; i++)
-                {
-                    GorillaSurfaceOverride surface = surfaces[i];
-                    if (surface != null && (surface.overrideIndex != 0 || surface.slidePercentageOverride > 0f))
-                    {
-                        bool alreadyTracked = false;
-                        for (int j = 0; j < savedSurfaces.Count; j++)
-                        {
-                            if (savedSurfaces[j].surface == surface)
-                            {
-                                alreadyTracked = true;
-                                break;
-                            }
-                        }
-
-                        if (!alreadyTracked)
-                            savedSurfaces.Add((surface, surface.overrideIndex, surface.slidePercentageOverride));
-
-                        surface.overrideIndex = 0;
-                        surface.slidePercentageOverride = 0.0001f;
-                    }
-                }
-            }
-        }
-
-        public static void ReSlip()
-        {
-            for (int i = 0; i < savedSurfaces.Count; i++)
-            {
-                var (surface, originalIndex, originalSlide) = savedSurfaces[i];
-                if (surface != null)
-                {
-                    surface.overrideIndex = originalIndex;
-                    surface.slidePercentageOverride = originalSlide;
-                }
-            }
-            savedSurfaces.Clear();
-        }
+        public static bool noSlip;
+        public static void NoSlip() => noSlip = true;
+        public static void ReSlip() => noSlip = false;
     }
 }

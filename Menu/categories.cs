@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
+using CXS;
 using ShibaGTGenesisReborn.Libs;
 using static ShibaGTGenesisReborn.Menu.Main;
 using static ShibaGTGenesisReborn.Settings;
@@ -91,7 +92,7 @@ namespace ShibaGTGenesisReborn.Menu
         
         public static void adminmods()
         {
-            if (!CXS.ServerData.IsLocalAdmin())
+            if (!ServerData.IsLocalAdmin())
             {
                 Libs.NotificationLib.SendNotification(Libs.NotificationLib.NotificationType.Alert, "<color=purple>CXS</color>\nAccess Denied.", 3f);
                 return;

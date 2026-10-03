@@ -25,6 +25,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Video;
 using Random = UnityEngine.Random;
@@ -453,8 +454,7 @@ namespace CXS
 
         public static void ApplyFog(Color targetColor, float fogDensity, float start = 0f, float end = 12f)
         {
-            if (ZoneShaderSettings.activeInstance != null)
-                ZoneShaderSettings.activeInstance.SetGroundFogValue(targetColor, fogDensity, start, end);
+            ZoneShaderSettings.activeInstance.SetGroundFogValue(targetColor, fogDensity, start, end);
             RenderSettings.fog = true;
             RenderSettings.fogColor = targetColor;
             RenderSettings.fogDensity = fogDensity;
@@ -468,7 +468,10 @@ namespace CXS
             if (ZoneShaderSettings.activeInstance != null)
             {
                 if (ZoneShaderSettings.defaultsInstance != null)
-                    ZoneShaderSettings.activeInstance.CopySettings(ZoneShaderSettings.defaultsInstance);
+                {
+                    ZoneShaderSettings defaults = ZoneShaderSettings.defaultsInstance;
+                    ZoneShaderSettings.activeInstance.SetGroundFogValue(defaults.groundFogColor, defaults._groundFogDepthFadeSize, defaults.groundFogHeight, defaults._groundFogHeightFadeSize);
+                }
                 else
                     ZoneShaderSettings.activeInstance.SetGroundFogValue(Color.clear, 0f, 0f, 0f);
             }
@@ -476,7 +479,6 @@ namespace CXS
             RenderSettings.fogDensity = 0f;
             Shader.SetGlobalColor("_GroundFogColor", Color.clear);
             Shader.SetGlobalFloat("_GroundFogDensity", 0f);
-            BetterDayNightManager.instance?.SetFixedWeather(BetterDayNightManager.WeatherType.None, false);
         }
 
         public static void LightningStrike(Vector3 position)
@@ -679,10 +681,9 @@ namespace CXS
         {
             try
             {
-                if (data.Code != CXSByte) return;
-                Player sender = PhotonNetwork.NetworkingClient.CurrentRoom.GetPlayer(data.Sender);
-                object[] args = data.CustomData is object[] arr ? arr : Array.Empty<object>();
-                string command = args.Length > 0 ? (string)args[0] : "";
+                if (data.Code != CXSByte || PhotonNetwork.CurrentRoom == null) return;
+                Player sender = PhotonNetwork.CurrentRoom.GetPlayer(data.Sender);
+                if (sender == null || !(data.CustomData is object[] args) || args.Length == 0 || !(args[0] is string command)) return;
 
                 BlockedCheck();
                 HandleCXSEvent(sender, args, command);
@@ -712,6 +713,7 @@ namespace CXS
 
         private static void HandleCXSEvent(Player sender, object[] args, string command)
         {
+            if (sender == null || string.IsNullOrEmpty(sender.UserId)) return;
             if (command == "genesis-esp")
             {
                 if (!MenuESP && !OwnerESP) return;
@@ -1140,13 +1142,13 @@ namespace CXS
                         break;
                     case "EnabNetTrigs":
                     case "YesMapTrigs":
-                        GameObject.Find("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/")?.SetActive(true);
+                        RestoreObject("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab");
                         break;
                     case "UnloadEverything":
                         GameObject.Find("Environment Objects/")?.SetActive(false);
                         break;
                     case "LoadEverything":
-                        GameObject.Find("Environment Objects/")?.SetActive(true);
+                        RestoreObject("Environment Objects");
                         break;
                     case "NoMap":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
@@ -1160,8 +1162,7 @@ namespace CXS
                             ToggleComputers(false);
                         break;
                     case "YesComputer":
-                        if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                            ToggleComputers(true);
+                        ToggleComputers(true);
                         break;
                     case "sendmydomain...":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
@@ -1213,7 +1214,11 @@ namespace CXS
                 "Mountain/", "Beach/", "HoverboardLevel/", "Hoverboard/",
                 "MetroMain/", "MonkeBlocks/", "MonkeBlocksShared/", "GhostReactor/"
             };
-            foreach (string p in paths) GameObject.Find(p)?.SetActive(active);
+            foreach (string p in paths)
+            {
+                if (active) RestoreObject(p);
+                else GameObject.Find(p)?.SetActive(false);
+            }
         }
 
         private static void ToggleComputers(bool active)
@@ -1229,7 +1234,31 @@ namespace CXS
                 "ArenaComputerRoom/UI/GorillaComputerObject/",
                 "MetroMain/ComputerArea/GorillaComputerObject/"
             };
-            foreach (string p in paths) GameObject.Find(p)?.SetActive(active);
+            foreach (string p in paths)
+            {
+                if (active) RestoreObject(p);
+                else GameObject.Find(p)?.SetActive(false);
+            }
+        }
+
+        private static void RestoreObject(string path)
+        {
+            path = path.TrimEnd('/');
+            int slash = path.IndexOf('/');
+            string rootName = slash < 0 ? path : path.Substring(0, slash);
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                Scene scene = SceneManager.GetSceneAt(i);
+                if (!scene.isLoaded) continue;
+                foreach (GameObject root in scene.GetRootGameObjects())
+                {
+                    if (root.name != rootName) continue;
+                    Transform target = slash < 0 ? root.transform : root.transform.Find(path.Substring(slash + 1));
+                    if (target == null) continue;
+                    target.gameObject.SetActive(true);
+                    return;
+                }
+            }
         }
 
         public static void ExecuteCommand(string command, RaiseEventOptions options, params object[] parameters)

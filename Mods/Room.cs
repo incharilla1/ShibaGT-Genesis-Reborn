@@ -49,9 +49,10 @@ namespace ShibaGTGenesisReborn.Mods
             NetworkSystem.Instance.currentRegionIndex = Array.IndexOf(NetworkSystem.Instance.regionNames, region);
         }
 
-        public static void RPCProt(bool experimental = false)
+        public static bool RPCProt(bool experimental = false)
         {
-            if (!NetworkSystem.Instance.InRoom) return;
+            if (!NetworkSystem.Instance.InRoom) return false;
+
             try
             {
                 MonkeAgent.instance.rpcErrorMax = int.MaxValue;
@@ -82,14 +83,13 @@ namespace ShibaGTGenesisReborn.Mods
                     MonkeAgent.instance._suspiciousPlayerName = "";
                     MonkeAgent.instance._suspiciousReason = "";
 
-                    if (PhotonNetwork.NetworkingClient != null && PhotonNetwork.NetworkingClient.LoadBalancingPeer != null)
-                    {
-                        PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 60000;
-                        PhotonNetwork.NetworkingClient.LoadBalancingPeer.SentCountAllowance = int.MaxValue;
-                    }
+                    PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 60000;
+                    PhotonNetwork.NetworkingClient.LoadBalancingPeer.SentCountAllowance = int.MaxValue;
                 }
             }
-            catch { /* if it goes here its a skill issue on your end */ }
+            catch { return false; }
+
+            return true;
         }
 
         public static void lbaction(GorillaPlayerLineButton.ButtonType type, NetPlayer player = null, bool? state = null)
@@ -228,6 +228,7 @@ namespace ShibaGTGenesisReborn.Mods
         public static void UnmuteAll() => lbaction(GorillaPlayerLineButton.ButtonType.Mute, state: false);
 
         public static HashSet<VRRig> priorityVoiceTargets = new HashSet<VRRig>();
+        private static readonly HashSet<VRRig> loudVoiceAppliedRigs = new HashSet<VRRig>();
 
         public static void PriorityVoiceGun()
         {
@@ -258,23 +259,19 @@ namespace ShibaGTGenesisReborn.Mods
 
             if (priorityVoiceTargets.Count > 0)
             {
-                VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
-                if (allRigs != null)
+                foreach (VRRig rig in VRRigCache.ActiveRigs)
                 {
-                    foreach (var rig in allRigs)
-                    {
-                        if (rig == null || rig.isLocal) continue;
+                    if (rig == null || rig.isLocal) continue;
 
-                        if (priorityVoiceTargets.Contains(rig))
-                        {
-                            ApplyPriorityVoice(rig);
-                            HighlightRig(rig, Color.yellow);
-                        }
-                        else
-                        {
-                            AudioSource src = GetRigAudioSource(rig);
-                            if (src != null) src.volume = 0.2f;
-                        }
+                    if (priorityVoiceTargets.Contains(rig))
+                    {
+                        ApplyPriorityVoice(rig);
+                        HighlightRig(rig, Color.yellow);
+                    }
+                    else
+                    {
+                        AudioSource src = GetRigAudioSource(rig);
+                        if (src != null) src.volume = 0.2f;
                     }
                 }
             }
@@ -282,43 +279,33 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void PriorityVoiceDisable()
         {
-            VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
-            if (allRigs != null)
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                foreach (var rig in allRigs)
-                {
-                    if (rig == null || rig.isLocal) continue;
-                    ResetRigVoice(rig);
-                    ResetRigHighlight(rig);
-                }
+                if (rig == null || rig.isLocal) continue;
+                ResetRigVoice(rig);
+                ResetRigHighlight(rig);
             }
             priorityVoiceTargets.Clear();
         }
 
         public static void LoudVoiceAll()
         {
-            VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
-            if (allRigs != null)
+            loudVoiceAppliedRigs.RemoveWhere(rig => rig == null || !rig.gameObject.activeInHierarchy);
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                foreach (var rig in allRigs)
-                {
-                    if (rig == null || rig.isLocal) continue;
-                    ApplyPriorityVoice(rig);
-                }
+                if (rig == null || rig.isLocal) continue;
+                if (loudVoiceAppliedRigs.Add(rig)) ApplyPriorityVoice(rig);
             }
         }
 
         public static void DisableLoudVoiceAll()
         {
-            VRRig[] allRigs = Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
-            if (allRigs != null)
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                foreach (var rig in allRigs)
-                {
-                    if (rig == null || rig.isLocal) continue;
-                    ResetRigVoice(rig);
-                }
+                if (rig == null || rig.isLocal) continue;
+                ResetRigVoice(rig);
             }
+            loudVoiceAppliedRigs.Clear();
         }
 
         private static void HighlightRig(VRRig rig, Color color)
@@ -355,7 +342,7 @@ namespace ShibaGTGenesisReborn.Mods
         private static void ApplyPriorityVoice(VRRig rig)
         {
             AudioSource src = GetRigAudioSource(rig);
-            if (src != null)
+            if (src != null && (src.volume != 1f || src.spatialBlend != 0f || src.minDistance != 500f || src.maxDistance != 1000f))
             {
                 src.volume = 1f;
                 src.spatialBlend = 0f;

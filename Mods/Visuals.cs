@@ -1,16 +1,20 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using GorillaLocomotion;
 using GorillaNetworking;
 using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
 using ShibaGTGenesisReborn.Classes;
+using CXS;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
 using UnityEngine;
+using Color = UnityEngine.Color;
 using Object = UnityEngine.Object;
+
 
 namespace ShibaGTGenesisReborn.Mods
 {
@@ -103,11 +107,56 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        private static float delayTimer;
+
+        private static (bool tooFar, Vector3 closestPos) WardrboeThings()
+        {
+            Vector3 head = GorillaTagger.Instance.headCollider.transform.position;
+            float closestDist = float.MaxValue;
+            float closestRad = 0f;
+            Vector3 closestPos = Vector3.zero;
+
+            foreach (CosmeticWardrobeProximityDetector d in Object.FindObjectsByType<CosmeticWardrobeProximityDetector>(FindObjectsSortMode.None))
+            {
+                SphereCollider sphere = d.wardrobeNearbyCollider;
+                Vector3 spherePos = sphere.transform.position;
+                float dist = Vector3.Distance(head, spherePos);
+
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closestRad = sphere.radius;
+                    closestPos = spherePos;
+                }
+            }
+
+            return (closestDist > closestRad, closestPos);
+        }
+
         public static void RGB(bool strobe = false)
         {
-            if (!NetworkSystem.Instance.InRoom) return;
-            Color c = strobe ? new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) : Color.HSVToRGB(Mathf.Repeat(Time.time * 0.2f, 1f), 1f, 1f);
-            GorillaTagger.Instance.myVRRig.SendRPC("RPC_InitializeNoobMaterial", RpcTarget.All, c.r, c.g, c.b);
+            if (Time.time < delayTimer) return;
+
+            (bool tooFar, Vector3 closestPos) = WardrboeThings();
+
+            if (tooFar)
+            {
+                Vector3 originalPos = GorillaTagger.Instance.myVRRig.transform.position;
+                NetworkingLibrary.SendRigPosition(closestPos);
+
+                Color c = strobe ? new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) : Color.HSVToRGB(Mathf.Repeat(Time.time * 0.2f, 1f), 1f, 1f);
+                GorillaTagger.Instance.UpdateColor(c.r, c.g, c.b);
+                GorillaComputer.instance.UpdateColor(c.r, c.g, c.b);
+                CosmeticsController.OnPlayerColorSet?.Invoke(c.r, c.g, c.b);
+                GorillaTagger.Instance.myVRRig.SendRPC("RPC_InitializeNoobMaterial", RpcTarget.All, c.r, c.g, c.b);
+                PlayerPrefs.SetFloat("redValue", Mathf.Clamp01(c.r));
+                PlayerPrefs.SetFloat("greenValue", Mathf.Clamp01(c.g));
+                PlayerPrefs.SetFloat("blueValue", Mathf.Clamp01(c.b));
+                PlayerPrefs.Save();
+
+                NetworkingLibrary.SendRigPosition(originalPos);
+                delayTimer = Time.time + 1.5f;
+            }
         }
 
         private static Color GetESPColor(VRRig rig, bool infection)
@@ -155,7 +204,7 @@ namespace ShibaGTGenesisReborn.Mods
                     Player player = RigManager.GetPlayerFromVRRig(rig);
                     if (player == null || !CXS.CXS.ESPUsers.Contains(player)) continue;
                     if (owners && (string.IsNullOrEmpty(player.UserId) ||
-                        !CXS.ServerData.Administrators.ContainsKey(player.UserId))) continue;
+                        !ServerData.Administrators.ContainsKey(player.UserId))) continue;
                 }
                 Color col = owners ? Color.magenta : menuUsers ? Color.cyan : GetESPColor(rig, infection);
                 Vector3 center = rig.transform.position;
@@ -606,40 +655,68 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        [Setting] public static int timeOfDayIndex;
+        [Setting] public static int timeOfDayIndex = 4;
         public static readonly string[] timeOfDayNames = { "Morning", "Day", "Evening", "Night", "Default" };
+        private static float restoreTimeAt = -1f;
+
+        public static void timeWeatherThing() => restoreTimeAt = Time.unscaledTime + 3f;
+
+        public static void updateWeatherTime()
+        {
+            if (restoreTimeAt < 0f || Time.unscaledTime < restoreTimeAt) return;
+            if (NetworkSystem.Instance?.InRoom != true)
+            {
+                restoreTimeAt = -1f;
+                return;
+            }
+            if (BetterDayNightManager.instance == null)
+            {
+                restoreTimeAt = Time.unscaledTime + 0.5f;
+                return;
+            }
+
+            applyThings();
+            restoreTimeAt = -1f;
+        }
+
+        private static void applyThings()
+        {
+            switch (timeOfDayIndex)
+            {
+                case 0: BetterDayNightManager.instance.SetTimeOfDay(1, true); break;
+                case 1: BetterDayNightManager.instance.SetTimeOfDay(3, true); break;
+                case 2: BetterDayNightManager.instance.SetTimeOfDay(7, true); break;
+                case 3: BetterDayNightManager.instance.SetTimeOfDay(0, true); break;
+                case 4: BetterDayNightManager.instance.ClearTimeOfDay(true); break;
+            }
+            BetterDayNightManager.instance.UpdateTimeOfDay(true);
+
+            switch (weatherIndex)
+            {
+                case 0: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.Raining, true); break;
+                case 1: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.None, true); break;
+                case 2: BetterDayNightManager.instance.ClearFixedWeather(true); break;
+            }
+        }
 
         public static void TimeSwitcher()
         {
             Main.Change("Time Switcher", ref timeOfDayIndex, timeOfDayNames, () =>
             {
-                switch (timeOfDayIndex)
-                {
-                    case 0: BetterDayNightManager.instance.SetTimeOfDay(1, true); break;
-                    case 1: BetterDayNightManager.instance.SetTimeOfDay(3, true); break;
-                    case 2: BetterDayNightManager.instance.SetTimeOfDay(7, true); break;
-                    case 3: BetterDayNightManager.instance.SetTimeOfDay(0, true); break;
-                    case 4: BetterDayNightManager.instance.ClearTimeOfDay(true); break;
-                }
-                BetterDayNightManager.instance.UpdateTimeOfDay(true);
+                Preferences.SaveSettings();
+                applyThings();
             });
         }
 
-        public static void WeatherSwitcher() => TimeSwitcher();
-
-        [Setting] public static int weatherIndex;
+        [Setting] public static int weatherIndex = 2;
         public static readonly string[] weatherNames = { "Rain", "Clear", "Default" };
 
         public static void CycleWeather()
         {
             Main.Change("Weather Switcher", ref weatherIndex, weatherNames, () =>
             {
-                switch (weatherIndex)
-                {
-                    case 0: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.Raining, true); break;
-                    case 1: BetterDayNightManager.instance.SetFixedWeather(BetterDayNightManager.WeatherType.None, true); break;
-                    case 2: BetterDayNightManager.instance.ClearFixedWeather(true); break;
-                }
+                Preferences.SaveSettings();
+                applyThings();
             });
         }
 

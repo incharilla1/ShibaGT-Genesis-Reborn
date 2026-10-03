@@ -9,6 +9,25 @@ using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Patches
 {
+    [HarmonyPatch(typeof(GorillaLocomotion.GTPlayer), nameof(GorillaLocomotion.GTPlayer.GetSlidePercentage))]
+    public class NoSlipPatch
+    {
+        private static void Postfix(ref float __result)
+        {
+            if (mods.noSlip) __result = 0f;
+        }
+    }
+
+    [HarmonyPatch(typeof(WaterSplashEffect), nameof(WaterSplashEffect.PlayEffect))]
+    public class WaterSplashSizePatch
+    {
+        private static void Prefix(WaterSplashEffect __instance, ref float scale)
+        {
+            scale *= Mathf.Clamp(mods.splashSizeIndex, 0, mods.splashSizeNames.Length - 1) + 1f;
+            __instance.transform.localScale = Vector3.one * scale;
+        }
+    }
+
     [HarmonyPatch(typeof(MonkeAgent), "IncrementRPCCallLocal")]
     public class NoIncrementRPCCallLocal
     {
@@ -194,6 +213,8 @@ namespace ShibaGTGenesisReborn.Patches
             private float lowPassFilter;
             private float radioLow;
             private float radioHigh;
+            private int crushSamples;
+            private float crushValue;
 
             public void Process(float[] buffer, int rate, int channel, int channels)
             {
@@ -224,19 +245,27 @@ namespace ShibaGTGenesisReborn.Patches
                 if (mods.bitcrushMic)
                 {
                     const float steps = 128f;
+                    int hold = Mathf.Max(1, rate / 4000);
                     for (int i = channel; i < buffer.Length; i += channels)
                     {
-                        buffer[i] = Mathf.Round(buffer[i] * steps) / steps;
+                        if (crushSamples == 0)
+                        {
+                            crushValue = Mathf.Round(Mathf.Clamp(buffer[i] * 4f, -1f, 1f) * steps) / steps;
+                            crushSamples = hold;
+                        }
+                        buffer[i] = crushValue;
+                        crushSamples--;
                     }
                 }
+                else crushSamples = 0;
 
                 if (mods.underwaterMic)
                 {
-                    float alpha = 1f - Mathf.Exp(-2f * Mathf.PI * 325f / rate);
+                    float alpha = 1f - Mathf.Exp(-2f * Mathf.PI * 180f / rate);
                     for (int i = channel; i < buffer.Length; i += channels)
                     {
                         lowPassFilter += alpha * (buffer[i] - lowPassFilter);
-                        buffer[i] = lowPassFilter * 1.5f;
+                        buffer[i] = Mathf.Clamp(lowPassFilter * 3f, -1f, 1f);
                     }
                 }
 

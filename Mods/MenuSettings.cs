@@ -126,6 +126,7 @@ namespace ShibaGTGenesisReborn.Mods
                 new ExtGradient { colors = Main.GetSolidGradient(t.btnOff), isRainbow = t.rainbow, copyRigColors = t.rig }
             };
             Settings.textColors = new Color[] { t.textOff, t.textOn };
+            Main.outlineColor = t.outline;
             if (Main.menu != null) Main.RecreateMenu();
         }
 

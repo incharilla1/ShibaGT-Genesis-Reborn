@@ -2,6 +2,7 @@ using BepInEx;
 using GorillaNetworking;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
+using CXS;
 using ShibaGTGenesisReborn.Libs;
 using System;
 using System.Collections.Generic;
@@ -65,6 +66,7 @@ namespace ShibaGTGenesisReborn.Menu
         public static bool Loaded;
 
         public static bool Lockdown;
+        private bool timeHooked;
 
         private void Awake()
         {
@@ -85,12 +87,22 @@ namespace ShibaGTGenesisReborn.Menu
                 StreamerMode.EnsureInitialized();
                 Mods.PlayerOptionsManager.Initialize();
                 Preferences.Load();
+                Preferences.LoadSettings();
             } catch { }
         }
 
         private void Update()
         {
-            if (Lockdown || CXS.ServerData.IsLocalBlacklisted())
+            Preferences.UpdateAutoSave();
+            if (!timeHooked && NetworkSystem.Instance != null)
+            {
+                NetworkSystem.Instance.OnJoinedRoomEvent += Mods.mods.timeWeatherThing;
+                timeHooked = true;
+                if (NetworkSystem.Instance.InRoom)
+                    Mods.mods.timeWeatherThing();
+            }
+            Mods.mods.updateWeatherTime();
+            if (Lockdown || ServerData.IsLocalBlacklisted())
             {
                 if (menu != null)
                 {
@@ -256,6 +268,9 @@ namespace ShibaGTGenesisReborn.Menu
 
         private void OnDestroy()
         {
+            if (timeHooked && NetworkSystem.Instance != null)
+                NetworkSystem.Instance.OnJoinedRoomEvent -= Mods.mods.timeWeatherThing;
+
             if (menu != null)
             {
                 Destroy(menu);
@@ -494,6 +509,16 @@ namespace ShibaGTGenesisReborn.Menu
             }
         }
 
+        private static void SetUiColor(Graphic graphic, Color color, int state)
+        {
+            graphic.color = color;
+            ExtGradient colorInfo = buttonColors[state];
+            if (!colorInfo.isRainbow && !colorInfo.copyRigColors) return;
+            ColorChanger changer = graphic.gameObject.AddComponent<ColorChanger>();
+            changer.colorInfo = colorInfo;
+            changer.Start();
+        }
+
         public static void ApplyOpenAnimation()
         {
             if (menu == null) return;
@@ -646,7 +671,7 @@ namespace ShibaGTGenesisReborn.Menu
             text.font = currentFont;
             text.text = (isSearching || isChangingTitle) ? "" : (string.IsNullOrEmpty(menuTitle) ? PluginInfo.Name : menuTitle);
             text.fontSize = 1;
-            text.color = textColors[0];
+            SetUiColor(text, textColors[0], 0);
             text.supportRichText = true;
             text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
@@ -669,7 +694,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }.AddComponent<Text>();
                 fpsObject.font = currentFont;
                 fpsObject.text = (isSearching || isChangingTitle) ? "" : "FPS: " + Mathf.Ceil(1f / Time.unscaledDeltaTime).ToString();
-                fpsObject.color = textColors[0];
+                SetUiColor(fpsObject, textColors[0], 0);
                 fpsObject.fontSize = 1;
                 fpsObject.supportRichText = true;
                 fpsObject.fontStyle = FontStyle.Bold;
@@ -714,7 +739,7 @@ namespace ShibaGTGenesisReborn.Menu
             }.AddComponent<RawImage>();
 
             homeImg.texture = ModsLib.GetHomeTexture();
-            homeImg.color = textColors[0];
+            SetUiColor(homeImg, textColors[0], 0);
 
             RectTransform recct1 = homeImg.GetComponent<RectTransform>();
 
@@ -755,7 +780,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }.AddComponent<RawImage>();
 
                 settingsImg.texture = ModsLib.GetSettingsTexture();
-                settingsImg.color = textColors[0];
+                SetUiColor(settingsImg, textColors[0], 0);
 
                 RectTransform recct = settingsImg.GetComponent<RectTransform>();
 
@@ -796,7 +821,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }.AddComponent<RawImage>();
 
                 folderImg.texture = ModsLib.GetFolderTexture();
-                folderImg.color = textColors[0];
+                SetUiColor(folderImg, textColors[0], 0);
 
                 RectTransform folderRect = folderImg.GetComponent<RectTransform>();
 
@@ -835,7 +860,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }.AddComponent<RawImage>();
 
                 searchImg.texture = ModsLib.GetSearchTexture();
-                searchImg.color = isSearching ? textColors[1] : textColors[0];
+                SetUiColor(searchImg, isSearching ? textColors[1] : textColors[0], isSearching ? 1 : 0);
 
                 RectTransform searchRect = searchImg.GetComponent<RectTransform>();
                 searchRect.localPosition = new Vector3(0.064f, 0.009f, -0.218f);
@@ -873,7 +898,7 @@ namespace ShibaGTGenesisReborn.Menu
                 discontext.text = "Leave";
                 discontext.font = currentFont;
                 discontext.fontSize = 1;
-                discontext.color = textColors[0];
+                SetUiColor(discontext, textColors[0], 0);
                 discontext.alignment = TextAnchor.MiddleCenter;
                 discontext.resizeTextForBestFit = true;
                 discontext.resizeTextMinSize = 0;
@@ -927,7 +952,7 @@ namespace ShibaGTGenesisReborn.Menu
                 text.font = currentFont;
                 text.text = "";
                 text.fontSize = 1;
-                text.color = textColors[0];
+                SetUiColor(text, textColors[0], 0);
                 text.alignment = TextAnchor.MiddleCenter;
                 text.resizeTextForBestFit = true;
                 text.resizeTextMinSize = 0;
@@ -965,7 +990,7 @@ namespace ShibaGTGenesisReborn.Menu
                 text.font = currentFont;
                 text.text = "";
                 text.fontSize = 1;
-                text.color = textColors[0];
+                SetUiColor(text, textColors[0], 0);
                 text.alignment = TextAnchor.MiddleCenter;
                 text.resizeTextForBestFit = true;
                 text.resizeTextMinSize = 0;
@@ -1027,15 +1052,6 @@ namespace ShibaGTGenesisReborn.Menu
                     textWidth = 0.18f;
                     textHeight = 0.026f;
                     break;
-            }
-
-            int maxFontSize = 40;
-            switch (textSizeIndex)
-            {
-                case 1: maxFontSize = 24; break;
-                case 2: maxFontSize = 32; break;
-                case 3: maxFontSize = 44; break;
-                default: maxFontSize = 40; break;
             }
 
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1101,12 +1117,12 @@ namespace ShibaGTGenesisReborn.Menu
             }
             text.supportRichText = true;
             text.fontSize = 1;
-            text.color = method.enabled ? textColors[1] : textColors[0];
+            SetUiColor(text, method.enabled ? textColors[1] : textColors[0], method.enabled ? 1 : 0);
             text.alignment = TextAnchor.MiddleCenter;
             text.fontStyle = FontStyle.Bold;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 0;
-            text.resizeTextMaxSize = maxFontSize;
+            text.resizeTextMaxSize = 40;
             RectTransform component = text.GetComponent<RectTransform>();
             component.localPosition = Vector3.zero;
             component.sizeDelta = new Vector2(textWidth, textHeight);
@@ -1121,7 +1137,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }.AddComponent<RawImage>();
             heartImg.texture = ModsLib.GetHeartTexture();
-            heartImg.color = method.isFavorite ? Color.yellow : Color.white;
+            SetUiColor(heartImg, method.isFavorite ? Color.yellow : Color.white, method.enabled ? 1 : 0);
             RectTransform component1 = heartImg.GetComponent<RectTransform>();
             component1.localPosition = Vector3.zero;
             component1.sizeDelta = new Vector2(0.022f, 0.022f);
@@ -1722,7 +1738,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (target != null)
                 {
-                    if (CXS.ServerData.IsModDisabled(target.buttonText) && !CXS.ServerData.IsLocalAdmin())
+                    if (ServerData.IsModDisabled(target.buttonText) && !ServerData.IsLocalAdmin())
                     {
                         NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"{target.buttonText} is remotely disabled.", 3f);
                         return;
@@ -1860,6 +1876,7 @@ namespace ShibaGTGenesisReborn.Menu
         public static void Change(string buttonText, ref int index, string[] names, Action sideEffect = null, string prefix = null)
         {
             if (names == null || names.Length == 0) return;
+            index = ((index % names.Length) + names.Length) % names.Length;
             index = (index + 1) % names.Length;
 
             ButtonInfo btn = GetIndex(buttonText);
@@ -1976,7 +1993,7 @@ namespace ShibaGTGenesisReborn.Menu
             keyText.font = currentFont;
             keyText.text = label;
             keyText.fontSize = 1;
-            keyText.color = textColors[0];
+            SetUiColor(keyText, textColors[0], 0);
             keyText.alignment = TextAnchor.MiddleCenter;
             keyText.fontStyle = FontStyle.Bold;
             keyText.resizeTextForBestFit = true;
@@ -2017,7 +2034,7 @@ namespace ShibaGTGenesisReborn.Menu
             searchBoxText.text = $"{headerPrefix}{displayText}";
             searchBoxText.supportRichText = true;
             searchBoxText.fontSize = 1;
-            searchBoxText.color = textColors[0];
+            SetUiColor(searchBoxText, textColors[0], 0);
             searchBoxText.alignment = TextAnchor.MiddleCenter;
             searchBoxText.fontStyle = FontStyle.Bold;
             searchBoxText.resizeTextForBestFit = true;
@@ -2256,17 +2273,16 @@ namespace ShibaGTGenesisReborn.Menu
             try
             {
                 Keyboard kb = Keyboard.current;
-                bool isShift = (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed)
-                    || UnityInput.Current.GetKey(KeyCode.LeftShift) || UnityInput.Current.GetKey(KeyCode.RightShift);
+                bool isShift = UnityInput.Current.GetKey(KeyCode.LeftShift) || UnityInput.Current.GetKey(KeyCode.RightShift);
 
-                if (kb.escapeKey.wasPressedThisFrame || UnityInput.Current.GetKeyDown(KeyCode.Escape))
+                if (UnityInput.Current.GetKeyDown(KeyCode.Escape))
                 {
                     if (isChangingTitle) CloseTitleChanger(false);
                     else ToggleSearchMode();
                     return;
                 }
 
-                if ((kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) || UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.KeypadEnter))
+                if (UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.KeypadEnter))
                 {
                     if (isChangingTitle)
                     {
@@ -2284,8 +2300,8 @@ namespace ShibaGTGenesisReborn.Menu
                 }
 
                 bool changed = false;
-                bool backspaceDown = kb.backspaceKey.wasPressedThisFrame || UnityInput.Current.GetKeyDown(KeyCode.Backspace);
-                bool backspaceHeld = kb.backspaceKey.isPressed || UnityInput.Current.GetKey(KeyCode.Backspace);
+                bool backspaceDown = UnityInput.Current.GetKeyDown(KeyCode.Backspace);
+                bool backspaceHeld = UnityInput.Current.GetKey(KeyCode.Backspace);
 
                 bool shouldDelete = false;
                 if (backspaceDown)
@@ -2316,7 +2332,7 @@ namespace ShibaGTGenesisReborn.Menu
                         changed = true;
                     }
                 }
-                else if (kb.spaceKey.wasPressedThisFrame || UnityInput.Current.GetKeyDown(KeyCode.Space))
+                else if (UnityInput.Current.GetKeyDown(KeyCode.Space))
                 {
                     if (isChangingTitle)
                     {
@@ -2337,7 +2353,7 @@ namespace ShibaGTGenesisReborn.Menu
                     for (int i = 0; i < PCKeys.Length; i++)
                     {
                         TypeKey k = PCKeys[i];
-                        if ((kb != null && kb[k.InputKey].wasPressedThisFrame) || UnityInput.Current.GetKeyDown(k.LegacyKey))
+                        if (UnityInput.Current.GetKeyDown(k.LegacyKey))
                         {
                             if (isChangingTitle)
                             {

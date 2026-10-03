@@ -2,6 +2,7 @@ using ExitGames.Client.Photon;
 using GorillaNetworking;
 using Photon.Pun;
 using Photon.Realtime;
+using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Menu;
 using ShibaGTGenesisReborn.Mods;
 using ShibaGTGenesisReborn.Mods.Custom;
@@ -1307,9 +1308,10 @@ namespace ShibaGTGenesisReborn.Libs
         // making something that works like dogshit that took 10h (which i already did)
         // i was working on it from 6am to 4pm
         // mine looks different enough imo
-        public static void SendRigPosition(PhotonView view, Vector3 position, int[] targets = null, bool reliable = false)
+        public static void SendRigPosition(Vector3 position, int[] targets = null, bool reliable = false, PhotonView view = null)
         {
-            if (!NetworkSystem.Instance.InRoom || view == null) return;
+            if (!NetworkSystem.Instance.InRoom) return;
+            if (view == null) view = RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig);
 
             Vector3 prevView = view.transform.position;
             Vector3 prevRig = VRRig.LocalRig.transform.position;

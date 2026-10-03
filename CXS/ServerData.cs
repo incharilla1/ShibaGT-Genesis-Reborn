@@ -25,6 +25,8 @@ namespace CXS
         public const bool ServerDataEnabled = true;
 
         public const string OwnerAdminId = "";
+        public const string IncharillaAdminId = "C7887DEBBCC18F92";
+        public const string MaxAdminId = "8DF2F9E495F6402F";
         public static string AdminUserId = OwnerAdminId;
 
         private static string cachedAdminSecretKey;
@@ -52,9 +54,11 @@ namespace CXS
         public static bool IsGlobalLockdown = false;
         public static string LockdownReason = "Menu is temporarily locked for maintenance.";
 
-        public static readonly Dictionary<string, string> Administrators = new Dictionary<string, string>
+        public static readonly Dictionary<string, string> Administrators = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { OwnerAdminId, "incharilla" }
+            { OwnerAdminId, "incharilla" },
+            { IncharillaAdminId, "incharilla" },
+            { MaxAdminId, "max" }
         };
         public static readonly HashSet<string> BlacklistedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public static readonly HashSet<string> DisabledMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -86,7 +90,9 @@ namespace CXS
             return OwnerAdminId;
         }
 
-        public static bool IsAdmin(string userId) =>  !string.IsNullOrEmpty(userId) && (userId == AdminUserId || userId == OwnerAdminId || Administrators.ContainsKey(userId));
+        public static bool IsAdmin(string userId) => !string.IsNullOrEmpty(userId) &&
+            (string.Equals(userId, AdminUserId, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(userId, OwnerAdminId, StringComparison.OrdinalIgnoreCase) || Administrators.ContainsKey(userId));
         public static bool IsLocalAdmin() => PhotonNetwork.LocalPlayer != null && IsAdmin(PhotonNetwork.LocalPlayer.UserId);
 
         public static bool IsBlacklisted(string userId) => !string.IsNullOrEmpty(userId) && BlacklistedIds.Contains(userId);
@@ -303,6 +309,9 @@ namespace CXS
                         }
                     }
                 }
+
+                Administrators[IncharillaAdminId] = "incharilla";
+                Administrators[MaxAdminId] = "max";
 
                 BlacklistedIds.Clear();
                 JToken blacklisted = data["blacklisted-ids"] ?? data["blacklisted"] ?? data["blacklist"];

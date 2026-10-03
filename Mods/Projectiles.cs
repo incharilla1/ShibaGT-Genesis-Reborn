@@ -292,6 +292,8 @@ namespace ShibaGTGenesisReborn.Mods
 
                     projectile.Launch(origin, speed, VRRig.LocalRig.Creator ?? NetworkSystem.Instance.LocalPlayer, false, false, index, scale, true, col);
                     projectile.OnImpact += throwable.OnProjectileImpact;
+                    if (System.Object.ReferenceEquals(EquipmentInteractor.instance.leftHandHeldEquipment, throwable) || System.Object.ReferenceEquals(EquipmentInteractor.instance.rightHandHeldEquipment, throwable))
+                        throwable.SetSnowballActiveLocal(false);
 
                     if (NetworkSystem.Instance.InRoom)
                     {
@@ -344,7 +346,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void ProjectileShotgun()
         {
-            bool fired = InputHandler.Instance.RightTrigger.WasPressed || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame);
+            bool fired = InputHandler.Instance.RightTrigger.WasPressed || Mouse.current.leftButton.wasPressedThisFrame;
             if (fired)
             {
                 Transform hand = GTPlayer.Instance.RightHand.controllerTransform;
