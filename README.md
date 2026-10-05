@@ -1,5 +1,5 @@
 <div align="center">
-<img src="opensource.svg" width="160" alt="Shiba GT Genesis Reborn">
+<img src="opensource.svg" width="120" alt="Shiba GT Genesis Reborn">
 
 # Shiba GT Genesis Reborn
 
