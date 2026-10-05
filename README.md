@@ -8,9 +8,7 @@
 
 Open source Gorilla Tag menu by Incharilla.
 
-[GitHub](https://github.com/incharilla1)
-
-[Discord](https://discord.gg/XRmtJu8aUj)
+[GitHub](https://github.com/incharilla1) · [Discord](https://discord.gg/XRmtJu8aUj)
 </div>
 
 ## Install
@@ -19,7 +17,7 @@ Open source Gorilla Tag menu by Incharilla.
 2. Drop it in `BepInEx/plugins`.
 3. Launch Gorilla Tag.
 
-or you could just run installer.ps1 but **it does delete all plugins (cause it reinstalls bepinex)**
+Or run `installer.ps1`. **It reinstalls BepInEx, which deletes all your existing plugins.**
 
 ## Build
 
@@ -27,11 +25,11 @@ or you could just run installer.ps1 but **it does delete all plugins (cause it r
 git clone https://github.com/incharilla1/Shiba-GT-Genesis-Reborn.git
 ```
 
-Open `Shiba GT Genesis Reborn.sln` in Visual Studio, fix (or hwoever you say it) the BepInEx and Gorilla Tag references (if needed), and build in release.
+Open `Shiba GT Genesis Reborn.sln` in Visual Studio, fix the BepInEx and Gorilla Tag references if needed, and build in Release.
 
 ## Backend
 
-The menu pulls its serverdata from `https://cxs.incharilla.workers.dev`.
+The menu pulls its server data from `https://cxs.incharilla.workers.dev`.
 
 ```json
 {
@@ -53,11 +51,13 @@ The menu pulls its serverdata from `https://cxs.incharilla.workers.dev`.
 }
 ```
 
-| `status`, `lockdown`, `lockdown-reason` | menu availability |
-| `user-count` | active users |
-| `admins` | ids allowed to use global admin commands |
-| `blacklisted-ids` | blocked user-ids |
-| `disabled-mods` | disabled mods |
-| `bring-room`, `bring-targets` | pull commands |
-| `global-notify` | global message sent to active users |
-| `discord-invite` | discord link |
+| Field | Purpose |
+| --- | --- |
+| `status`, `lockdown`, `lockdown-reason` | Menu availability |
+| `user-count` | Active users |
+| `admins` | IDs allowed to use global admin commands |
+| `blacklisted-ids` | Blocked user IDs |
+| `disabled-mods` | Disabled mods |
+| `bring-room`, `bring-targets` | Pull commands |
+| `global-notify` | Global message sent to active users |
+| `discord-invite` | Discord link |
