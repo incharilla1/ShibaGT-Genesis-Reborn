@@ -22,7 +22,7 @@ Or run `installer.ps1`. **It reinstalls BepInEx, which deletes all your existing
 git clone https://github.com/incharilla1/Shiba-GT-Genesis-Reborn.git
 ```
 
-Open `Shiba GT Genesis Reborn.sln` in Visual Studio, fix the BepInEx and Gorilla Tag references if needed, and build in Release.
+Open `GenesisReborn.sln` in Visual Studio, fix the BepInEx and Gorilla Tag references if needed, and build in Release.
 
 ## Backend
 
