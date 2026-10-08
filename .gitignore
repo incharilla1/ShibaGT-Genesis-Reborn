@@ -39,7 +39,6 @@ bld/
 **/.vs/
 **/.idea/
 **/.vscode/
-**/ascs/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
@@ -366,8 +365,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Genesis Auto-Loader (source will be in the discord or whatever)
-Loader/
-
 # for cxs
 **/Worker/
+
+**/game/
+dump.ps1

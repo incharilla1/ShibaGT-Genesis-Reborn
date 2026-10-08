@@ -1,7 +1,10 @@
+using ExitGames.Client.Photon;
 using GorillaNetworking;
 using GorillaTag.Audio;
+using GorillaTagScripts;
 using Photon.Pun;
 using Photon.Realtime;
+using Photon.Voice.PUN;
 using Photon.Voice.Unity;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
@@ -9,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using System.Linq;
 
 namespace ShibaGTGenesisReborn.Mods
 {
@@ -26,9 +30,19 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void Joincodegenesis()
+        public static void SetPlayerName(string value)
         {
-            PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("GENESIS", GorillaNetworking.JoinType.Solo);
+            string name = value.Trim();
+            if (string.IsNullOrEmpty(name)) return;
+
+            GorillaComputer computer = GorillaComputer.instance;
+            computer.currentName = name;
+            computer.savedName = name;
+            computer.SetLocalNameTagText(name);
+            NetworkSystem.Instance.SetMyNickName(name);
+            PhotonNetwork.LocalPlayer.NickName = name;
+            PlayerPrefs.SetString("playerName", name);
+            PlayerPrefs.Save();
         }
 
         public static void JoinRandom()
@@ -652,19 +666,21 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static async void CreateRoom()
         {
-            if (PhotonNetworkController.Instance.currentJoinTrigger?.networkZone != null)
-                lastmap = PhotonNetworkController.Instance.currentJoinTrigger.networkZone;
+            PhotonNetworkController controller = PhotonNetworkController.Instance;
+            GorillaComputer computer = GorillaComputer.instance;
+            string[] allowedMaps = computer.allowedMapsToJoin;
+            if (allowedMaps == null || allowedMaps.Length == 0) return;
+
+            int mapIndex = Mathf.Clamp(computer.groupMapJoinIndex, 0, allowedMaps.Length - 1);
+            GorillaNetworkJoinTrigger joinTrigger = computer.GetJoinTriggerForZone(allowedMaps[mapIndex]);
+            if (joinTrigger == null) return;
+            lastmap = joinTrigger.networkZone;
 
             if (NetworkSystem.Instance.InRoom)
                 await NetworkSystem.Instance.ReturnToSinglePlayer();
 
-            GorillaNetworkJoinTrigger joinTrigger = PhotonNetworkController.Instance.currentJoinTrigger ?? GorillaComputer.instance.GetJoinTriggerForZone(lastmap ?? "forest");
-            if (joinTrigger == null) return;
-
-            PhotonNetworkController.Instance.currentJoinTrigger = joinTrigger;
-
             if (PlayFab.PlayFabClientAPI.IsClientLoggedIn())
-                PhotonNetworkController.Instance.playFabAuthenticator?.SetDisplayName(NetworkSystem.Instance.GetMyNickName());
+                controller.playFabAuthenticator?.SetDisplayName(NetworkSystem.Instance.GetMyNickName());
 
             string roomName = NetworkSystem.GetRandomRoomName();
             RoomConfig config = RoomConfig.AnyPublicConfig();
@@ -673,17 +689,162 @@ namespace ShibaGTGenesisReborn.Mods
             ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
             {
                 { "gameMode", joinTrigger.GetFullDesiredGameModeString() },
-                { "platform", PhotonNetworkController.Instance.platformTag },
-                { "queueName", GorillaComputer.instance.currentQueue },
+                { "platform", controller.platformTag },
+                { "queueName", computer.currentQueue },
                 { "language", "en-US" },
                 { "fan_club", "false" }
             };
 
-            GorillaNetworking.ScheduledEvents.ScheduledEventMatchmaking.ApplyScheduledEventStateToHashes(props, out var searchFilter);
+            GorillaNetworking.ScheduledEvents.ScheduledEventMatchmaking.ApplyScheduledEventStateToHashes(props, out ExitGames.Client.Photon.Hashtable searchFilter);
             config.CustomProps = props;
             config.SearchFilter = searchFilter;
 
             await NetworkSystem.Instance.ConnectToRoom(roomName, config);
+        }
+
+        public static void FollowMeBro()
+        {
+            GorillaComputer computer = GorillaComputer.instance;
+            string[] allowedMaps = computer.allowedMapsToJoin;
+            if (allowedMaps.Length == 0) return;
+
+            int mapIndex = Mathf.Clamp(computer.groupMapJoinIndex, 0, allowedMaps.Length - 1);
+            GorillaNetworkJoinTrigger joinTrigger = computer.GetJoinTriggerForZone(allowedMaps[mapIndex]);
+
+            PhotonNetworkController controller = PhotonNetworkController.Instance;
+            GorillaFriendCollider friendCollider = computer.friendJoinCollider;
+            int others = friendCollider.playerIDsCurrentlyTouching.Count;
+            if (friendCollider.playerIDsCurrentlyTouching.Contains(NetworkSystem.Instance.LocalPlayer.UserId)) others--;
+            if (others < 1) return;
+            if (FriendshipGroupDetection.Instance.IsInParty)
+            {
+                if (joinTrigger.CanPartyJoin())
+                {
+                    SaveRoomForGroupReturn(friendCollider);
+                    controller.AttemptToJoinPublicRoom(joinTrigger, GorillaNetworking.JoinType.ForceJoinWithParty);
+                }
+                return;
+            }
+
+            if (!NetworkSystem.Instance.InRoom || !NetworkSystem.Instance.SessionIsPrivate) return;
+            SaevGroupReturn(friendCollider);
+
+            controller.SetFriendIDList(friendCollider.playerIDsCurrentlyTouching);
+            controller.shuffler = UnityEngine.Random.Range(0, 99).ToString().PadLeft(2, '0') + UnityEngine.Random.Range(0, 99999999).ToString().PadLeft(8, '0');
+            controller.keyStr = UnityEngine.Random.Range(0, 99999999).ToString().PadLeft(8, '0');
+            object[] followData = { controller.shuffler, controller.keyStr };
+            foreach (NetPlayer player in RoomSystem.PlayersInRoom)
+            {
+                if (player != NetworkSystem.Instance.LocalPlayer && friendCollider.playerIDsCurrentlyTouching.Contains(player.UserId))
+                    RoomSystem.SendEvent(4, followData, new NetEventOptions { TargetActors = new[] { player.ActorNumber } }, false);
+            }
+
+            PhotonNetwork.SendAllOutgoingCommands();
+            controller.AttemptToJoinPublicRoom(joinTrigger, GorillaNetworking.JoinType.JoinWithNearby);
+        }
+
+        private static async void SaevGroupReturn(GorillaFriendCollider friendCollider)
+        {
+            string room = NetworkSystem.Instance.RoomName;
+            RoomConfig config = NetworkSystem.Instance.CurrentRoom;
+
+            List<string> group = friendCollider.playerIDsCurrentlyTouching.Select(x => x.UserID).ToList();
+            group.Remove(NetworkSystem.Instance.LocalPlayer.UserId);
+            if (group.Count == 0) return;
+
+            float timeout = Time.realtimeSinceStartup + 45f;
+            while (Time.realtimeSinceStartup < timeout)
+            {
+                await System.Threading.Tasks.Task.Delay(250);
+                if (!NetworkSystem.Instance.InRoom || NetworkSystem.Instance.RoomName == room)
+                continue;
+
+                int joined = 0;
+                foreach (NetPlayer player in RoomSystem.PlayersInRoom)
+                {
+                    if (group.Contains(player.UserId))
+                        joined++;
+                }
+
+                if (joined <= group.Count / 2)
+                continue;
+
+                await NetworkSystem.Instance.ReturnToSinglePlayer();
+                await NetworkSystem.Instance.ConnectToRoom(room, config);
+                return;
+            }
+        }
+
+        private static GameObject objects;
+        private static Material material;
+        private static readonly LineRenderer[] lines = new LineRenderer[12];
+        private static readonly Vector3[] corners = new Vector3[8];
+        private static readonly int[,] edges =
+        {
+            { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 },
+            { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },
+            { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }
+        };
+
+        public static void highlightFriendBound()
+        {
+            GorillaComputer computer = GorillaComputer.instance;
+            Collider collider = computer?.friendJoinCollider?.GetComponent<BoxCollider>();
+            collider ??= computer?.friendJoinCollider?.GetComponent<CapsuleCollider>();
+            if (collider == null)
+            {
+                if (objects != null) objects.SetActive(false);
+                return;
+            }
+
+            if (objects == null)
+            {
+                objects = new GameObject("boiii");
+                material = new Material(Shader.Find("GUI/Text Shader"));
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    GameObject edge = new GameObject("Edge");
+                    edge.transform.SetParent(objects.transform);
+                    LineRenderer line = edge.AddComponent<LineRenderer>();
+                    line.useWorldSpace = true;
+                    line.positionCount = 2;
+                    line.startWidth = 0.012f;
+                    line.endWidth = 0.012f;
+                    line.startColor = Color.cyan;
+                    line.endColor = Color.cyan;
+                    line.sharedMaterial = material;
+                    lines[i] = line;
+                }
+            }
+
+            objects.SetActive(true);
+            Bounds bounds = collider.bounds;
+            Vector3 min = bounds.min;
+            Vector3 max = bounds.max;
+            corners[0] = new Vector3(min.x, min.y, min.z);
+            corners[1] = new Vector3(max.x, min.y, min.z);
+            corners[2] = new Vector3(max.x, min.y, max.z);
+            corners[3] = new Vector3(min.x, min.y, max.z);
+            corners[4] = new Vector3(min.x, max.y, min.z);
+            corners[5] = new Vector3(max.x, max.y, min.z);
+            corners[6] = new Vector3(max.x, max.y, max.z);
+            corners[7] = new Vector3(min.x, max.y, max.z);
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                lines[i].SetPosition(0, corners[edges[i, 0]]);
+                lines[i].SetPosition(1, corners[edges[i, 1]]);
+            }
+        }
+
+        public static void fuckoffFriendBounds()
+        {
+            if (objects == null) return;
+            Object.Destroy(objects);
+            objects = null;
+            Object.Destroy(material);
+            material = null;
+            Array.Clear(lines, 0, lines.Length);
         }
 
         public static void AntiModerator()

@@ -1,8 +1,9 @@
 using BepInEx;
+using CXS;
 using GorillaNetworking;
+using Mono.Cecil.Cil;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
-using CXS;
 using ShibaGTGenesisReborn.Libs;
 using System;
 using System.Collections.Generic;
@@ -67,6 +68,41 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static bool Lockdown;
         private bool timeHooked;
+        private static bool quickActionsVisible;
+        private static string quickInput = "";
+
+        public static void ToggleQuickActions() => quickActionsVisible = !quickActionsVisible;
+
+        private void OnGUI()
+        {
+            if (!quickActionsVisible) return;
+
+            Color accent = buttonColors[1].colors[0].color;
+            Rect panel = new Rect((Screen.width - 360f) / 2f, (Screen.height - 160f) / 2f, 360f, 160f);
+            GUI.color = Color.black;
+            GUI.Box(panel, GUIContent.none);
+            GUI.color = accent;
+            GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 32f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(panel.x + 12f, panel.y + 7f, panel.width - 24f, 20f), "ShibaGT Genesis Reborn");
+
+            GUI.backgroundColor = buttonColors[0].colors[0].color;
+            GUI.contentColor = textColors[0];
+            quickInput = GUI.TextField(new Rect(panel.x + 18f, panel.y + 48f, panel.width - 36f, 34f), quickInput);
+
+            GUI.backgroundColor = accent;
+            GUI.contentColor = Color.white;
+            if (GUI.Button(new Rect(panel.x + 18f, panel.y + 98f, 156f, 42f), "Change Name")) Mods.mods.SetPlayerName(quickInput);
+            if (GUI.Button(new Rect(panel.x + 186f, panel.y + 98f, 156f, 42f), "Join Room")) 
+            {
+                string code = quickInput.Trim().ToUpperInvariant();
+                if (string.IsNullOrEmpty(code)) return;
+                PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(code, GorillaNetworking.JoinType.Solo);
+            }
+            GUI.color = Color.white;
+            GUI.backgroundColor = Color.white;
+            GUI.contentColor = Color.white;
+        }
 
         private void Awake()
         {

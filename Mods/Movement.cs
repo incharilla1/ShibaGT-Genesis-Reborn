@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Object = UnityEngine.Object;
+using GorillaLocomotion.Swimming;
 
 namespace ShibaGTGenesisReborn.Mods
 {
@@ -491,17 +492,17 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (asVolume == null)
             {
-                var template = Object.FindFirstObjectByType<GorillaLocomotion.Swimming.WaterVolume>();
-                if (template != null)
+                WaterVolume temp = Object.FindFirstObjectByType<GorillaLocomotion.Swimming.WaterVolume>();
+                if (temp != null)
                 {
-                    asVolume = Object.Instantiate(template.gameObject);
+                    asVolume = Object.Instantiate(temp.gameObject, Vector3.zero, Quaternion.identity);
                 }
                 else
                 {
                     GameObject prefab = GameObject.Find("Environment Objects/LocalObjects_Prefab/ForestToBeach/ForestToBeach_Prefab_V4/ForestToBeach_Geo/CaveWaterVolume") ?? GameObject.Find("CaveWaterVolume");
                     if (prefab != null)
                     {
-                        asVolume = Object.Instantiate(prefab);
+                        asVolume = Object.Instantiate(prefab, Vector3.zero, Quaternion.identity);
                     }
                 }
 

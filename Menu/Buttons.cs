@@ -1,4 +1,5 @@
 using GorillaLocomotion;
+using GorillaNetworking;
 using Oculus.Interaction;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
@@ -52,18 +53,19 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Players in Room", overlapText = "Players in Room (0)", method =() => SettingsMods.playersInRoom(), isTogglable = false, toolTip = "View all players in room" },
                 new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), isTogglable = false, toolTip = "RPC Protection" },
                 new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), isTogglable = false, toolTip = "Experimental RPC Protection" },
-                
+
                 new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room" },
                 new ButtonInfo { buttonText = "B Disconnect", method =() => mods.BDisconnect(), enabled = false, isTogglable = true, toolTip = "Press B to leave" },
-                new ButtonInfo { buttonText = "Join Genesis", method =() => mods.Joincodegenesis(), enabled = false, isTogglable = false, toolTip = "Join Genesis" },
+                new ButtonInfo { buttonText = "Join Genesis", method =() => PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("GENESIS", GorillaNetworking.JoinType.Solo), enabled = false, isTogglable = false, toolTip = "Join Genesis" },
                 new ButtonInfo { buttonText = "Join Random Room", method =() => mods.JoinRandom(), enabled = false, isTogglable = false, toolTip = "Join random" },
                 new ButtonInfo { buttonText = "Create Room", method =() => mods.CreateRoom(), enabled = false, isTogglable = false, toolTip = "Create a public room" },
-                
+                new ButtonInfo { buttonText = "Quick Actions UI", method =() => Main.ToggleQuickActions(), isTogglable = false, toolTip = "Open the name and room code panel" },
+
                 new ButtonInfo { buttonText = "Connect to Fastest Region", method =() => PhotonNetwork.ConnectToBestCloudServer(), enabled = false, isTogglable = false, toolTip = "Join US Central server" },
                 new ButtonInfo { buttonText = "Connect to US Central", method =() => mods.ConnectToRegion("us"), enabled = false, isTogglable = false, toolTip = "Join US Central server" },
                 new ButtonInfo { buttonText = "Connect to US West", method =() => mods.ConnectToRegion("usw"), enabled = false, isTogglable = false, toolTip = "Join US West server" },
                 new ButtonInfo { buttonText = "Connect to EU", method =() => mods.ConnectToRegion("eu"), enabled = false, isTogglable = false, toolTip = "Join EU server" },
-                
+
                 new ButtonInfo { buttonText = "Mute Gun (CS)", method =() => mods.MuteGun(), isTogglable = true, toolTip = "Shoot to mute player" },
                 new ButtonInfo { buttonText = "Mute All (CS)", method =() => mods.MuteAll(), enabled = false, isTogglable = false, toolTip = "Mute all players" },
                 new ButtonInfo { buttonText = "Unmute Gun", method =() => mods.UnmuteGun(), isTogglable = true, toolTip = "Shoot to unmute player" },
@@ -72,12 +74,12 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Loud Voice All (CS)", method =() => mods.LoudVoiceAll(), disableMethod =() => mods.DisableLoudVoiceAll(), isTogglable = true, toolTip = "Make all player voices 2D and heard globally" },
                 new ButtonInfo { buttonText = "Report Gun", method =() => mods.ReportGun(), isTogglable = true, toolTip = "Shoot to report player" },
                 new ButtonInfo { buttonText = "Report All", method =() => mods.ReportAll(), enabled = false, isTogglable = false, toolTip = "Report all players" },
-                
+
                 new ButtonInfo { buttonText = "Copy Identity", method =() => mods.CopyPlayerIdentity(), isTogglable = true, toolTip = "Shoot player to copy name and color" },
-                
+
                 new ButtonInfo { buttonText = "Lobby Hop", method =() => mods.LobbyHop(), isTogglable = false, toolTip = "Disconnect and join new random room" },
                 new ButtonInfo { buttonText = "Rejoin Room", method =() => mods.RejoinRoom(), isTogglable = false, toolTip = "Reconnect to current room" },
-                
+
                 new ButtonInfo { buttonText = "Anti Earrape", enableMethod =() => mods.antiEarrape = true, disableMethod =() => mods.antiEarrape = false, isTogglable = true, enabled = mods.antiEarrape, toolTip = "Block spammed sounds from other players" },
                 new ButtonInfo { buttonText = "Anti Moderator", method =() => mods.AntiModerator(), isTogglable = true, toolTip = "Disconnect immediately if a moderator/admin is in the room" },
                 new ButtonInfo { buttonText = "Hide on Leaderboard", method =() => mods.HideOnLeaderboard(), isTogglable = true, toolTip = "Desync your name and swatch color on the scoreboard" },
@@ -91,16 +93,16 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Tag Aura", method =() => mods.TagAura(), isTogglable = true, toolTip = "Auto tag nearby uninfected monkeys" },
                 new ButtonInfo { buttonText = "Tag Assist", method =() => mods.TagAssist(), disableMethod =() => mods.tagAssistTarget = null, isTogglable = true, toolTip = "Blatantly snaps hands and pulls you towards nearest uninfected monkey" },
                 new ButtonInfo { buttonText = "Tag Pull", method =() => mods.TagPull(), isTogglable = true, toolTip = "Hold RT to pull towards closest untagged player in range" },
-                
+
                 new ButtonInfo { buttonText = "No Tag On Join", method =() => mods.NoTagOnJoin(), disableMethod =() => mods.TagOnJoin(), isTogglable = true, toolTip = "No tag when joining" },
                 new ButtonInfo { buttonText = "No Leaves", method =() => mods.removeleaves(), disableMethod =() => mods.addleaves(), isTogglable = true, toolTip = "Remove leaves" },
-                
+
                 new ButtonInfo { buttonText = "45 FPS", method =() => mods.FPS(45), isTogglable = true, toolTip = "Set 45 FPS" },
                 new ButtonInfo { buttonText = "60 FPS", method =() => mods.FPS(60), isTogglable = true, toolTip = "Set 60 FPS" },
                 new ButtonInfo { buttonText = "90 FPS", method =() => mods.FPS(90), isTogglable = true, toolTip = "Set 90 FPS" },
                 new ButtonInfo { buttonText = "120 FPS", method =() => mods.FPS(120), isTogglable = true, toolTip = "Set 120 FPS" },
                 new ButtonInfo { buttonText = "Unlock fps", method =() => { Application.targetFrameRate = int.MaxValue; QualitySettings.vSyncCount = 0; }, disableMethod =() => Application.targetFrameRate = 144, isTogglable = true, enabled = false, toolTip = "Unlocks FPS (doesnt work if nvidia control panel is limiting)" },
-                
+
                 new ButtonInfo { buttonText = "No Tag Freeze", method =() => mods.NoTagFreeze(), isTogglable = true, toolTip = "Remove tag freeze" },
                 new ButtonInfo { buttonText = "Hitbox Expander", enableMethod =() => mods.HitboxExpander(), disableMethod =() => mods.DisableHitboxExpander(), isTogglable = true, toolTip = "Expand tag hitboxes and reach" },
             },
@@ -109,49 +111,49 @@ namespace ShibaGTGenesisReborn.Menu
             { // Movement [3]
                 new ButtonInfo { buttonText = "Platforms", method =() => mods.Platforms(), disableMethod =() => mods.ResetPlatforms(), isTogglable = true, toolTip = "Spawn platforms on trigger/grip" },
                 new ButtonInfo { buttonText = "Invis Platforms", method =() => mods.Platforms(true), disableMethod =() => mods.ResetPlatforms(), isTogglable = true, toolTip = "Spawn invisible platforms" },
-                
+
                 new ButtonInfo { buttonText = "Noclip (RT)", method =() => mods.Noclip(), disableMethod =() => mods.NoclipDisable(), isTogglable = true, toolTip = "Hold right trigger to phase through walls" },
-                
+
                 new ButtonInfo { buttonText = "Fly (B)", method =() => mods.CarMonkeyandfly(15f, true), isTogglable = true, toolTip = "Hold B to fly where you look" },
                 new ButtonInfo { buttonText = "Velocity Fly", method =() => mods.VelocityFly(), isTogglable = true, toolTip = "Hold secondary to fly where you look" },
                 new ButtonInfo { buttonText = "Fly Speed", overlapText = "Fly Speed: Normal", method =() => Main.Change("Fly Speed", ref mods.movementSpeedIndex, mods.movementSpeedNames, prefix: "Fly Speed: "), isTogglable = false, toolTip = "Change fly speed" },
                 new ButtonInfo { buttonText = "WASD Fly", method =() => mods.WASDFly(), isTogglable = true, toolTip = "Fly and look around with WASD/mouse" },
                 new ButtonInfo { buttonText = "Car Monkey (A)", method =() => mods.CarMonkeyandfly(15f, false), isTogglable = true, toolTip = "Hold A to drive forward" },
-                
+
                 new ButtonInfo { buttonText = "TP Gun", method =() => mods.TeleportGun(), isTogglable = true, toolTip = "Point and shoot to teleport" },
                 new ButtonInfo { buttonText = "Pull Mod", method =() => mods.PullMod(), isTogglable = true, toolTip = "just pull mod" },
-                
+
                 new ButtonInfo { buttonText = "Low Gravity", method =() => mods.GravityManager(mods.Gravitytypes.Low), isTogglable = true, toolTip = "Lowers gravity." },
                 new ButtonInfo { buttonText = "High Gravity", method =() => mods.GravityManager(mods.Gravitytypes.High), isTogglable = true, toolTip = "Increases gravity." },
                 new ButtonInfo { buttonText = "Zero Gravity", method =() => mods.GravityManager(mods.Gravitytypes.Zero), isTogglable = true, toolTip = "Removes gravity." },
                 new ButtonInfo { buttonText = "Reverse Gravity", method =() => mods.GravityManager(mods.Gravitytypes.Reverse), disableMethod = () => mods.Reset_upsidedown(), isTogglable = true, toolTip = "Reverses gravity." },
-                
+
                 new ButtonInfo { buttonText = "Up And Down", method =() => mods.UpAndDown(), isTogglable = true, toolTip = "RT to fly up, LT to fly down" },
-                
+
                 new ButtonInfo { buttonText = "Slip Slap", method =() => mods.SlipSlap(), disableMethod =() => mods.UnSlipSlap(), isTogglable = true, toolTip = "Its just slip slap" },
                 new ButtonInfo { buttonText = "No Slip", method =() => mods.NoSlip(), disableMethod =() => mods.ReSlip(), isTogglable = true, toolTip = "Disable all slippery surfaces" },
-                
+
                 new ButtonInfo { buttonText = "CheckPoint", method =() => mods.CheckPoint(), disableMethod =() => mods.CheckPointDisable(), isTogglable = true, toolTip = "RG to set checkpoint, A to teleport" },
-                
+
                 new ButtonInfo { buttonText = "Legit Slide Control", method =() => mods.SlideControl(0.05f), disableMethod =() => mods.SlideControl(0.00425f), isTogglable = true, toolTip = "Slightly more slide control" },
                 new ButtonInfo { buttonText = "Blatant Slide Control", method =() => mods.SlideControl(0.08f), disableMethod =() => mods.SlideControl(0.00425f), isTogglable = true, toolTip = "High slide control" },
-                
+
                 new ButtonInfo { buttonText = "Grappling Hook", method =() => mods.GrapplingHook(), disableMethod =() => mods.GrapplingHookDisable(), isTogglable = true, toolTip = "Aim and pull with grappling hook" },
-                
+
                 new ButtonInfo { buttonText = "Air Swim", method =() => mods.AirSwim(), disableMethod =() => mods.AirSwimDisable(), isTogglable = true, toolTip = "Swim through the air" },
                 new ButtonInfo { buttonText = "Super Swim", method =() => mods.SuperSwim(), isTogglable = true, toolTip = "Fast swim speed in water" },
                 new ButtonInfo { buttonText = "Jesus Monke", method =() => mods.JesusMonke(), disableMethod =() => mods.JesusMonkeDisable(), isTogglable = true, toolTip = "Walk and slide on water surfaces" },
-                
+
                 new ButtonInfo { buttonText = "Zipline Speed", method =() => mods.ZiplineSpeed(35f), disableMethod =() => mods.ZiplineSpeed(10f), isTogglable = true, toolTip = "Increase zipline speed" },
                 new ButtonInfo { buttonText = "Catapult", method =() => mods.Catapult(), isTogglable = true, toolTip = "Shoot pointer to launch yourself" },
-                
+
                 new ButtonInfo { buttonText = "Sticky Hands", enableMethod =() => mods.stickyHands = true, disableMethod =() => mods.ResetStickyHands(), isTogglable = true, toolTip = "Stick on contact, hold grip to release that hand" },
-                
+
                 new ButtonInfo { buttonText = "PiggyBack", method =() => mods.PiggyBack(), disableMethod =() => mods.PiggyBackDisable(), isTogglable = true, toolTip = "Ride on another player's back" },
                 new ButtonInfo { buttonText = "Follow Player", method =() => mods.FollowPlayer(), disableMethod =() => mods.FollowPlayerDisable(), isTogglable = true, toolTip = "Always follow slightly behind a player" },
-                
+
                 new ButtonInfo { buttonText = "Ender Pearl", method =() => mods.EnderPearl(), disableMethod =() => mods.EnderPearlDisable(), isTogglable = true, toolTip = "Grip to hold pearl, release to throw and teleport" },
-                
+
                 new ButtonInfo { buttonText = "Zipline Gun", method =() => mods.ZiplineGun(), disableMethod =() => mods.ZiplineGunDisable(), isTogglable = true, toolTip = "Shoot to create rideable zipline" },
             },
 
@@ -159,18 +161,18 @@ namespace ShibaGTGenesisReborn.Menu
             { // Rig [4]
                 new ButtonInfo { buttonText = "Ghost Monkey", method =() => mods.GhostMonke(), isTogglable = true, toolTip = "Freeze your rig (Hold Left Primary / F)" },
                 new ButtonInfo { buttonText = "Invis Monkey", method =() => mods.InvisMonke(), isTogglable = true, toolTip = "Invisible monkey (Hold Right Primary / B)" },
-                
+
                 new ButtonInfo { buttonText = "Look Freeze Gun", method =() => mods.LookFreezeGun(), disableMethod =() => mods.DisableLookFreezeGun(), isTogglable = true, toolTip = "Select a player with the gun; freeze while they look at you" },
                 new ButtonInfo { buttonText = "Look Freeze All", method =() => mods.LookFreezeAll(), isTogglable = true, toolTip = "Freeze while any player looks at you" },
-                
+
                 new ButtonInfo { buttonText = "Long Arms", method =() => mods.LongArms(), isTogglable = true, toolTip = "Right Trigger to get longer arms, Left Trigger to get shorter arms and Right Prim" },
-                
+
                 new ButtonInfo { buttonText = "Spaz Rig", method =() => mods.SpazRig(), isTogglable = true, toolTip = "Spazzy monkey" },
                 new ButtonInfo { buttonText = "Upside Down Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "neck upsidedown" },
                 new ButtonInfo { buttonText = "Broken Neck", method =() => VRRig.LocalRig.head.trackingRotationOffset.z = 90f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "broken neck" },
                 new ButtonInfo { buttonText = "Backwards Head", method =() => VRRig.LocalRig.head.trackingRotationOffset.y = 180f, disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "backwards head" },
                 new ButtonInfo { buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously" },
-                
+
                 new ButtonInfo { buttonText = "Copy Gun", method =() => mods.CopyGun(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Shoot a player to copy their rig pose and position" },
             },
 
@@ -179,12 +181,12 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Fling All Ropes", method =() => mods.FlingAllRopes(), disableMethod =() => mods.DisableRopes(), isTogglable = true, toolTip = "Launch all ropes at extreme velocity to fling players" },
                 new ButtonInfo { buttonText = "Fling Rope Gun", method =() => mods.FlingRopeGun(), disableMethod =() => mods.DisableRopes(), isTogglable = true, toolTip = "Shoot a rope or player on rope to launch it at extreme speed" },
                 new ButtonInfo { buttonText = "Joystick Rope", method =() => mods.JoystickRope(), disableMethod =() => mods.DisableRopes(), isTogglable = true, toolTip = "Push ropes towards right joystick direction" },
-                
+
                 new ButtonInfo { buttonText = "Board Spam", method =() => mods.HoverboardSpam(), isTogglable = true, toolTip = "Hold RG to spam hoverboards" },
                 new ButtonInfo { buttonText = "Spawn Board", enableMethod =() => mods.SpawnBoard(), disableMethod =() => mods.DisableBoard(), isTogglable = true, toolTip = "Equip and ride usable hoverboard" },
-                
+
                 new ButtonInfo { buttonText = "Collideable Monkeys", method =() => mods.CollideableMonkeys(), disableMethod =() => mods.DisableCollideableMonkeys(), isTogglable = true, toolTip = "Enable solid collisions on other monkeys to walk and stand on them" },
-                
+
                 new ButtonInfo { buttonText = "Loud Microphone", method =() => mods.LoudMicrophone(), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Boost microphone volume (15x)" },
                 new ButtonInfo { buttonText = "Earrape Mic", method =() => mods.LoudMicrophone(25f), disableMethod =() => mods.ResetMicrophoneVolume(), isTogglable = true, toolTip = "Extreme microphone volume boost (25x)" },
                 new ButtonInfo { buttonText = "Mute Microphone", method =() => mods.MuteMicrophone(), disableMethod =() => mods.UnmuteMicrophone(), isTogglable = true, toolTip = "Mute local microphone transmission" },
@@ -201,11 +203,11 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Fix Microphone", method =() => mods.FixMicrophone(), isTogglable = false, toolTip = "Reset and repair microphone settings" },
                 new ButtonInfo { buttonText = "Hear Self", method =() => mods.HearSelf(true), disableMethod =() => mods.HearSelf(false), isTogglable = true, toolTip = "Hear your own microphone live to test audio" },
                 new ButtonInfo { buttonText = "Noise Cancellation", method =() => mods.NoiseCancellation(), disableMethod =() => mods.DisableNoiseCancellation(), isTogglable = true, toolTip = "Gate out background noise via VAD threshold" },
-                
+
                 new ButtonInfo { buttonText = "Waterbend", method =() => mods.WaterSplash(), isTogglable = true, toolTip = "Splash water around hands" },
                 new ButtonInfo { buttonText = "Splash Size", overlapText = "Splash Size: Medium", method =() => Main.Change("Splash Size", ref mods.splashSizeIndex, mods.splashSizeNames), isTogglable = false, toolTip = "Change water splash size" },
                 new ButtonInfo { buttonText = "Splash Gun", method =() => mods.SplashGun(), disableMethod =() => mods.DisableSplashGun(), isTogglable = true, toolTip = "Shoot water splashes at pointer" },
-                
+
                 new ButtonInfo { buttonText = "Get Bracelet", method =() => mods.GetBracelet(), isTogglable = false, toolTip = "Equip right hand friendship bracelet" },
                 new ButtonInfo { buttonText = "Remove Bracelet", method =() => mods.RemoveBracelet(), isTogglable = false, toolTip = "Remove all friendship bracelets" },
                 new ButtonInfo { buttonText = "Get Left Bracelet", method =() => mods.GetLeftBracelet(), isTogglable = false, toolTip = "Equip left hand friendship bracelet" },
@@ -216,12 +218,12 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Match Color Bracelet", method =() => mods.CustomColorBracelet(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Match bracelet beads to monkey color" },
                 new ButtonInfo { buttonText = "Gold Bracelet", method =() => mods.GoldBracelet(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Golden friendship bracelet beads" },
                 new ButtonInfo { buttonText = "Party With Room", method =() => mods.PartyWithRoom(), disableMethod =() => mods.NoBracelet(), isTogglable = true, toolTip = "Display friendship beads matching every player in the lobby" },
-                
+
                 new ButtonInfo { buttonText = "Networking Library", enableMethod = () => NetworkingLibrary.Instance.NetworkEnabled = true, disableMethod = () => NetworkingLibrary.Instance.NetworkEnabled = false, isTogglable = true, toolTip = "Toggle custom networking", enabled = NetworkingLibrary.Instance?.NetworkEnabled ?? true },
-                
+
                 new ButtonInfo { buttonText = "Soundboard", method = () => SettingsMods.soundboardAudios(), isTogglable = false, toolTip = "Play sounds through in-game microphone" },
                 new ButtonInfo { buttonText = "Stop Soundboard", method = () => SoundboardManager.Stop(), isTogglable = false, toolTip = "Stop playing soundboard audio" },
-                
+
                 new ButtonInfo { buttonText = "Boombox", method = () => BoomboxManager.BoomboxLoop("https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/boombox.obj", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/boomboxmesh.png"), disableMethod = () => BoomboxManager.Kill(), isTogglable = true, toolTip = "Spawn boombox" },
                 new ButtonInfo { buttonText = "Boombox Audios", method = () => SettingsMods.boomboxAudios(), isTogglable = false, toolTip = "Choose audio from Genesis/boombox folder" },
                 new ButtonInfo { buttonText = "Boombox Volume +", method = () => BoomboxManager.AdjustVolume(0.1f), isTogglable = false, toolTip = "Volume up" },
@@ -233,13 +235,13 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Visualizer Intensity -", method = () => BoomboxManager.VisualizerIntensity = Mathf.Clamp(BoomboxManager.VisualizerIntensity - 1f, 0f, 10f), isTogglable = false, toolTip = "Smaller bars" },
                 new ButtonInfo { buttonText = "Visualizer Base Scale +", method = () => BoomboxManager.BaseScale = Mathf.Clamp(BoomboxManager.BaseScale + 1f, 0.1f, 10f), isTogglable = false, toolTip = "Wider bars" },
                 new ButtonInfo { buttonText = "Visualizer Base Scale -", method = () => BoomboxManager.BaseScale = Mathf.Clamp(BoomboxManager.BaseScale - 1f, 0.1f, 10f), isTogglable = false, toolTip = "Narrower bars" },
-                
+
                 new ButtonInfo { buttonText = "Grosh Holdable", method = () => GroshHolder.GroshLoop("https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/Grosh.Holdable.obj", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/iidktexture.png"), disableMethod = () => GroshHolder.Kill(), isTogglable = true, toolTip = "Hold Grosh" },
                 new ButtonInfo { buttonText = "Maxwell Holdable", enableMethod = () => MaxwellHolder.DownloadAssets(), method = () => MaxwellHolder.CatLoop(), disableMethod = () => MaxwellHolder.Kill(), isTogglable = true, toolTip = "Hold Maxwell" },
                 new ButtonInfo { buttonText = "Triple T Holdable", method = () => SusTung.TungShooter("https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/TungTungTungSahur.obj", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/shaded.png", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/tungtung.wav"), disableMethod = () => SusTung.Kill(), isTogglable = true, toolTip = "Hold Tung" },
                 new ButtonInfo { buttonText = "Fat Seal Spammer", method = () => FatSealSpammer.SealLoop("https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/fatseal.obj", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/fatseal.jpeg"), disableMethod = () => FatSealSpammer.Kill(), isTogglable = true, toolTip = "Spawn seals" },
                 new ButtonInfo { buttonText = "Vape", method = () => Vape.InitVape("https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/juul.obj", "https://raw.githubusercontent.com/incharilla1/ShibaGT-Genesis-Reborn/main/Mods/Custom/files/JUUL_BOI_Color.png"), disableMethod = () => Vape.Kill(), isTogglable = true, toolTip = "Hold vape" },
-                
+
                 new ButtonInfo { buttonText = "Stun Grenade (LOUD)", method = () => StunGrenadeManager.StunLoop(), disableMethod = () => StunGrenadeManager.Kill(), isTogglable = true, toolTip = "Press RG to hold grenade, release to throw (3s timer)" },
                 new ButtonInfo { buttonText = "Bomb (LOUD)", method = () => BombManager.BombLoop(), disableMethod = () => BombManager.Kill(), isTogglable = true, toolTip = "Press RG to spawn a bomb (3s fuse)" },
             },
@@ -249,7 +251,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "CosmetX", enableMethod =() => mods.EnableCosmetX(), disableMethod =() => mods.DisableCosmetX(), isTogglable = true, toolTip = "Unlock all cosmetics and network to other users" },
                 new ButtonInfo { buttonText = "RGB Monke (stump)", method =() => mods.RGB(), isTogglable = true, toolTip = "Cycle player colors in stump" },
                 new ButtonInfo { buttonText = "Strobe Monke (stump)", method =() => mods.RGB(true), isTogglable = true, toolTip = "Rapidly strobe player colors in stump" },
-               
+
                 new ButtonInfo { buttonText = "Tracers", method =() => mods.Tracers(), isTogglable = true, toolTip = "Draw lines to players" },
                 new ButtonInfo { buttonText = "Beacon ESP", method =() => mods.BeaconESP(), isTogglable = true, toolTip = "Draw vertical beacon beams from players" },
                 new ButtonInfo { buttonText = "Casual Chams", method =() => mods.CasualFullBodyESP(), disableMethod =() => mods.DisableFullBodyESP(), isTogglable = true, toolTip = "Highlight all players" },
@@ -266,9 +268,9 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Menu Users ESP", enableMethod =() => CXS.CXS.SetESP(false, true), method =() => mods.BoxESP(menuUsers: true), disableMethod =() => CXS.CXS.SetESP(false, false), isTogglable = true, toolTip = "Highlight Genesis menu users" },
                 new ButtonInfo { buttonText = "Owner ESP", enableMethod =() => CXS.CXS.SetESP(true, true), method =() => mods.BoxESP(owners: true), disableMethod =() => CXS.CXS.SetESP(true, false), isTogglable = true, toolTip = "Highlight CXS admins" },
                 new ButtonInfo { buttonText = "Moderator ESP", method =() => mods.ModeratorESP(), isTogglable = true, toolTip = "Highlight players with Moderator, Admin, Finger Painter, or Stick badges" },
-                
+
                 new ButtonInfo { buttonText = "cursedgtag", overlapText = "Cursed Mode: Off", method =() => mods.CursedGTAG(), isTogglable = false, toolTip = "Change cursed time override" },
-                
+
                 new ButtonInfo { buttonText = "Time Switcher", overlapText = "Time: Default", method =() => mods.TimeSwitcher(), isTogglable = false, toolTip = "Change time of day" },
                 new ButtonInfo { buttonText = "Weather Switcher", overlapText = "Weather: Default", method =() => mods.CycleWeather(), isTogglable = false, toolTip = "Change weather mode (Rain/Clear)" },
             },
@@ -289,25 +291,28 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // overpowered [8]
-                new ButtonInfo { buttonText = "Stump Kick Gun (Private)", method =() => mods.StumpKickGun(), isTogglable = true, toolTip = "Spam hits on all targets in map" },
-                new ButtonInfo { buttonText = "Stump Kick All (Private)", method =() => mods.StumpKick(), isTogglable = true, toolTip = "Spam hits on all targets in map" },
+                new ButtonInfo { buttonText = "Tag To Infection (Master)", method =() => { if (GorillaGameManager.instance is GorillaTagManager manager) manager.infectedModeThreshold = 1; }, isTogglable = false, toolTip = "Sets any rock monkey game into infection", needsMaster = true },
+                new ButtonInfo { buttonText = "Infection To Tag (Master)", method =() =>  { if (GorillaGameManager.instance is GorillaTagManager manager) manager.infectedModeThreshold = PhotonNetwork.CurrentRoom.MaxPlayers + 1; }, isTogglable = true, toolTip = "Sets any infection game into rock monkey", needsMaster = true },
+
+                new ButtonInfo { buttonText = "Kick All [Dont leave stump]", method =() => mods.FollowMeBro(), isTogglable = false, toolTip = "kicks everybody in the group join collider" },
+                new ButtonInfo { buttonText = "Show me the friend bound", method =() => mods.highlightFriendBound(), disableMethod =() => mods.fuckoffFriendBounds(), isTogglable = true, toolTip = "Show the nearby group collider bounds" },
 
                 new ButtonInfo { buttonText = "Target Spam (Master)", method =() => mods.TargetSpam(), isTogglable = true, toolTip = "Spam hits on all targets in map", needsMaster = true },
-                
+
                 new ButtonInfo { buttonText = "Destroy Gun (Master and Detected)", method =() => mods.DestroyGun(), isTogglable = true, toolTip = "i dunno", needsMaster = true },
                 new ButtonInfo { buttonText = "Destroy All (Master and Detected)", method =() => mods.DestroyAll(), isTogglable = true, toolTip = "i dunno (but better)", needsMaster = true },
-                
+
                 new ButtonInfo { buttonText = "Become Guardian (Master)", method =() => mods.BecomeGuardian(), isTogglable = false, toolTip = "Take Guardian control in every active Guardian zone", needsMaster = true },
                 new ButtonInfo { buttonText = "Eject Guardians (Master)", method =() => mods.EjectAllGuardians(), isTogglable = false, toolTip = "Remove the Guardian from every active Guardian zone", needsMaster = true },
-                
+
                 new ButtonInfo { buttonText = "Ghost Reactor God Mode", method =() => mods.GhostReactorGodMode(), disableMethod =() => mods.DisableGhostReactorGodMode(), isTogglable = true, toolTip = "Continuously revive, heal, shield, illuminate, and cloak yourself" },
                 new ButtonInfo { buttonText = "Kill All GR Enemies", method =() => mods.KillAllGhostReactorEnemies(), isTogglable = false, toolTip = "Instantly eliminate all current non-boss Ghost Reactor enemies" },
                 new ButtonInfo { buttonText = "GR Nuker (Master)", method =() => mods.GRNuker(), isTogglable = true, toolTip = "Nuke all enemies, boss, breakables, barriers, and hazards in Ghost Reactor", needsMaster = true },
-                
+
                 new ButtonInfo { buttonText = "Force Start Game (Master)", method =() => mods.ForceStartCurrentGame(), isTogglable = false, toolTip = "Force the active game mode to start", needsMaster = true },
                 new ButtonInfo { buttonText = "Reset Current Game (Master)", method =() => mods.ResetCurrentGame(), isTogglable = false, toolTip = "Immediately reset the active game mode", needsMaster = true },
                 new ButtonInfo { buttonText = "Freeze All (Master)", method =() => mods.FreezeAllPlayers(),  isTogglable = true, toolTip = "Continuously freeze every other Freeze Tag player", needsMaster = true },
-                
+
                 new ButtonInfo { buttonText = "Open All Doors", method =() => mods.SetAllDoors(true), isTogglable = false, toolTip = "Open loaded Ghost Reactor and elevator doors locally" },
                 new ButtonInfo { buttonText = "Close All Doors", method =() => mods.SetAllDoors(false), isTogglable = false, toolTip = "Close loaded Ghost Reactor and elevator doors locally" },
             },

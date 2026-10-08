@@ -318,55 +318,5 @@ namespace ShibaGTGenesisReborn.Mods
             GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, targetHead, Quaternion.identity, 1f, 0.5f, true, true);
             GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayGeodeEffect", RpcTarget.All, targetHead);
         }
-
-        public static void StumpKickGun() 
-        {
-            GunLib.StartGun(() =>
-            {
-                if (GunLib.LockedPlayer != null)
-                    StumpKick(GunLib.LockedPlayer);
-            }, true);
-        }
-
-        public static void StumpKick(VRRig rig = null)
-        {
-            if (!PhotonNetwork.InRoom || !NetworkSystem.Instance.SessionIsPrivate) return;
-
-            int[] actors;
-
-            if (rig != null)
-            {
-                if (rig.isLocal) return;
-                Player player = RigManager.NetPlayerToPlayer(RigManager.GetPlayerFromVRRig(rig));
-                if (!GorillaComputer.instance.friendJoinCollider.playerIDsCurrentlyTouching.Contains(player.UserId)) return;
-
-                PhotonNetworkController.Instance.FriendIDList.Add(player.UserId);
-                actors = new int[] { player.ActorNumber };
-            }
-            else
-            {
-                actors = VRRigCache.ActiveRigs
-                    .Where(r => !r.isLocal && GorillaComputer.instance.friendJoinCollider.playerIDsCurrentlyTouching.Contains(r.Creator.UserId))
-                    .Select(r => {
-                        Player p = RigManager.NetPlayerToPlayer(RigManager.GetPlayerFromVRRig(r));
-                        PhotonNetworkController.Instance.FriendIDList.Add(p.UserId);
-                        return p.ActorNumber;
-                    }).ToArray();
-            }
-
-            if (actors.Length == 0) return;
-            Kick(actors);
-        }
-
-        private static void Kick(int[] targetActors)
-        {
-            PhotonNetworkController.Instance.FriendIDList.Clear();
-            PhotonNetworkController.Instance.shuffler = UnityEngine.Random.Range(0, 99).ToString().PadLeft(2, '0') + UnityEngine.Random.Range(0, 99999999).ToString().PadLeft(8, '0');
-            PhotonNetworkController.Instance.keyStr = UnityEngine.Random.Range(0, 99999999).ToString().PadLeft(8, '0');
-            RoomSystem.SendEvent(4, new object[] { PhotonNetworkController.Instance.shuffler, PhotonNetworkController.Instance.keyStr }, new NetEventOptions { TargetActors = targetActors }, false);
-
-            if (RPCProt())
-                mods.CreateRoom();
-        }        
     }
 }

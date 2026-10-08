@@ -29,7 +29,7 @@ namespace ShibaGTGenesisReborn.Mods
                     return tagManager.currentInfected.Contains(np);
             }
             if (rig.setMatIndex == 1 || rig.setMatIndex == 2 || rig.setMatIndex == 11) return true;
-            return rig.mainSkin?.material != null && rig.mainSkin.material.name.Contains("fected");
+            return rig.mainSkin.material.name.Contains("fected");
         }
 
         public static void TagGun()
