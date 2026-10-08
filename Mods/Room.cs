@@ -720,7 +720,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (joinTrigger.CanPartyJoin())
                 {
-                    SaveRoomForGroupReturn(friendCollider);
+                    SaevGroupReturn(friendCollider);
                     controller.AttemptToJoinPublicRoom(joinTrigger, GorillaNetworking.JoinType.ForceJoinWithParty);
                 }
                 return;
