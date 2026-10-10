@@ -47,13 +47,28 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void JoinRandom()
         {
-            if (PhotonNetworkController.Instance.currentJoinTrigger.networkZone != null)
+            PhotonNetworkController controller = PhotonNetworkController.Instance;
+            if (controller == null) return;
+
+            if (controller.currentJoinTrigger != null && !string.IsNullOrEmpty(controller.currentJoinTrigger.networkZone))
             {
-                lastmap = PhotonNetworkController.Instance.currentJoinTrigger.networkZone;
+                lastmap = controller.currentJoinTrigger.networkZone;
             }
-            if (!NetworkSystem.Instance.InRoom)
+
+            if (string.IsNullOrEmpty(lastmap))
             {
-                PhotonNetworkController.Instance.AttemptToJoinPublicRoom(GorillaComputer.instance.GetJoinTriggerForZone(lastmap), GorillaNetworking.JoinType.Solo);
+                lastmap = GorillaComputer.instance?.allowedMapsToJoin?.FirstOrDefault() ?? "forest";
+            }
+
+            GorillaNetworkJoinTrigger trigger = GorillaComputer.instance?.GetJoinTriggerForZone(lastmap);
+            if (trigger == null && GorillaComputer.instance != null)
+            {
+                trigger = GorillaComputer.instance.GetJoinTriggerForZone("forest") ?? controller.currentJoinTrigger;
+            }
+
+            if (trigger != null && NetworkSystem.Instance != null && !NetworkSystem.Instance.InRoom)
+            {
+                controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.Solo);
             }
         }
 
@@ -746,7 +761,7 @@ namespace ShibaGTGenesisReborn.Mods
         private static async void SaevGroupReturn(GorillaFriendCollider friendCollider)
         {
             string room = NetworkSystem.Instance.RoomName;
-            RoomConfig config = NetworkSystem.Instance.CurrentRoom;
+            if (string.IsNullOrEmpty(room)) return;
 
             List<string> group = friendCollider.playerIDsCurrentlyTouching.Select(x => x.UserID).ToList();
             group.Remove(NetworkSystem.Instance.LocalPlayer.UserId);
@@ -757,7 +772,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 await System.Threading.Tasks.Task.Delay(250);
                 if (!NetworkSystem.Instance.InRoom || NetworkSystem.Instance.RoomName == room)
-                continue;
+                    continue;
 
                 int joined = 0;
                 foreach (NetPlayer player in RoomSystem.PlayersInRoom)
@@ -767,10 +782,10 @@ namespace ShibaGTGenesisReborn.Mods
                 }
 
                 if (joined <= group.Count / 2)
-                continue;
+                    continue;
 
                 await NetworkSystem.Instance.ReturnToSinglePlayer();
-                await NetworkSystem.Instance.ConnectToRoom(room, config);
+                PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(room, GorillaNetworking.JoinType.Solo);
                 return;
             }
         }

@@ -14,8 +14,7 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        [Setting] public static int splashSizeIndex = 1;
-        public static readonly string[] splashSizeNames = { "Small", "Medium", "Large", "Huge" };
+        [Setting] public static bool bigSplashEnabled = false;
         public static float delay;
         public static bool enablebracelet;
 
@@ -110,12 +109,16 @@ namespace ShibaGTGenesisReborn.Mods
         public static void WaterSplash()
         {
             if (!NetworkSystem.Instance.InRoom) return;
+            bool isBig = bigSplashEnabled;
+            float splashScale = isBig ? 2f : 1f;
+            float boundingRadius = isBig ? 0.5f : 0.15f;
+
             if (Time.time > delay)
             {
                 if (InputHandler.Instance.RightTrigger.IsPressed)
                 {
                     delay = Time.time + 0.3f;
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, 4f, 100f, false, true });
+                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, splashScale, boundingRadius, isBig, true });
                 }
             }
             if (Time.time > delay)
@@ -123,7 +126,7 @@ namespace ShibaGTGenesisReborn.Mods
                 if (InputHandler.Instance.LeftTrigger.IsPressed)
                 {
                     delay = Time.time + 0.3f;
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.leftHandTransform.position, GorillaTagger.Instance.leftHandTransform.rotation, 4f, 100f, false, true });
+                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.leftHandTransform.position, GorillaTagger.Instance.leftHandTransform.rotation, splashScale, boundingRadius, isBig, true });
                 }
             }
         }
@@ -146,7 +149,10 @@ namespace ShibaGTGenesisReborn.Mods
                 NetworkingLibrary.SendRigPosition(splashGunPos, view: RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig));
                 if (Time.time >= splashGunDelay)
                 {
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, splashGunPos, Quaternion.identity, 1f, 0.5f, false, true);
+                    bool isBig = bigSplashEnabled;
+                    float splashScale = isBig ? 2f : 1f;
+                    float boundingRadius = isBig ? 0.5f : 0.15f;
+                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, splashGunPos, Quaternion.identity, splashScale, boundingRadius, isBig, true);
                     splashGunPending = false;
                     splashGunDelay = Time.time + 0.3f;
                     RPCProt();

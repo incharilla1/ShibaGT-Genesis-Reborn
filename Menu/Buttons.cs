@@ -53,6 +53,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Players in Room", overlapText = "Players in Room (0)", method =() => SettingsMods.playersInRoom(), isTogglable = false, toolTip = "View all players in room" },
                 new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), isTogglable = false, toolTip = "RPC Protection" },
                 new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), isTogglable = false, toolTip = "Experimental RPC Protection" },
+                new ButtonInfo { buttonText = "RPC Logger", enableMethod =() => Patches.RpcLoggerPatch.Enabled = true, disableMethod =() => Patches.RpcLoggerPatch.Enabled = false, enabled = Patches.RpcLoggerPatch.Enabled, isTogglable = true, toolTip = "Log outgoing client RPCs with arguments to console" },
 
                 new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room" },
                 new ButtonInfo { buttonText = "B Disconnect", method =() => mods.BDisconnect(), enabled = false, isTogglable = true, toolTip = "Press B to leave" },
@@ -205,7 +206,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Noise Cancellation", method =() => mods.NoiseCancellation(), disableMethod =() => mods.DisableNoiseCancellation(), isTogglable = true, toolTip = "Gate out background noise via VAD threshold" },
 
                 new ButtonInfo { buttonText = "Waterbend", method =() => mods.WaterSplash(), isTogglable = true, toolTip = "Splash water around hands" },
-                new ButtonInfo { buttonText = "Splash Size", overlapText = "Splash Size: Medium", method =() => Main.Change("Splash Size", ref mods.splashSizeIndex, mods.splashSizeNames), isTogglable = false, toolTip = "Change water splash size" },
+                new ButtonInfo { buttonText = "Big Splash", enableMethod =() => mods.bigSplashEnabled = true, disableMethod =() => mods.bigSplashEnabled = false, enabled = mods.bigSplashEnabled, isTogglable = true, toolTip = "Force all water splashes to trigger big splash" },
                 new ButtonInfo { buttonText = "Splash Gun", method =() => mods.SplashGun(), disableMethod =() => mods.DisableSplashGun(), isTogglable = true, toolTip = "Shoot water splashes at pointer" },
 
                 new ButtonInfo { buttonText = "Get Bracelet", method =() => mods.GetBracelet(), isTogglable = false, toolTip = "Equip right hand friendship bracelet" },

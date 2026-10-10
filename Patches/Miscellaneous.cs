@@ -18,16 +18,6 @@ namespace ShibaGTGenesisReborn.Patches
         }
     }
 
-    [HarmonyPatch(typeof(WaterSplashEffect), nameof(WaterSplashEffect.PlayEffect))]
-    public class WaterSplashSizePatch
-    {
-        private static void Prefix(WaterSplashEffect __instance, ref float scale)
-        {
-            scale *= Mathf.Clamp(mods.splashSizeIndex, 0, mods.splashSizeNames.Length - 1) + 1f;
-            __instance.transform.localScale = Vector3.one * scale;
-        }
-    }
-
     [HarmonyPatch(typeof(MonkeAgent), "IncrementRPCCallLocal")]
     public class NoIncrementRPCCallLocal
     {

@@ -70,35 +70,142 @@ namespace ShibaGTGenesisReborn.Menu
         private bool timeHooked;
         private static bool quickActionsVisible;
         private static string quickInput = "";
+        private static Rect quickPanelRect = new Rect(40f, 40f, 380f, 320f);
+        private static bool isDraggingQuickPanel;
+        private static Vector2 quickDragOffset;
+        private static float quickColorR = 0f;
+        private static float quickColorG = 0f;
+        private static float quickColorB = 0f;
+        private static bool quickColorInitialized;
 
         public static void ToggleQuickActions() => quickActionsVisible = !quickActionsVisible;
+
+        public static void SetCustomPlayerColor(float r, float g, float b)
+        {
+            quickColorR = Mathf.Clamp01(r);
+            quickColorG = Mathf.Clamp01(g);
+            quickColorB = Mathf.Clamp01(b);
+
+            GorillaTagger.Instance.UpdateColor(quickColorR, quickColorG, quickColorB);
+            GorillaComputer.instance.UpdateColor(quickColorR, quickColorG, quickColorB);
+            CosmeticsController.OnPlayerColorSet?.Invoke(quickColorR, quickColorG, quickColorB);
+            GorillaTagger.Instance.myVRRig.SendRPC("RPC_InitializeNoobMaterial", RpcTarget.All, quickColorR, quickColorG, quickColorB);
+
+            PlayerPrefs.SetFloat("redValue", quickColorR);
+            PlayerPrefs.SetFloat("greenValue", quickColorG);
+            PlayerPrefs.SetFloat("blueValue", quickColorB);
+            PlayerPrefs.Save();
+        }
 
         private void OnGUI()
         {
             if (!quickActionsVisible) return;
 
+            if (!quickColorInitialized)
+            {
+                quickColorR = PlayerPrefs.GetFloat("redValue", 0f);
+                quickColorG = PlayerPrefs.GetFloat("greenValue", 0f);
+                quickColorB = PlayerPrefs.GetFloat("blueValue", 0f);
+                quickPanelRect = new Rect((Screen.width - 380f) / 2f, (Screen.height - 330f) / 2f, 380f, 330f);
+                quickColorInitialized = true;
+            }
+
+            Event current = Event.current;
+            Rect titleBar = new Rect(quickPanelRect.x, quickPanelRect.y, quickPanelRect.width, 32f);
+
+            if (current.type == EventType.MouseDown && titleBar.Contains(current.mousePosition))
+            {
+                isDraggingQuickPanel = true;
+                quickDragOffset = current.mousePosition - new Vector2(quickPanelRect.x, quickPanelRect.y);
+                current.Use();
+            }
+            else if (current.type == EventType.MouseDrag && isDraggingQuickPanel)
+            {
+                quickPanelRect.x = Mathf.Clamp(current.mousePosition.x - quickDragOffset.x, 0f, Screen.width - quickPanelRect.width);
+                quickPanelRect.y = Mathf.Clamp(current.mousePosition.y - quickDragOffset.y, 0f, Screen.height - quickPanelRect.height);
+                current.Use();
+            }
+            else if (current.type == EventType.MouseUp && isDraggingQuickPanel)
+            {
+                isDraggingQuickPanel = false;
+                current.Use();
+            }
+
             Color accent = buttonColors[1].colors[0].color;
-            Rect panel = new Rect((Screen.width - 360f) / 2f, (Screen.height - 160f) / 2f, 360f, 160f);
             GUI.color = Color.black;
-            GUI.Box(panel, GUIContent.none);
+            GUI.Box(quickPanelRect, GUIContent.none);
+
             GUI.color = accent;
-            GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 32f), Texture2D.whiteTexture);
+            GUI.DrawTexture(titleBar, Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(panel.x + 12f, panel.y + 7f, panel.width - 24f, 20f), "ShibaGT Genesis Reborn");
+            GUI.Label(new Rect(quickPanelRect.x + 12f, quickPanelRect.y + 7f, quickPanelRect.width - 48f, 20f), "Quick Actions");
+
+            if (GUI.Button(new Rect(quickPanelRect.x + quickPanelRect.width - 28f, quickPanelRect.y + 4f, 24f, 24f), "X"))
+            {
+                quickActionsVisible = false;
+            }
 
             GUI.backgroundColor = buttonColors[0].colors[0].color;
             GUI.contentColor = textColors[0];
-            quickInput = GUI.TextField(new Rect(panel.x + 18f, panel.y + 48f, panel.width - 36f, 34f), quickInput);
+            quickInput = GUI.TextField(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 40f, quickPanelRect.width - 28f, 28f), quickInput);
 
             GUI.backgroundColor = accent;
             GUI.contentColor = Color.white;
-            if (GUI.Button(new Rect(panel.x + 18f, panel.y + 98f, 156f, 42f), "Change Name")) Mods.mods.SetPlayerName(quickInput);
-            if (GUI.Button(new Rect(panel.x + 186f, panel.y + 98f, 156f, 42f), "Join Room")) 
+            if (GUI.Button(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 74f, 172f, 30f), "Change Name")) Mods.mods.SetPlayerName(quickInput);
+            if (GUI.Button(new Rect(quickPanelRect.x + 194f, quickPanelRect.y + 74f, 172f, 30f), "Join Room"))
             {
                 string code = quickInput.Trim().ToUpperInvariant();
-                if (string.IsNullOrEmpty(code)) return;
-                PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(code, GorillaNetworking.JoinType.Solo);
+                if (!string.IsNullOrEmpty(code))
+                    PhotonNetworkController.Instance.AttemptToJoinSpecificRoom(code, GorillaNetworking.JoinType.Solo);
             }
+
+            if (GUI.Button(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 110f, 112f, 28f), "Rejoin"))
+            {
+                Mods.mods.RejoinRoom();
+            }
+            if (GUI.Button(new Rect(quickPanelRect.x + 134f, quickPanelRect.y + 110f, 112f, 28f), "Disconnect"))
+            {
+                NetworkSystem.Instance.ReturnToSinglePlayer();
+                PhotonNetwork.Disconnect();
+            }
+            if (GUI.Button(new Rect(quickPanelRect.x + 254f, quickPanelRect.y + 110f, 112f, 28f), "Join Random"))
+            {
+                Mods.mods.JoinRandom();
+            }
+
+            GUI.color = Color.white;
+            GUI.Label(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 146f, 120f, 20f), "Color Changer");
+
+            Color preview = new Color(quickColorR, quickColorG, quickColorB);
+            GUI.color = preview;
+            GUI.DrawTexture(new Rect(quickPanelRect.x + quickPanelRect.width - 44f, quickPanelRect.y + 146f, 30f, 20f), Texture2D.whiteTexture);
+
+            GUI.color = Color.white;
+            GUI.Label(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 172f, 20f, 20f), "R");
+            quickColorR = GUI.HorizontalSlider(new Rect(quickPanelRect.x + 36f, quickPanelRect.y + 176f, quickPanelRect.width - 50f, 18f), quickColorR, 0f, 1f);
+
+            GUI.Label(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 196f, 20f, 20f), "G");
+            quickColorG = GUI.HorizontalSlider(new Rect(quickPanelRect.x + 36f, quickPanelRect.y + 200f, quickPanelRect.width - 50f, 18f), quickColorG, 0f, 1f);
+
+            GUI.Label(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 220f, 20f, 20f), "B");
+            quickColorB = GUI.HorizontalSlider(new Rect(quickPanelRect.x + 36f, quickPanelRect.y + 224f, quickPanelRect.width - 50f, 18f), quickColorB, 0f, 1f);
+
+            if (GUI.Button(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 248f, 172f, 30f), "Apply Color"))
+            {
+                SetCustomPlayerColor(quickColorR, quickColorG, quickColorB);
+            }
+            if (GUI.Button(new Rect(quickPanelRect.x + 194f, quickPanelRect.y + 248f, 172f, 30f), "Random Color"))
+            {
+                SetCustomPlayerColor(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value);
+            }
+
+            if (GUI.Button(new Rect(quickPanelRect.x + 14f, quickPanelRect.y + 284f, 54f, 24f), "Black")) SetCustomPlayerColor(0f, 0f, 0f);
+            if (GUI.Button(new Rect(quickPanelRect.x + 74f, quickPanelRect.y + 284f, 54f, 24f), "White")) SetCustomPlayerColor(1f, 1f, 1f);
+            if (GUI.Button(new Rect(quickPanelRect.x + 134f, quickPanelRect.y + 284f, 54f, 24f), "Red")) SetCustomPlayerColor(1f, 0f, 0f);
+            if (GUI.Button(new Rect(quickPanelRect.x + 194f, quickPanelRect.y + 284f, 54f, 24f), "Green")) SetCustomPlayerColor(0f, 1f, 0f);
+            if (GUI.Button(new Rect(quickPanelRect.x + 254f, quickPanelRect.y + 284f, 54f, 24f), "Blue")) SetCustomPlayerColor(0f, 0f, 1f);
+            if (GUI.Button(new Rect(quickPanelRect.x + 314f, quickPanelRect.y + 284f, 52f, 24f), "Pink")) SetCustomPlayerColor(1f, 0.4f, 0.7f);
+
             GUI.color = Color.white;
             GUI.backgroundColor = Color.white;
             GUI.contentColor = Color.white;
