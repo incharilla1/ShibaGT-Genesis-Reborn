@@ -45,7 +45,6 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Debug Info", method =() => mods.DebugInfo(), disableMethod =() => mods.DisableDebugInfo(), isTogglable = true, toolTip = "Show player position, camera positions, and stats in top right" },
                 new ButtonInfo { buttonText = "Room Info", method =() => mods.RoomInfo(), disableMethod =() => mods.DisableRoomInfo(), isTogglable = true, toolTip = "Show detailed room, host, region, and player count overlay" },
                 new ButtonInfo { buttonText = "Disable VRView HUD", enableMethod = () => Settings.disableVRViewHUD = true, disableMethod = () => Settings.disableVRViewHUD = false, isTogglable = true, enabled = Settings.disableVRViewHUD, toolTip = "Only display HUD overlays on PC screen" },
-                new ButtonInfo { buttonText = "Version Check", method =() => VersionChecker.CheckVersion(true), isTogglable = false },
             },
 
             new ButtonInfo[]

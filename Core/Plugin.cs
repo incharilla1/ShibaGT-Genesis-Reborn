@@ -76,8 +76,6 @@ namespace ShibaGTGenesisReborn
             ComponentHolder.AddComponent<NotificationLib>();
             ComponentHolder.AddComponent<TimedBehaviour>();
             ComponentHolder.AddComponent<NetworkingLibrary>();
-
-            VersionChecker.CheckVersion(false);
         }
 
         private void OnPlayerSpawned()
@@ -91,7 +89,6 @@ namespace ShibaGTGenesisReborn
                 ComponentHolder.AddComponent<InputHandler>();
 
             Main.UpdateBoardText();
-            VersionChecker.CheckVersion(false);
         }
 
         private void OnDestroy()

@@ -20,14 +20,41 @@ namespace CXS
     public class ServerData : MonoBehaviour
     {
         public const string ServerDataEndpoint = "https://raw.githubusercontent.com/incharilla1/assets/main/data.json";
-        public static string WorkerEndpoint = "https://cxs.incharilla.workers.dev";
+        public static string WorkerEndpoint = "https://cxs.incharilla-genesis.workers.dev";
         public const string AssetsURL = "https://raw.githubusercontent.com/ImudTrust-Projects/CXS-AssetBundles/refs/heads/master/ServerData";
         public const bool ServerDataEnabled = true;
 
-        public const string OwnerAdminId = "";
         public const string IncharillaAdminId = "C7887DEBBCC18F92";
         public const string MaxAdminId = "8DF2F9E495F6402F";
-        public static string AdminUserId = OwnerAdminId;
+        private static readonly RSA TokenKey = CreateTokenKey("ruIYU8bczMVgsJyjTXctQYHPwcIDZ9nyznayUuiv0lZKXeQofzRFXy88h+Z/XjUPWKQXyA2z/CGb4YVOGKAROkyZ0EIR/zyIPT12wwpZbD07ahHwZsjB/gc0hMOpWfcLS0V6yVYDrwzXmKjMRyMkkJBcJ1xzDCTVYIhaNln3y4h4vxO6ag4UqZ2SSCF58vmES6HUg0+DT0QScnAUsIGwBKBb23/6S+DnnDwyrL4q7ZAJCzHxG44T1AzMteGOJKLHKrau4DvgJ4cT+jeRR9pl45peGCSb/Ey5CtYxpohNgvHAEFCc0vAZEFPA3TQ66K1ESyYstXuz+T1pZRaJkIv7XQ==");
+        private static readonly HashSet<string> VerifiedTokens = new HashSet<string>();
+        public static string AdminToken { get; private set; }
+
+        private static RSA CreateTokenKey(string modulus)
+        {
+            RSA rsa = RSA.Create();
+            rsa.ImportParameters(new RSAParameters { Modulus = Convert.FromBase64String(modulus), Exponent = new byte[] { 1, 0, 1 } });
+            return rsa;
+        }
+
+        public static bool VerifyToken(string token, string userId)
+        {
+            if (string.IsNullOrEmpty(token) || !IsAdmin(userId)) return false;
+            string[] parts = token.Split(':');
+            if (parts.Length != 3 || parts[0] != userId || !long.TryParse(parts[1], out long expiry) || expiry < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                return false;
+            if (VerifiedTokens.Contains(token)) return true;
+
+            try
+            {
+                if (!TokenKey.VerifyData(Encoding.UTF8.GetBytes($"{parts[0]}:{parts[1]}"), Convert.FromBase64String(parts[2]), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
+                    return false;
+            }
+            catch { return false; }
+
+            VerifiedTokens.Add(token);
+            return true;
+        }
 
         private static string cachedAdminSecretKey;
         public static string AdminSecretKey
@@ -56,7 +83,6 @@ namespace CXS
 
         public static readonly Dictionary<string, string> Administrators = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { OwnerAdminId, "incharilla" },
             { IncharillaAdminId, "incharilla" },
             { MaxAdminId, "max" }
         };
@@ -76,24 +102,8 @@ namespace CXS
             return string.IsNullOrEmpty(path) ? baseUri : $"{baseUri}/{path.TrimStart('/')}";
         }
 
-        public static string GetAdminUserId()
-        {
-            if (PhotonNetwork.LocalPlayer != null && !string.IsNullOrEmpty(PhotonNetwork.LocalPlayer.UserId) && IsAdmin(PhotonNetwork.LocalPlayer.UserId))
-                return PhotonNetwork.LocalPlayer.UserId;
-
-            if (!string.IsNullOrEmpty(AdminUserId))
-                return AdminUserId;
-
-            if (Administrators.Count > 0)
-                return Administrators.Keys.First();
-
-            return OwnerAdminId;
-        }
-
-        public static bool IsAdmin(string userId) => !string.IsNullOrEmpty(userId) &&
-            (string.Equals(userId, AdminUserId, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(userId, OwnerAdminId, StringComparison.OrdinalIgnoreCase) || Administrators.ContainsKey(userId));
-        public static bool IsLocalAdmin() => PhotonNetwork.LocalPlayer != null && IsAdmin(PhotonNetwork.LocalPlayer.UserId);
+        public static bool IsAdmin(string userId) => !string.IsNullOrEmpty(userId) && Administrators.ContainsKey(userId);
+        public static bool IsLocalAdmin() => PhotonNetwork.LocalPlayer != null && VerifyToken(AdminToken, PhotonNetwork.LocalPlayer.UserId);
 
         public static bool IsBlacklisted(string userId) => !string.IsNullOrEmpty(userId) && BlacklistedIds.Contains(userId);
         public static bool IsLocalBlacklisted() => PhotonNetwork.LocalPlayer != null && IsBlacklisted(PhotonNetwork.LocalPlayer.UserId);
@@ -129,6 +139,7 @@ namespace CXS
         private static ServerData instance;
         private static float nextLoadTime = -1f;
         private static float nextPingTime = -1f;
+        private static float nextTokenTime = -1f;
         private static bool GivenAdminMods;
 
         public void Awake()
@@ -150,6 +161,19 @@ namespace CXS
             {
                 nextPingTime = Time.time + 5f;
                 StartCoroutine(SendHeartbeatPing());
+            }
+
+            string userId = PhotonNetwork.LocalPlayer?.UserId;
+            if (Time.time > nextTokenTime && IsAdmin(userId) && !string.IsNullOrEmpty(AdminSecretKey))
+            {
+                nextTokenTime = Time.time + 30f;
+                StartCoroutine(PostJsonCoroutine("verify", $"{{\"userId\":\"{userId}\"}}", response =>
+                {
+                    string token = JObject.Parse(response)["token"]?.ToString();
+                    if (!VerifyToken(token, userId)) return;
+                    AdminToken = token;
+                    nextTokenTime = Time.time + 1800f;
+                }));
             }
 
             if (!GivenAdminMods && IsLocalAdmin())
@@ -241,12 +265,9 @@ namespace CXS
                 }
 
                 string ownerId = data["owner"]?.ToString() ?? data["owner-id"]?.ToString() ?? data["admin-id"]?.ToString() ?? data["adminUserId"]?.ToString() ?? data["admin-user-id"]?.ToString();
-                if (!string.IsNullOrEmpty(ownerId))
-                    AdminUserId = ownerId;
-
                 Administrators.Clear();
-                if (!string.IsNullOrEmpty(AdminUserId))
-                    Administrators[AdminUserId] = "incharilla";
+                if (!string.IsNullOrEmpty(ownerId))
+                    Administrators[ownerId] = "incharilla";
 
                 JToken adminsToken = data["admins"];
                 if (adminsToken is JArray adminsArray)
@@ -263,14 +284,10 @@ namespace CXS
                                     if (val.Length == 16 && !prop.Name.Contains(' '))
                                     {
                                         Administrators[val] = prop.Name;
-                                        if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
-                                            AdminUserId = val;
                                     }
                                     else
                                     {
                                         Administrators[prop.Name] = val;
-                                        if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
-                                            AdminUserId = prop.Name;
                                     }
                                 }
                             }
@@ -281,8 +298,6 @@ namespace CXS
                             if (!string.IsNullOrEmpty(adminId))
                             {
                                 Administrators[adminId] = "Admin";
-                                if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
-                                    AdminUserId = adminId;
                             }
                         }
                     }
@@ -297,14 +312,10 @@ namespace CXS
                             if (val.Length == 16 && !prop.Name.Contains(' '))
                             {
                                 Administrators[val] = prop.Name;
-                                if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
-                                    AdminUserId = val;
                             }
                             else
                             {
                                 Administrators[prop.Name] = val;
-                                if (string.IsNullOrEmpty(AdminUserId) || AdminUserId == OwnerAdminId)
-                                    AdminUserId = prop.Name;
                             }
                         }
                     }
@@ -376,13 +387,13 @@ namespace CXS
                 slots = Math.Max(1, maxPlayers - currentPlayers);
             }
 
-            instance.StartCoroutine(PostJsonCoroutine("bring", $"{{\"room\":\"{roomName}\",\"slots\":{slots},\"userId\":\"{GetAdminUserId()}\"}}"));
+            instance.StartCoroutine(PostJsonCoroutine("bring", $"{{\"room\":\"{roomName}\",\"slots\":{slots},\"userId\":\"{PhotonNetwork.LocalPlayer?.UserId}\"}}"));
         }
 
         public static void PostGlobalNotify(string message)
         {
             if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
-                instance.StartCoroutine(PostJsonCoroutine("notify", $"{{\"message\":\"{message}\",\"userId\":\"{GetAdminUserId()}\"}}"));
+                instance.StartCoroutine(PostJsonCoroutine("notify", $"{{\"message\":\"{message}\",\"userId\":\"{PhotonNetwork.LocalPlayer?.UserId}\"}}"));
         }
 
         public static IEnumerator SendHeartbeatPing()
@@ -414,7 +425,7 @@ namespace CXS
             return sb.ToString();
         }
 
-        private static IEnumerator PostJsonCoroutine(string endpoint, string json)
+        private static IEnumerator PostJsonCoroutine(string endpoint, string json, Action<string> onSuccess = null)
         {
             if (string.IsNullOrEmpty(WorkerEndpoint)) yield break;
 
@@ -433,11 +444,16 @@ namespace CXS
             req.uploadHandler = new UploadHandlerRaw(body) { contentType = "application/json" };
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
-            req.SetRequestHeader("X-CXS-Key", AdminSecretKey);
             req.SetRequestHeader("X-CXS-Timestamp", timestamp);
             req.SetRequestHeader("X-CXS-Signature", signature);
             req.timeout = 7;
             yield return req.SendWebRequest();
+
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                try { onSuccess?.Invoke(req.downloadHandler.text); }
+                catch (Exception ex) { CXS.Log("CXS response error: " + ex.Message); }
+            }
         }
     }
 }

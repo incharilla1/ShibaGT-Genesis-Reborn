@@ -95,7 +95,7 @@ namespace ShibaGTGenesisReborn.Mods
                 PlatL = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 PlatL.transform.localScale = scale;
                 PlatL.transform.rotation = GorillaTagger.Instance.leftHandTransform.rotation * GTPlayer.Instance.LeftHand.handRotOffset;
-                PlatL.transform.position = GTPlayer.Instance.LeftHand.handFollower.position - PlatL.transform.right * (scale.x * 0.5f + GTPlayer.Instance.minimumRaycastDistance * GTPlayer.Instance.scale);
+                PlatL.transform.position = GTPlayer.Instance.LeftHand.handFollower.position + PlatL.transform.right * (scale.x * 0.5f + GTPlayer.Instance.minimumRaycastDistance * GTPlayer.Instance.scale);
                 GameObject.Destroy(PlatL.GetComponent<Rigidbody>());
                 PlatL.GetComponent<Renderer>().material.color = PlatColor;
                 if (Invis) GameObject.Destroy(PlatL.GetComponent<Renderer>());

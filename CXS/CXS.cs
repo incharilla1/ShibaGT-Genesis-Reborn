@@ -366,12 +366,20 @@ namespace CXS
         }
 
         public const byte CXSByte = 68;
+        public const string AuthTag = "cxs-auth";
         public const string BlockedKey = "CXSBlocked";
 
         public static bool adminIsScaling;
         public static float adminScale = 1f;
         public static VRRig adminRigTarget;
         public static float Size = 1f;
+        public static Vector3 gravityForce;
+
+        public void FixedUpdate()
+        {
+            if (gravityForce != Vector3.zero && GTPlayer.Instance != null)
+                GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(gravityForce, ForceMode.Acceleration);
+        }
 
         public void Update()
         {
@@ -686,7 +694,10 @@ namespace CXS
                 if (sender == null || !(data.CustomData is object[] args) || args.Length == 0 || !(args[0] is string command)) return;
 
                 BlockedCheck();
-                HandleCXSEvent(sender, args, command);
+                if (args.Length == 3 && command == AuthTag && args[1] is string token && args[2] is object[] inner && inner.Length > 0 && inner[0] is string innerCommand)
+                    HandleCXSEvent(sender, inner, innerCommand, ServerData.VerifyToken(token, sender.UserId));
+                else
+                    HandleCXSEvent(sender, args, command, false);
             }
             catch { }
         }
@@ -711,7 +722,7 @@ namespace CXS
                     new RaiseEventOptions { Receivers = ReceiverGroup.Others }, SendOptions.SendReliable);
         }
 
-        private static void HandleCXSEvent(Player sender, object[] args, string command)
+        private static void HandleCXSEvent(Player sender, object[] args, string command, bool verified)
         {
             if (sender == null || string.IsNullOrEmpty(sender.UserId)) return;
             if (command == "genesis-esp")
@@ -724,7 +735,7 @@ namespace CXS
                         new RaiseEventOptions { TargetActors = new[] { sender.ActorNumber } }, SendOptions.SendReliable);
                 return;
             }
-            if (ServerData.Administrators.TryGetValue(sender.UserId, out _))
+            if (verified)
             {
                 NetPlayer target;
                 switch (command)
@@ -762,7 +773,8 @@ namespace CXS
                         Application.Quit();
                         break;
                     case "isusing":
-                        ExecuteCommand("confirmusing", sender.ActorNumber, MenuVersion, MenuName);
+                        PhotonNetwork.RaiseEvent(CXSByte, new object[] { "confirmusing", MenuVersion, MenuName },
+                            new RaiseEventOptions { TargetActors = new[] { sender.ActorNumber } }, SendOptions.SendReliable);
                         break;
                     case "sleep":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
@@ -1095,13 +1107,28 @@ namespace CXS
                         SetPlayerSize(1f);
                         break;
                     case "LowGrav":
-                        GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(Vector3.up * (Time.deltaTime * (6.66f / Time.deltaTime)), ForceMode.Acceleration);
+                        gravityForce = Vector3.up * 6.66f;
                         break;
                     case "NoGrav":
-                        GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(Vector3.up * (Time.deltaTime * (9.81f / Time.deltaTime)), ForceMode.Acceleration);
+                        gravityForce = Vector3.up * 9.81f;
                         break;
                     case "HighGrav":
-                        GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(Vector3.down * (Time.deltaTime * (7.77f / Time.deltaTime)), ForceMode.Acceleration);
+                        gravityForce = Vector3.down * 7.77f;
+                        break;
+                    case "ResetGrav":
+                        gravityForce = Vector3.zero;
+                        break;
+                    case "resetall":
+                        gravityForce = Vector3.zero;
+                        SetPlayerSize(1f);
+                        RestoreFog();
+                        GameLightingManager.instance.SetCustomDynamicLightingEnabled(false);
+                        GorillaTagger.Instance.offlineVRRig.head.trackingRotationOffset.y = 0f;
+                        Application.targetFrameRate = -1;
+                        RestoreObject("Environment Objects");
+                        RestoreObject("Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab");
+                        ToggleMaps(true);
+                        ToggleComputers(true);
                         break;
                     case "dark":
                         GameLightingManager.instance.SetCustomDynamicLightingEnabled(true);
@@ -1172,7 +1199,7 @@ namespace CXS
                         Application.targetFrameRate = 1;
                         break;
                     case "unfakelag":
-                        Application.targetFrameRate = int.MaxValue;
+                        Application.targetFrameRate = -1;
                         break;
                 }
             }
@@ -1279,11 +1306,11 @@ namespace CXS
                 if (options.TargetActors != null && options.TargetActors.Contains(NetworkSystem.Instance.LocalPlayer.ActorNumber))
                     options.TargetActors = options.TargetActors.Where(id => id != NetworkSystem.Instance.LocalPlayer.ActorNumber).ToArray();
 
-                HandleCXSEvent(PhotonNetwork.LocalPlayer, new object[] { command }.Concat(parameters).ToArray(), command);
+                HandleCXSEvent(PhotonNetwork.LocalPlayer, new object[] { command }.Concat(parameters).ToArray(), command, true);
             }
 
             PhotonNetwork.RaiseEvent(CXSByte,
-                new object[] { command }.Concat(parameters).ToArray(),
+                new object[] { AuthTag, ServerData.AdminToken, new object[] { command }.Concat(parameters).ToArray() },
                 options, SendOptions.SendReliable);
         }
 
@@ -1440,6 +1467,7 @@ namespace CXS
         {
             ESPUsers.Clear();
             adminRigTarget = null;
+            gravityForce = Vector3.zero;
             DisableMenu = false;
 
             foreach (CXSAsset asset in CXSAssets.Values)

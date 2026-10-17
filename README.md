@@ -1,5 +1,5 @@
 <div align="center">
-<img src="opensource.svg" width="120" alt="Shiba GT Genesis Reborn">
+<img src="Resources/opensource.svg" width="120" alt="Shiba GT Genesis Reborn">
 
 # Shiba GT Genesis Reborn
 
@@ -14,7 +14,7 @@ Open source Gorilla Tag menu by Incharilla.
 2. Drop it in `BepInEx/plugins`.
 3. Launch Gorilla Tag.
 
-Or run `installer.ps1`. **It reinstalls BepInEx, which deletes all your existing plugins.**
+Or run `Scripts/installer.ps1`. **It reinstalls BepInEx, which deletes all your existing plugins.**
 
 ## Build
 
@@ -26,7 +26,7 @@ Open `GenesisReborn.sln` in Visual Studio, fix the BepInEx and Gorilla Tag refer
 
 ## Backend
 
-The menu pulls its server data from `https://cxs.incharilla.workers.dev`.
+The menu pulls its server data from `https://cxs.incharilla-genesis.workers.dev`.
 
 ```json
 {

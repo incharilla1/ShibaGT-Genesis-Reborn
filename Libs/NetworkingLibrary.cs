@@ -24,6 +24,7 @@ namespace ShibaGTGenesisReborn.Libs
         
         private const byte NetworkByte = 68;
         private const string SyncEvent = "sync";
+        private const string SyncBatchEvent = "syncbatch";
         private const string DestroyEvent = "destroy";
         private const string RequestEvent = "requestsync";
         private const string ScaleEvent = "scale";
@@ -36,10 +37,9 @@ namespace ShibaGTGenesisReborn.Libs
         
         private readonly Dictionary<string, NetworkedObject> trackedObjects = new Dictionary<string, NetworkedObject>();
         private readonly HashSet<string> pendingSync = new HashSet<string>();
+        private readonly Dictionary<int, float> lastRequestTime = new Dictionary<int, float>();
         private float lastSyncTime;
-        private const float syncInterval = 0.05f;
-        private int eventCount;
-        private int syncCount;
+        private const float syncInterval = 0.1f;
         private readonly Dictionary<string, AudioClip> audioClipCache = new Dictionary<string, AudioClip>();
         private bool isSubscribed;
         private float lastCosmeticCheck;
@@ -191,6 +191,7 @@ namespace ShibaGTGenesisReborn.Libs
             public bool isHeld;
             public bool audioPlaying;
             public float audioTime;
+            public float audioSentAt;
             public bool isVapeSmoking;
             public float visualizerIntensity;
         }
@@ -288,17 +289,12 @@ namespace ShibaGTGenesisReborn.Libs
                 }
 
                 Transform t = info.gameObject.transform;
-                if (t.position != info.position || Quaternion.Angle(t.rotation, info.rotation) > 0.5f)
+                if (t.position != info.position || Quaternion.Angle(t.rotation, info.rotation) > 0.5f || t.localScale != info.scale)
                 {
                     info.position = t.position;
                     info.rotation = t.rotation;
-                    pendingSync.Add(kvp.Key);
-                }
-
-                if (t.localScale != info.scale)
-                {
                     info.scale = t.localScale;
-                    SendEvent(ScaleEvent, ReceiverGroup.Others, kvp.Key, info.scale);
+                    pendingSync.Add(kvp.Key);
                 }
 
                 if (info.gameObject.name.Contains("Boombox"))
@@ -307,12 +303,9 @@ namespace ShibaGTGenesisReborn.Libs
                     if (aud != null)
                     {
                         bool isPlaying = aud.isPlaying;
-                        if (isPlaying != info.audioPlaying || Mathf.Abs(aud.time - info.audioTime) > 0.1f)
-                        {
-                            info.audioPlaying = isPlaying;
-                            info.audioTime = aud.time;
-                            SendEvent(BoomboxAudioEvent, ReceiverGroup.Others, kvp.Key, isPlaying, aud.time, aud.volume, aud.pitch);
-                        }
+                        float expected = info.audioTime + (Time.time - info.audioSentAt) * aud.pitch;
+                        if (isPlaying != info.audioPlaying || (isPlaying && Mathf.Abs(aud.time - expected) > 0.5f))
+                            SendBoomboxState(kvp.Key, info, aud);
                     }
                 }
 
@@ -366,12 +359,17 @@ namespace ShibaGTGenesisReborn.Libs
                     return;
                 
                 string command = args[0] as string;
-                eventCount++;
-                
+
                 switch (command)
                 {
                     case SyncEvent:
-                        HandleSync(args, senderActorNumber);
+                        HandleSync(args.Skip(1).ToArray(), senderActorNumber);
+                        break;
+                    case SyncBatchEvent:
+                        if (args.Length > 1 && args[1] is object[] entries)
+                            foreach (object entry in entries)
+                                if (entry is object[] e)
+                                    HandleSync(e, senderActorNumber);
                         break;
                     case DestroyEvent:
                         HandleDestroy(args);
@@ -411,15 +409,12 @@ namespace ShibaGTGenesisReborn.Libs
 
         private void HandleSync(object[] args, int senderActorNumber)
         {
-            if (args.Length < 5) 
+            if (args.Length < 4 || !(args[0] is string objectId) || !(args[1] is Vector3 position) || !(args[2] is Quaternion rotation))
                 return;
-            
-            string objectId = args[1] as string;
-            Vector3 position = (Vector3)args[2];
-            Quaternion rotation = (Quaternion)args[3];
-            int ownerActor = args[4] is int actor ? actor : senderActorNumber;
-            string propName = args.Length > 5 ? args[5] as string : "";
-            Vector3? scale = (args.Length > 6 && args[6] is Vector3 s) ? (Vector3?)s : null;
+
+            int ownerActor = args[3] is int actor ? actor : senderActorNumber;
+            string propName = args.Length > 4 ? args[4] as string : "";
+            Vector3? scale = args.Length > 5 && args[5] is Vector3 s ? s : (Vector3?)null;
             
             GameObject obj = FindTrackedObject(objectId);
             if (obj != null)
@@ -713,67 +708,36 @@ namespace ShibaGTGenesisReborn.Libs
 
         private void HandleRequest(int senderActorNumber)
         {
+            if (Time.time < lastRequestTime.GetValueOrDefault(senderActorNumber) + 2f)
+                return;
+            lastRequestTime[senderActorNumber] = Time.time;
+
             int localId = GetLocalPlayerId();
-            foreach (var kvp in trackedObjects)
+            foreach (KeyValuePair<string, NetworkedObject> kvp in trackedObjects)
             {
-                if (kvp.Value.gameObject == null || kvp.Value.ownerActorNumber != localId) 
+                GameObject obj = kvp.Value.gameObject;
+                if (obj == null || kvp.Value.ownerActorNumber != localId)
                     continue;
 
-                SendEventToActor(SyncEvent, senderActorNumber, 
-                    kvp.Key, 
-                    kvp.Value.gameObject.transform.position, 
-                    kvp.Value.gameObject.transform.rotation, 
-                    kvp.Value.ownerActorNumber,
-                    kvp.Value.propName ?? kvp.Value.gameObject.name,
-                    kvp.Value.gameObject.transform.localScale);
-                
-                if (kvp.Value.scale != Vector3.one)
-                    SendEventToActor(ScaleEvent, senderActorNumber, kvp.Key, kvp.Value.scale);
-                
-                if (kvp.Value.gameObject.name.Contains("Boombox"))
+                SendEventToActor(SyncEvent, senderActorNumber, kvp.Key, obj.transform.position, obj.transform.rotation,
+                    localId, kvp.Value.propName ?? obj.name, obj.transform.localScale);
+
+                if (obj.name.Contains("Boombox"))
                 {
-                    AudioSource aud = kvp.Value.gameObject.GetComponent<AudioSource>();
+                    AudioSource aud = obj.GetComponent<AudioSource>();
                     if (aud != null && aud.isPlaying)
-                        SendEventToActor(BoomboxAudioEvent, senderActorNumber, kvp.Key, aud.isPlaying, aud.time, aud.volume, aud.pitch);
+                        SendEventToActor(BoomboxAudioEvent, senderActorNumber, kvp.Key, true, aud.time, aud.volume, aud.pitch);
                 }
-                
-                if (kvp.Value.gameObject.name.Contains("Vape"))
+
+                if (obj.name.Contains("Vape"))
                     SendEventToActor(VapeSmokeEvent, senderActorNumber, kvp.Key, Vape.isExhaling);
             }
         }
 
         private void OnPlayerJoined(NetPlayer player)
         {
-            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true || player == null || player.IsLocal) 
+            if (!NetworkEnabled || NetworkSystem.Instance?.InRoom != true || player == null || player.IsLocal)
                 return;
-
-            int localId = GetLocalPlayerId();
-            foreach (var kvp in trackedObjects)
-            {
-                if (kvp.Value.gameObject == null || kvp.Value.ownerActorNumber != localId) 
-                    continue;
-
-                SendEventToActor(SyncEvent, player.ActorNumber,
-                    kvp.Key,
-                    kvp.Value.gameObject.transform.position,
-                    kvp.Value.gameObject.transform.rotation,
-                    kvp.Value.ownerActorNumber,
-                    kvp.Value.propName ?? kvp.Value.gameObject.name,
-                    kvp.Value.gameObject.transform.localScale);
-                
-                if (kvp.Value.scale != Vector3.one)
-                    SendEventToActor(ScaleEvent, player.ActorNumber, kvp.Key, kvp.Value.scale);
-
-                if (kvp.Value.gameObject.name.Contains("Boombox"))
-                {
-                    AudioSource aud = kvp.Value.gameObject.GetComponent<AudioSource>();
-                    if (aud != null && aud.isPlaying)
-                        SendEventToActor(BoomboxAudioEvent, player.ActorNumber, kvp.Key, aud.isPlaying, aud.time, aud.volume, aud.pitch);
-                }
-
-                if (kvp.Value.gameObject.name.Contains("Vape"))
-                    SendEventToActor(VapeSmokeEvent, player.ActorNumber, kvp.Key, Vape.isExhaling);
-            }
 
             if (mods.cosmetXEnabled)
             {
@@ -826,8 +790,7 @@ namespace ShibaGTGenesisReborn.Libs
             };
             
             trackedObjects[objectId] = info;
-            pendingSync.Add(objectId);
-            
+
             SendEvent(SyncEvent, ReceiverGroup.Others,
                 objectId,
                 info.position,
@@ -835,10 +798,7 @@ namespace ShibaGTGenesisReborn.Libs
                 info.ownerActorNumber,
                 obj.name,
                 info.scale);
-            
-            if (info.scale != Vector3.one)
-                SendEvent(ScaleEvent, ReceiverGroup.Others, objectId, info.scale);
-            
+
             if (obj.name.Contains("Boombox"))
             {
                 AudioSource aud = obj.GetComponent<AudioSource>();
@@ -887,26 +847,30 @@ namespace ShibaGTGenesisReborn.Libs
             if (!string.IsNullOrEmpty(objectId) && trackedObjects.TryGetValue(objectId, out NetworkedObject info))
             {
                 info.scale = obj.transform.localScale;
-                SendEvent(ScaleEvent, ReceiverGroup.Others, objectId, info.scale);
+                pendingSync.Add(objectId);
             }
         }
 
         public void SyncBoomboxAudio(GameObject obj)
         {
-            if (obj == null || !NetworkEnabled) 
+            if (obj == null || !NetworkEnabled)
                 return;
-            
+
             string objectId = FindObjectId(obj);
             if (!string.IsNullOrEmpty(objectId) && trackedObjects.TryGetValue(objectId, out NetworkedObject info))
             {
                 AudioSource aud = obj.GetComponent<AudioSource>();
                 if (aud != null)
-                {
-                    info.audioPlaying = aud.isPlaying;
-                    info.audioTime = aud.time;
-                    SendEvent(BoomboxAudioEvent, ReceiverGroup.Others, objectId, aud.isPlaying, aud.time, aud.volume, aud.pitch);
-                }
+                    SendBoomboxState(objectId, info, aud);
             }
+        }
+
+        private void SendBoomboxState(string objectId, NetworkedObject info, AudioSource aud)
+        {
+            info.audioPlaying = aud.isPlaying;
+            info.audioTime = aud.time;
+            info.audioSentAt = Time.time;
+            SendEvent(BoomboxAudioEvent, ReceiverGroup.Others, objectId, aud.isPlaying, aud.time, aud.volume, aud.pitch);
         }
 
         public void SyncVapeSmoke(GameObject obj, bool isSmoking)
@@ -1001,22 +965,20 @@ namespace ShibaGTGenesisReborn.Libs
                 return;
             
             int localId = GetLocalPlayerId();
-            foreach (string objectId in pendingSync.ToList())
+            List<object> batch = new List<object>(pendingSync.Count);
+            foreach (string objectId in pendingSync)
             {
                 if (trackedObjects.TryGetValue(objectId, out NetworkedObject info) && info.gameObject != null && info.ownerActorNumber == localId)
                 {
-                    SendEvent(SyncEvent, ReceiverGroup.Others,
-                        objectId,
-                        info.gameObject.transform.position,
-                        info.gameObject.transform.rotation,
-                        info.ownerActorNumber,
-                        info.propName ?? info.gameObject.name,
-                        info.gameObject.transform.localScale);
-                    syncCount++;
+                    Transform t = info.gameObject.transform;
+                    batch.Add(new object[] { objectId, t.position, t.rotation, localId, info.propName ?? info.gameObject.name, t.localScale });
                 }
             }
-            
+
             pendingSync.Clear();
+            if (batch.Count > 0 && NetworkSystem.Instance?.InRoom == true)
+                NetworkSystemRaiseEvent.RaiseEvent(NetworkByte, new object[] { SyncBatchEvent, batch.ToArray() },
+                    new NetEventOptions { Reciever = (NetEventOptions.RecieverTarget)(byte)ReceiverGroup.Others }, reliable: false);
         }
 
         private void DestroyTrackedObject(string objectId)
