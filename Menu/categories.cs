@@ -76,6 +76,12 @@ namespace ShibaGTGenesisReborn.Menu
             pageNumber = 0;
         }
 
+        public static void monkeblocks()
+        {
+            buttonsType = 27;
+            pageNumber = 0;
+        }
+
         public static void enablemods()
         {
             UpdateEnabledMods();

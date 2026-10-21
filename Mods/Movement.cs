@@ -177,6 +177,15 @@ namespace ShibaGTGenesisReborn.Mods
             if (UnityInput.Current.GetKey(KeyCode.LeftControl)) t.position += Vector3.down * dt;
         }
 
+        private static float dashTime;
+
+        public static void Dash()
+        {
+            if (Settings.isSearching || Settings.isChangingTitle || !InputHandler.Instance.RightPrimary.IsPressed || Time.time < dashTime) return;
+            dashTime = Time.time + 1f;
+            GorillaTagger.Instance.rigidbody.linearVelocity = GTPlayer.Instance.headCollider.transform.forward * 20f;
+        }
+
         public static void VelocityFly()
         {
             if (Settings.isSearching || Settings.isChangingTitle) return;
@@ -612,8 +621,12 @@ namespace ShibaGTGenesisReborn.Mods
         }
 
         private static readonly List<GameObject> modifiedWaterVolumes = new List<GameObject>();
+        private static float jesusScanTime;
+
         public static void JesusMonke()
         {
+            if (Time.time < jesusScanTime) return;
+            jesusScanTime = Time.time + 2f;
             int defaultLayer = LayerMask.NameToLayer("Default");
             var volumes = Object.FindObjectsByType<GorillaLocomotion.Swimming.WaterVolume>(FindObjectsSortMode.None);
             for (int i = 0; i < volumes.Length; i++)
@@ -642,6 +655,7 @@ namespace ShibaGTGenesisReborn.Mods
                 }
             }
             modifiedWaterVolumes.Clear();
+            jesusScanTime = 0f;
         }
 
         public static void PiggyBack()

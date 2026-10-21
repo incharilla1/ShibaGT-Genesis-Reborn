@@ -78,6 +78,16 @@ namespace ShibaGTGenesisReborn.Mods
             NetworkSystem.Instance.currentRegionIndex = Array.IndexOf(NetworkSystem.Instance.regionNames, region);
         }
 
+        private static string safeModeRoom;
+
+        public static void SafeMode()
+        {
+            string room = NetworkSystem.Instance.InRoom ? NetworkSystem.Instance.RoomName : null;
+            if (room == safeModeRoom) return;
+            safeModeRoom = room;
+            if (room != null) RPCProt();
+        }
+
         public static bool RPCProt(bool experimental = false)
         {
             if (!NetworkSystem.Instance.InRoom) return false;
@@ -341,7 +351,7 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (rig?.mainSkin?.material != null)
             {
-                rig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
+                rig.mainSkin.material.shader = TextShader;
                 rig.mainSkin.material.color = color;
             }
         }

@@ -74,6 +74,63 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        private static readonly Dictionary<VRRig, float> guardianLaunchTimes = new Dictionary<VRRig, float>();
+        private static int guardianGrabIndex;
+        private static float guardianGrabTime;
+        private static VRRig guardianGrabTarget;
+
+        private static bool IsLocalGuardian() =>
+            GorillaGameManager.instance is GorillaGuardianManager manager && manager.IsPlayerGuardian(NetworkSystem.Instance.LocalPlayer);
+
+        private static void GuardianLaunch(VRRig rig, Vector3 velocity)
+        {
+            if (Time.time < guardianLaunchTimes.GetValueOrDefault(rig)) return;
+            guardianLaunchTimes[rig] = Time.time + 0.5f;
+            velocity = Vector3.ClampMagnitude(velocity, 19.9f);
+            GorillaGameModes.GameMode.ActiveNetworkHandler.SendRPC("GuardianLaunchPlayer", rig.Creator, velocity);
+            rig.ApplyLocalTrajectoryOverride(velocity);
+        }
+
+        public static void GuardianFlingGun()
+        {
+            GunLib.StartGun(() =>
+            {
+                if (!IsLocalGuardian()) return;
+                remoteHeld = true;
+                VRRig.LocalRig.transform.position = GunLib.LockedPlayer.transform.position + Vector3.down;
+                GuardianLaunch(GunLib.LockedPlayer, Vector3.up * 20f);
+            }, true);
+        }
+
+        public static void GuardianGrabAll()
+        {
+            if (!IsLocalGuardian()) return;
+            if (Time.time > guardianGrabTime || guardianGrabTarget == null || !VRRigCache.ActiveRigs.Contains(guardianGrabTarget))
+            {
+                VRRig[] others = VRRigCache.ActiveRigs.Where(rig => rig != null && !rig.isLocal && rig != VRRig.LocalRig).ToArray();
+                if (others.Length == 0) return;
+                guardianGrabTarget = others[++guardianGrabIndex % others.Length];
+                guardianGrabTime = Time.time + 0.4f;
+            }
+
+            VRRig target = guardianGrabTarget;
+            remoteHeld = true;
+            VRRig.LocalRig.transform.position = target.transform.position + Vector3.down;
+            if (guardianGrabTime - Time.time < 0.2f)
+                GuardianLaunch(target, (GorillaTagger.Instance.bodyCollider.transform.position - target.transform.position).normalized * 20f + Vector3.up * 3f);
+        }
+
+        public static void GuardianAura()
+        {
+            if (!IsLocalGuardian()) return;
+            Vector3 center = GorillaTagger.Instance.bodyCollider.transform.position;
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isLocal || rig == VRRig.LocalRig || Vector3.Distance(rig.transform.position, center) > 4f) continue;
+                GuardianLaunch(rig, ((rig.transform.position - center).normalized + Vector3.up) * 20f);
+            }
+        }
+
         public static void GhostReactorGodMode()
         {
             GhostReactor reactor = GhostReactor.instance;

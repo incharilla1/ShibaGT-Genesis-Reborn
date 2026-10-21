@@ -29,6 +29,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Visual", method =() => SettingsMods.visuals(), isTogglable = false, toolTip = "Visual mods" },
                 new ButtonInfo { buttonText = "Projectiles", method =() => SettingsMods.master(), isTogglable = false, toolTip = "Projectile mods" },
                 new ButtonInfo { buttonText = "Overpowered", method =() => SettingsMods.overpowered(), isTogglable = false, toolTip = "OP mods" },
+                new ButtonInfo { buttonText = "Monke Blocks", method =() => SettingsMods.monkeblocks(), isTogglable = false, toolTip = "Monke Blocks mods" },
                 new ButtonInfo { buttonText = "Spotify", method = () => SettingsMods.spotify(), isTogglable = false, toolTip = "Spotify player" },
             },
 
@@ -40,6 +41,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Presets", method =() => SettingsMods.presets(), toolTip = "Preset manager", isTogglable = false },
                 new ButtonInfo { buttonText = "Keybinds", method =() => SettingsMods.keybinds(), toolTip = "Keybind manager", isTogglable = false },
                 new ButtonInfo { buttonText = "Anti Report", method =() => mods.AntiReport(), toolTip = "Block reports", isTogglable = true, enabled = true },
+                new ButtonInfo { buttonText = "Report Notifier", method =() => mods.ReportNotifier(), toolTip = "Notify you when someone reaches for your report button", isTogglable = true },
                 new ButtonInfo { buttonText = "Disable Quitbox", enableMethod =() => mods.disableQuitbox = true, disableMethod =() => mods.disableQuitbox = false, isTogglable = true, enabled = true, toolTip = "Prevent quitbox triggers from quitting the game" },
                 new ButtonInfo { buttonText = "Filled ESP", enableMethod =() => mods.filledESP = true, disableMethod =() => mods.filledESP = false, isTogglable = true, enabled = false, toolTip = "Toggle filled 2D and 3D box ESP" },
                 new ButtonInfo { buttonText = "Debug Info", method =() => mods.DebugInfo(), disableMethod =() => mods.DisableDebugInfo(), isTogglable = true, toolTip = "Show player position, camera positions, and stats in top right" },
@@ -52,6 +54,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Players in Room", overlapText = "Players in Room (0)", method =() => SettingsMods.playersInRoom(), isTogglable = false, toolTip = "View all players in room" },
                 new ButtonInfo { buttonText = "RPC Protection", method =() => mods.RPCProt(false), isTogglable = false, toolTip = "RPC Protection" },
                 new ButtonInfo { buttonText = "Experimental RPC Protection", method =() => mods.RPCProt(true), isTogglable = false, toolTip = "Experimental RPC Protection" },
+                new ButtonInfo { buttonText = "Safe Mode", method =() => mods.SafeMode(), isTogglable = true, toolTip = "Run RPC Protection every time you join a room" },
                 new ButtonInfo { buttonText = "RPC Logger", enableMethod =() => Patches.RpcLoggerPatch.Enabled = true, disableMethod =() => Patches.RpcLoggerPatch.Enabled = false, enabled = Patches.RpcLoggerPatch.Enabled, isTogglable = true, toolTip = "Log outgoing client RPCs with arguments to console" },
 
                 new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room" },
@@ -116,6 +119,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 new ButtonInfo { buttonText = "Fly (B)", method =() => mods.CarMonkeyandfly(15f, true), isTogglable = true, toolTip = "Hold B to fly where you look" },
                 new ButtonInfo { buttonText = "Velocity Fly", method =() => mods.VelocityFly(), isTogglable = true, toolTip = "Hold secondary to fly where you look" },
+                new ButtonInfo { buttonText = "Dash (A)", method =() => mods.Dash(), isTogglable = true, toolTip = "Press A to dash where you look" },
                 new ButtonInfo { buttonText = "Fly Speed", overlapText = "Fly Speed: Normal", method =() => Main.Change("Fly Speed", ref mods.movementSpeedIndex, mods.movementSpeedNames, prefix: "Fly Speed: "), isTogglable = false, toolTip = "Change fly speed" },
                 new ButtonInfo { buttonText = "WASD Fly", method =() => mods.WASDFly(), isTogglable = true, toolTip = "Fly and look around with WASD/mouse" },
                 new ButtonInfo { buttonText = "Car Monkey (A)", method =() => mods.CarMonkeyandfly(15f, false), isTogglable = true, toolTip = "Hold A to drive forward" },
@@ -174,6 +178,14 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Head Spinner", method =() => mods.HeadSpinner(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Spin head continuously" },
 
                 new ButtonInfo { buttonText = "Copy Gun", method =() => mods.CopyGun(), disableMethod =() => mods.FixHead(), isTogglable = true, toolTip = "Shoot a player to copy their rig pose and position" },
+                new ButtonInfo { buttonText = "Rig Gun", method =() => mods.RigGun(), isTogglable = true, toolTip = "Put your rig wherever you point" },
+                new ButtonInfo { buttonText = "Orbit Gun", method =() => mods.OrbitGun(), isTogglable = true, toolTip = "Shoot a player to orbit your rig around their head" },
+                new ButtonInfo { buttonText = "Fake Lag Rig", method =() => mods.FakeLagRig(), isTogglable = true, toolTip = "Others see your rig stutter like you're lagging" },
+                new ButtonInfo { buttonText = "Bees", method =() => mods.Bees(), isTogglable = true, toolTip = "Your rig hops between random players' heads" },
+                new ButtonInfo { buttonText = "Jumpscare Gun", method =() => mods.JumpscareGun(), isTogglable = true, toolTip = "Shoot a player to pop your rig into their face" },
+                new ButtonInfo { buttonText = "Haunt Gun", method =() => mods.HauntGun(), isTogglable = true, toolTip = "Shoot a player to follow right behind their head" },
+                new ButtonInfo { buttonText = "Stare Gun", method =() => mods.StareGun(), disableMethod =() => mods.ClearStare(), isTogglable = true, toolTip = "Shoot a player to always look at them" },
+                new ButtonInfo { buttonText = "Stare Nearest", method =() => mods.StareNearest(), isTogglable = true, toolTip = "Always look at the closest player" },
             },
 
             new ButtonInfo[]
@@ -184,6 +196,10 @@ namespace ShibaGTGenesisReborn.Menu
 
                 new ButtonInfo { buttonText = "Board Spam", method =() => mods.HoverboardSpam(), isTogglable = true, toolTip = "Hold RG to spam hoverboards" },
                 new ButtonInfo { buttonText = "Spawn Board", enableMethod =() => mods.SpawnBoard(), disableMethod =() => mods.DisableBoard(), isTogglable = true, toolTip = "Equip and ride usable hoverboard" },
+
+                new ButtonInfo { buttonText = "Bug Gun", method =() => mods.BugGun(), isTogglable = true, toolTip = "Take the bug and move it wherever you point" },
+                new ButtonInfo { buttonText = "Bat Gun", method =() => mods.BatGun(), isTogglable = true, toolTip = "Take the bat and move it wherever you point" },
+                new ButtonInfo { buttonText = "Ball Gun", method =() => mods.BallGun(), isTogglable = true, toolTip = "Take a ball and move it wherever you point" },
 
                 new ButtonInfo { buttonText = "Collideable Monkeys", method =() => mods.CollideableMonkeys(), disableMethod =() => mods.DisableCollideableMonkeys(), isTogglable = true, toolTip = "Enable solid collisions on other monkeys to walk and stand on them" },
 
@@ -304,6 +320,9 @@ namespace ShibaGTGenesisReborn.Menu
 
                 new ButtonInfo { buttonText = "Become Guardian (Master)", method =() => mods.BecomeGuardian(), isTogglable = false, toolTip = "Take Guardian control in every active Guardian zone", needsMaster = true },
                 new ButtonInfo { buttonText = "Eject Guardians (Master)", method =() => mods.EjectAllGuardians(), isTogglable = false, toolTip = "Remove the Guardian from every active Guardian zone", needsMaster = true },
+                new ButtonInfo { buttonText = "Guardian Fling Gun", method =() => mods.GuardianFlingGun(), isTogglable = true, toolTip = "As Guardian, shoot a player to launch them into the sky" },
+                new ButtonInfo { buttonText = "Guardian Grab All", method =() => mods.GuardianGrabAll(), isTogglable = true, toolTip = "As Guardian, keep pulling every player to you" },
+                new ButtonInfo { buttonText = "Guardian Aura", method =() => mods.GuardianAura(), isTogglable = true, toolTip = "As Guardian, launch anyone who gets close" },
 
                 new ButtonInfo { buttonText = "Ghost Reactor God Mode", method =() => mods.GhostReactorGodMode(), disableMethod =() => mods.DisableGhostReactorGodMode(), isTogglable = true, toolTip = "Continuously revive, heal, shield, illuminate, and cloak yourself" },
                 new ButtonInfo { buttonText = "Kill All GR Enemies", method =() => mods.KillAllGhostReactorEnemies(), isTogglable = false, toolTip = "Instantly eliminate all current non-boss Ghost Reactor enemies" },
@@ -445,6 +464,15 @@ namespace ShibaGTGenesisReborn.Menu
             new ButtonInfo[]
             { // dont remove this
                 new ButtonInfo { buttonText = "home", method = () => SettingsMods.ReturnHome(), isTogglable = false, toolTip = "Return home" },
+            },
+
+            new ButtonInfo[]
+            { // Monke Blocks [27]
+                new ButtonInfo { buttonText = "Block Gun (Master)", method =() => mods.BlockGun(), isTogglable = true, toolTip = "Shoot blocks out of your hand", needsMaster = true },
+                new ButtonInfo { buttonText = "Block Rain (Master)", method =() => mods.BlockRain(), isTogglable = true, toolTip = "Rain blocks down around you", needsMaster = true },
+                new ButtonInfo { buttonText = "Bring All Blocks (Master)", method =() => mods.BringAllBlocks(), isTogglable = true, toolTip = "Pull every block to you", needsMaster = true },
+                new ButtonInfo { buttonText = "Delete Block Gun (Master)", method =() => mods.DeleteBlockGun(), isTogglable = true, toolTip = "Shoot a block to delete it", needsMaster = true },
+                new ButtonInfo { buttonText = "Delete All Blocks (Master)", method =() => mods.DeleteAllBlocks(), isTogglable = true, toolTip = "Delete every placed and dropped block", needsMaster = true },
             }
         };
     }

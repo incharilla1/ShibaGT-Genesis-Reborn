@@ -260,6 +260,7 @@ namespace ShibaGTGenesisReborn.Menu
                 DestroyDualReferences();
                 barkMenuOpen = false;
                 Mods.mods.UpdateRigTracking();
+                Mods.mods.HideUnusedLines();
                 return;
             }
             
@@ -400,6 +401,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 Mods.mods.UpdateRigTracking();
                 Mods.PlayerOptionsManager.Update();
+                Mods.mods.HideUnusedLines();
                 KeybindManager.Update();
                 if (Time.frameCount % 240 == 0) UpdateBoardText();
             }

@@ -175,36 +175,10 @@ namespace ShibaGTGenesisReborn.Mods
             }
 
             if (IsESPActive && !rig.isLocal)
-            {
-                GameObject obj = new GameObject("PlayerESPBeacon");
-                LineRenderer line = obj.AddComponent<LineRenderer>();
-                line.startWidth = 0.08f;
-                line.endWidth = 0.08f;
-                line.useWorldSpace = true;
-                line.material.shader = Shader.Find("GUI/Text Shader");
-                line.startColor = rig.playerColor;
-                line.endColor = rig.playerColor;
-                line.positionCount = 2;
-                line.SetPosition(0, rig.transform.position);
-                line.SetPosition(1, rig.transform.position + Vector3.up * 500f);
-                Object.Destroy(obj, Time.deltaTime * 2f);
-            }
+                mods.DrawLine(rig.transform.position, rig.transform.position + Vector3.up * 500f, rig.playerColor, 0.08f);
 
             if (IsTracerActive && !rig.isLocal)
-            {
-                GameObject g = new GameObject("PlayerTracer");
-                LineRenderer l = g.AddComponent<LineRenderer>();
-                l.startWidth = 0.015f;
-                l.endWidth = 0.015f;
-                l.positionCount = 2;
-                l.useWorldSpace = true;
-                l.SetPosition(0, GTPlayer.Instance.RightHand.controllerTransform.position);
-                l.SetPosition(1, rig.transform.position);
-                l.material.shader = Shader.Find("GUI/Text Shader");
-                l.startColor = rig.playerColor;
-                l.endColor = rig.playerColor;
-                Object.Destroy(g, Time.deltaTime * 2f);
-            }
+                mods.DrawLine(GTPlayer.Instance.RightHand.controllerTransform.position, rig.transform.position, rig.playerColor, 0.015f);
 
             if (Main.buttonsType == 20)
                 UpdateDistanceDisplay();

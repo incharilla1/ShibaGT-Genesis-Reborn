@@ -137,27 +137,42 @@ namespace ShibaGTGenesisReborn.Mods
         }
 
         private static float notifcooldown;
-        public static void AntiReport()
+        private static float reportNotifyCooldown;
+
+        private static VRRig FindReporter()
         {
             foreach (GorillaPlayerScoreboardLine boardline in GorillaScoreboardTotalUpdater.allScoreboardLines)
             {
-                if (boardline.linePlayer == NetworkSystem.Instance.LocalPlayer && boardline.reportButton != null)
+                if (boardline.linePlayer != NetworkSystem.Instance.LocalPlayer || boardline.reportButton == null) continue;
+
+                Vector3 button = boardline.reportButton.transform.position;
+                foreach (VRRig vrrig in VRRigCache.ActiveRigs)
                 {
-                    Transform transform = boardline.reportButton.gameObject.transform;
-                    foreach (VRRig vrrig in VRRigCache.ActiveRigs)
-                    {
-                        if (vrrig != null && vrrig != GorillaTagger.Instance.offlineVRRig)
-                        {
-                            if ((Vector3.Distance(vrrig.rightHandTransform.position, transform.position) < 0.4f || Vector3.Distance(vrrig.leftHandTransform.position, transform.position) < 0.4f) && Time.time > notifcooldown + 0.5f)
-                            {
-                                notifcooldown = Time.time;
-                                Disconnect();
-                                return;
-                            }
-                        }
-                    }
+                    if (vrrig != null && vrrig != GorillaTagger.Instance.offlineVRRig &&
+                        (Vector3.Distance(vrrig.rightHandTransform.position, button) < 0.4f || Vector3.Distance(vrrig.leftHandTransform.position, button) < 0.4f))
+                        return vrrig;
                 }
             }
+            return null;
+        }
+
+        public static void AntiReport()
+        {
+            if (Time.time > notifcooldown + 0.5f && FindReporter() != null)
+            {
+                notifcooldown = Time.time;
+                Disconnect();
+            }
+        }
+
+        public static void ReportNotifier()
+        {
+            if (Time.time < reportNotifyCooldown) return;
+            VRRig reporter = FindReporter();
+            if (reporter == null) return;
+
+            reportNotifyCooldown = Time.time + 3f;
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"{reporter.Creator?.NickName ?? "Someone"} is at your report button");
         }
 
         private static void Disconnect()

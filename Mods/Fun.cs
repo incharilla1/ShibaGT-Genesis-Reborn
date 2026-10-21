@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using GorillaLocomotion;
 using GorillaLocomotion.Gameplay;
 using GorillaTagScripts;
@@ -573,5 +574,28 @@ namespace ShibaGTGenesisReborn.Mods
             joystickRopeIndex = (joystickRopeIndex + 1) % ropes.Count;
             delay = Time.time + 0.05f;
         }
+
+        private static readonly Dictionary<System.Delegate, TransferrableObject> throwableCache = new Dictionary<System.Delegate, TransferrableObject>();
+        private static float throwableScanTime;
+
+        private static void ThrowableGun<T>(System.Func<T, bool> match) where T : TransferrableObject
+        {
+            GunLib.StartGun(() =>
+            {
+                if ((!throwableCache.TryGetValue(match, out TransferrableObject cached) || cached == null) && Time.time > throwableScanTime)
+                {
+                    throwableScanTime = Time.time + 1f;
+                    throwableCache[match] = cached = Object.FindObjectsByType<T>(FindObjectsSortMode.None).FirstOrDefault(match);
+                }
+                if (cached == null) return;
+                T item = (T)cached;
+                if (!item.IsLocalOwnedWorldShareable) item.WorldShareableRequestOwnership();
+                item.transform.position = GunLib.spherepointer.transform.position + Vector3.up * 0.2f;
+            }, false);
+        }
+
+        public static void BugGun() => ThrowableGun<ThrowableBug>(bug => bug.bugName == ThrowableBug.BugName.DougTheBug);
+        public static void BatGun() => ThrowableGun<ThrowableBug>(bug => bug.bugName == ThrowableBug.BugName.MattTheBat);
+        public static void BallGun() => ThrowableGun<TransferrableBall>(_ => true);
     }
 }

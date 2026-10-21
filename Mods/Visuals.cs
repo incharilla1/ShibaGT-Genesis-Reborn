@@ -20,25 +20,18 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
+        private static Shader textShader;
+        public static Shader TextShader => textShader != null ? textShader : textShader = Shader.Find("GUI/Text Shader");
+
+        public static readonly List<LineRenderer> espLines = new List<LineRenderer>();
+        private static int espLineIndex;
+
         public static void Tracers()
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
                 if (!rig.isLocal)
-                {
-                    GameObject g = new GameObject("Line");
-                    LineRenderer l = g.AddComponent<LineRenderer>();
-                    l.startWidth = 0.01f;
-                    l.endWidth = 0.01f;
-                    l.positionCount = 2;
-                    l.useWorldSpace = true;
-                    l.SetPosition(0, GorillaLocomotion.GTPlayer.Instance.RightHand.controllerTransform.position);
-                    l.SetPosition(1, rig.transform.position);
-                    l.material.shader = Shader.Find("GUI/Text Shader");
-                    l.startColor = rig.playerColor;
-                    l.endColor = rig.playerColor;
-                    Object.Destroy(g, Time.deltaTime * 2f);
-                }
+                    DrawLine(GTPlayer.Instance.RightHand.controllerTransform.position, rig.transform.position, rig.playerColor, 0.01f);
             }
         }
 
@@ -46,21 +39,8 @@ namespace ShibaGTGenesisReborn.Mods
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
             {
-                if (rig == null || rig.isLocal)
-                    continue;
-
-                GameObject obj = new GameObject("BeaconESP");
-                LineRenderer line = obj.AddComponent<LineRenderer>();
-                line.startWidth = 0.1f;
-                line.endWidth = 0.1f;
-                line.positionCount = 2;
-                line.useWorldSpace = true;
-                line.SetPosition(0, rig.transform.position);
-                line.SetPosition(1, rig.transform.position + Vector3.up * 500f);
-                line.material.shader = Shader.Find("GUI/Text Shader");
-                line.startColor = rig.playerColor;
-                line.endColor = rig.playerColor;
-                Object.Destroy(obj, Time.deltaTime * 2f);
+                if (rig != null && !rig.isLocal)
+                    DrawLine(rig.transform.position, rig.transform.position + Vector3.up * 500f, rig.playerColor, 0.1f);
             }
         }
 
@@ -70,16 +50,10 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (!vrrig.isLocal)
                 {
-                    if (vrrig.mainSkin.material.name.Contains("fected") || vrrig.mainSkin.material.name.Contains("It"))
-                    {
-                        vrrig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
-                        vrrig.mainSkin.material.color = new Color32(255, 0, 0, 100);
-                    }
-                    else
-                    {
-                        vrrig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
-                        vrrig.mainSkin.material.color = new Color32(0, 255, 0, 100);
-                    }
+                    Material material = vrrig.mainSkin.material;
+                    bool tagged = material.name.Contains("fected") || material.name.Contains("It");
+                    material.shader = TextShader;
+                    material.color = tagged ? new Color32(255, 0, 0, 100) : new Color32(0, 255, 0, 100);
                 }
             }
         }
@@ -90,20 +64,20 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (!vrrig.isLocal)
                 {
-                    vrrig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
-                    vrrig.mainSkin.material.color = vrrig.playerColor;
+                    Material material = vrrig.mainSkin.material;
+                    material.shader = TextShader;
+                    material.color = vrrig.playerColor;
                 }
             }
         }
 
         public static void DisableFullBodyESP()
         {
+            Shader uber = Shader.Find("GorillaTag/UberShader");
             foreach (VRRig vrrig in VRRigCache.ActiveRigs)
             {
-                if (vrrig != VRRig.LocalRig && vrrig.mainSkin.material.shader == Shader.Find("GUI/Text Shader"))
-                {
-                    vrrig.mainSkin.material.shader = Shader.Find("GorillaTag/UberShader");
-                }
+                if (vrrig != VRRig.LocalRig && vrrig.mainSkin.material.shader == TextShader)
+                    vrrig.mainSkin.material.shader = uber;
             }
         }
 
@@ -219,7 +193,7 @@ namespace ShibaGTGenesisReborn.Mods
                     cube.transform.localScale = extents * 2f;
 
                     Renderer rend = cube.GetComponent<Renderer>();
-                    rend.material.shader = Shader.Find("GUI/Text Shader");
+                    rend.material.shader = TextShader;
                     rend.material.color = new Color(col.r, col.g, col.b, 0.35f);
                     Object.Destroy(cube, Time.deltaTime * 2f);
                 }
@@ -276,7 +250,7 @@ namespace ShibaGTGenesisReborn.Mods
                         quad.transform.rotation = cam.transform.rotation;
 
                     Renderer rend = quad.GetComponent<Renderer>();
-                    rend.material.shader = Shader.Find("GUI/Text Shader");
+                    rend.material.shader = TextShader;
                     rend.material.color = new Color(col.r, col.g, col.b, 0.45f);
                     Object.Destroy(quad, Time.deltaTime * 2f);
                 }
@@ -462,20 +436,34 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        private static void DrawLine(Vector3 start, Vector3 end, Color col)
+        public static void DrawLine(Vector3 start, Vector3 end, Color col, float width = 0.012f)
         {
-            GameObject obj = new GameObject("ESPLine");
-            LineRenderer lr = obj.AddComponent<LineRenderer>();
-            lr.startWidth = 0.012f;
-            lr.endWidth = 0.012f;
-            lr.positionCount = 2;
-            lr.useWorldSpace = true;
+            if (espLineIndex == espLines.Count || espLines[espLineIndex] == null)
+            {
+                LineRenderer created = new GameObject("ESPLine").AddComponent<LineRenderer>();
+                created.positionCount = 2;
+                created.useWorldSpace = true;
+                created.material.shader = TextShader;
+                if (espLineIndex == espLines.Count) espLines.Add(created);
+                else espLines[espLineIndex] = created;
+            }
+
+            LineRenderer lr = espLines[espLineIndex++];
+            lr.enabled = true;
+            lr.startWidth = lr.endWidth = width;
             lr.SetPosition(0, start);
             lr.SetPosition(1, end);
-            lr.material.shader = Shader.Find("GUI/Text Shader");
-            lr.startColor = col;
-            lr.endColor = col;
-            Object.Destroy(obj, Time.deltaTime * 2f);
+            lr.startColor = lr.endColor = col;
+        }
+
+        public static void HideUnusedLines()
+        {
+            for (int i = espLineIndex; i < espLines.Count; i++)
+            {
+                if (espLines[i] != null && espLines[i].enabled)
+                    espLines[i].enabled = false;
+            }
+            espLineIndex = 0;
         }
 
         private struct MaterialState
@@ -1224,7 +1212,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (HasModeratorCosmetics(rig) && rig.mainSkin != null)
                 {
-                    rig.mainSkin.material.shader = Shader.Find("GUI/Text Shader");
+                    rig.mainSkin.material.shader = TextShader;
                     rig.mainSkin.material.color = Color.red;
                 }
             }

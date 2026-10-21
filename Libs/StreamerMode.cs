@@ -109,10 +109,11 @@ namespace ShibaGTGenesisReborn.Libs
                     HideObject(FatSealSpammer.Seals[i]);
             }
 
-            HideByNamePrefix("Line");
-            HideByNamePrefix("BeaconESP");
-            HideByNamePrefix("BoxESP");
-            HideByNamePrefix("Tracer");
+            for (int i = 0; i < mods.espLines.Count; i++)
+            {
+                if (mods.espLines[i] != null)
+                    HideObject(mods.espLines[i].gameObject);
+            }
         }
 
         private static void OnCameraPostRender(Camera cam)
@@ -133,20 +134,6 @@ namespace ShibaGTGenesisReborn.Libs
             {
                 go.SetActive(false);
                 _hiddenObjects.Add(go);
-            }
-        }
-
-        private static void HideByNamePrefix(string prefix)
-        {
-            GameObject[] allObjs = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-            for (int i = 0; i < allObjs.Length; i++)
-            {
-                GameObject obj = allObjs[i];
-                if (obj != null && obj.name.StartsWith(prefix) && obj.activeSelf)
-                {
-                    obj.SetActive(false);
-                    _hiddenObjects.Add(obj);
-                }
             }
         }
 
