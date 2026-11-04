@@ -6,6 +6,7 @@ namespace ShibaGTGenesisReborn.Classes
     {
         public Renderer renderer;
         public ExtGradient colorInfo;
+        public float alpha = 1f;
 
         public override void Start()
         {
@@ -19,28 +20,23 @@ namespace ShibaGTGenesisReborn.Classes
             base.Update();
             if (colorInfo == null || renderer == null) return;
 
+            Color color;
             if (colorInfo.copyRigColors)
             {
-                Color rigColor = Color.white;
+                color = Color.white;
                 if (VRRig.LocalRig.mainSkin?.material != null)
-                    rigColor = VRRig.LocalRig.mainSkin.material.color;
+                    color = VRRig.LocalRig.mainSkin.material.color;
                 else if (GorillaTagger.Instance.offlineVRRig.mainSkin?.material != null)
-                    rigColor = GorillaTagger.Instance.offlineVRRig.mainSkin.material.color;
-
-                renderer.material.color = rigColor;
-                return;
+                    color = GorillaTagger.Instance.offlineVRRig.mainSkin.material.color;
             }
+            else if (colorInfo.isRainbow)
+                color = Color.HSVToRGB((Time.time * 0.4f) % 1f, 1f, 1f);
+            else if (colorInfo.colors != null && colorInfo.colors.Length > 0)
+                color = colorInfo.colors[0].color;
+            else return;
 
-            if (colorInfo.isRainbow)
-            {
-                renderer.material.color = Color.HSVToRGB((Time.time * 0.4f) % 1f, 1f, 1f);
-                return;
-            }
-
-            if (colorInfo.colors != null && colorInfo.colors.Length > 0)
-            {
-                renderer.material.color = colorInfo.colors[0].color;
-            }
+            color.a = alpha;
+            renderer.material.color = color;
         }
     }
 }

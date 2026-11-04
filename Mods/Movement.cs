@@ -1,6 +1,7 @@
 using System;
 using BepInEx;
 using GorillaLocomotion;
+using HarmonyLib;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
@@ -15,24 +16,6 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        public static float PullPower = 0.07f;
-        public static float UpHillPower = 0.065f;
-        private static bool lastLeftTouch;
-        private static bool lastRightTouch;
-
-        public static string[] pullmodes =
-        {
-            "Light",
-            "Legit",
-            "Speed Boost",
-            "High Jump",
-            "Reset"
-        };
-
-        [Setting] public static int pullmodeIndex = 1;
-        [Setting] public static int movementSpeedIndex = 1;
-        public static readonly string[] movementSpeedNames = { "Slow", "Normal", "Fast" };
-        private static int appliedPullMode = -1;
         [Setting] public static int Platcolor;
         public static Color PlatColor = Color.blue;
         public static readonly Color[] PlatColors =
@@ -55,28 +38,22 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static GameObject PlatR, PlatL = null;
         [Setting] public static bool stickyPlatforms;
-        private static Vector3 scale = new Vector3(0.0125f, 0.28f, 0.3825f);
-
-        private static bool teleportGunPressed;
-        private static bool catapultPressed;
-        private static bool catapultFlying;
-        private static float catapultLaunchTime;
-
-        public static GameObject checkpoint;
-        private static bool teleporting;
-        private static float teleportTime;
-        private static bool noclipHeld;
-        private static bool noclipKeyToggled;
-
-        private static bool dragging;
-        private static float yaw, pitch, anchorX, anchorY;
-        private const float sensitivity = 360f * 1.33f;
+        [Setting] public static int platSizeIndex = 1;
+        public static readonly string[] platSizeNames = { "Small", "Normal", "Big", "Huge" };
+        private static readonly float[] platSizes = { 0.6f, 1f, 1.6f, 2.5f };
+        [Setting] public static int platShapeIndex;
+        public static readonly string[] platShapeNames = { "Flat", "Box", "Ball", "Pill" };
+        private static readonly PrimitiveType[] platShapes = { PrimitiveType.Cube, PrimitiveType.Cube, PrimitiveType.Sphere, PrimitiveType.Capsule };
+        private static readonly Vector3[] platShapeScales = { new Vector3(0.0125f, 0.28f, 0.3825f), Vector3.one * 0.3f, Vector3.one * 0.35f, new Vector3(0.2f, 0.2f, 0.2f) };
 
         public static void Platforms(bool Invis = false)
         {
+            int shape = platShapeIndex % platShapes.Length;
+            Vector3 scale = platShapeScales[shape] * platSizes[platSizeIndex % platSizes.Length];
+
             if (InputHandler.Instance.RightGrip.IsPressed && PlatR == null)
             {
-                PlatR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                PlatR = GameObject.CreatePrimitive(platShapes[shape]);
                 PlatR.transform.localScale = scale;
                 PlatR.transform.rotation = GorillaTagger.Instance.rightHandTransform.rotation * GTPlayer.Instance.RightHand.handRotOffset;
                 PlatR.transform.position = GTPlayer.Instance.RightHand.handFollower.position - PlatR.transform.right * (scale.x * 0.5f + GTPlayer.Instance.minimumRaycastDistance * GTPlayer.Instance.scale);
@@ -92,7 +69,7 @@ namespace ShibaGTGenesisReborn.Mods
 
             if (InputHandler.Instance.LeftGrip.IsPressed && PlatL == null)
             {
-                PlatL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                PlatL = GameObject.CreatePrimitive(platShapes[shape]);
                 PlatL.transform.localScale = scale;
                 PlatL.transform.rotation = GorillaTagger.Instance.leftHandTransform.rotation * GTPlayer.Instance.LeftHand.handRotOffset;
                 PlatL.transform.position = GTPlayer.Instance.LeftHand.handFollower.position + PlatL.transform.right * (scale.x * 0.5f + GTPlayer.Instance.minimumRaycastDistance * GTPlayer.Instance.scale);
@@ -106,6 +83,8 @@ namespace ShibaGTGenesisReborn.Mods
                 PlatL = null;
             }
         }
+
+        private static bool noclipHeld, noclipKeyToggled;
 
         public static void Noclip()
         {
@@ -131,6 +110,12 @@ namespace ShibaGTGenesisReborn.Mods
                 if (fly) GTPlayer.Instance.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
             }
         }
+
+        [Setting] public static int movementSpeedIndex = 1;
+        public static readonly string[] movementSpeedNames = { "Slow", "Normal", "Fast" };
+        private static bool dragging;
+        private static float yaw, pitch, anchorX, anchorY;
+        private const float sensitivity = 360f * 1.33f;
 
         public static void WASDFly()
         {
@@ -177,13 +162,123 @@ namespace ShibaGTGenesisReborn.Mods
             if (UnityInput.Current.GetKey(KeyCode.LeftControl)) t.position += Vector3.down * dt;
         }
 
+        [Setting] public static int dashStrengthIndex = 1;
+        public static readonly string[] dashStrengthNames = { "Weak", "Normal", "Strong" };
+        private static readonly float[] dashStrengths = { 12f, 20f, 30f };
+        [Setting] public static int dashCooldownIndex = 1;
+        public static readonly string[] dashCooldownNames = { "0.5s", "1s", "2s" };
+        private static readonly float[] dashCooldowns = { 0.5f, 1f, 2f };
         private static float dashTime;
 
         public static void Dash()
         {
-            if (Settings.isSearching || Settings.isChangingTitle || !InputHandler.Instance.RightPrimary.IsPressed || Time.time < dashTime) return;
-            dashTime = Time.time + 1f;
-            GorillaTagger.Instance.rigidbody.linearVelocity = GTPlayer.Instance.headCollider.transform.forward * 20f;
+            if (Settings.isSearching || Settings.isChangingTitle || !InputHandler.Instance.RightSecondary.IsPressed || Time.time < dashTime) return;
+            dashTime = Time.time + dashCooldowns[dashCooldownIndex % dashCooldowns.Length];
+            GorillaTagger.Instance.rigidbody.linearVelocity = GTPlayer.Instance.headCollider.transform.forward * dashStrengths[dashStrengthIndex % dashStrengths.Length];
+        }
+
+        [Setting] public static int speedBoostIndex = 1;
+        public static readonly string[] speedBoostNames = { "x1.2", "x1.4", "x1.6", "x1.8", "x2" };
+        private static readonly float[] speedBoostValues = { 1.2f, 1.4f, 1.6f, 1.8f, 2f };
+        private static float baseJumpSpeed = -1f, baseJumpMultiplier;
+
+        public static void SpeedBoost()
+        {
+            if (baseJumpSpeed < 0f)
+            {
+                baseJumpSpeed = GTPlayer.Instance.maxJumpSpeed;
+                baseJumpMultiplier = GTPlayer.Instance.jumpMultiplier;
+            }
+            float boost = speedBoostValues[speedBoostIndex % speedBoostValues.Length];
+            GTPlayer.Instance.maxJumpSpeed = baseJumpSpeed * boost;
+            GTPlayer.Instance.jumpMultiplier = baseJumpMultiplier * boost;
+        }
+
+        public static void DisableSpeedBoost()
+        {
+            if (baseJumpSpeed < 0f) return;
+            GTPlayer.Instance.maxJumpSpeed = baseJumpSpeed;
+            GTPlayer.Instance.jumpMultiplier = baseJumpMultiplier;
+            baseJumpSpeed = -1f;
+        }
+
+        [Setting] public static int predictionIndex = 1;
+        public static readonly string[] predictionNames = { "Legit", "Closet", "Medium", "High", "Extreme" };
+        private static readonly float[] predictionStrengths = { 0.02f, 0.04f, 0.08f, 0.16f, 0.35f };
+        private static readonly AccessTools.FieldRef<GTPlayer, GTPlayer.HandState> leftHandState = AccessTools.FieldRefAccess<GTPlayer, GTPlayer.HandState>("leftHand");
+        private static readonly AccessTools.FieldRef<GTPlayer, GTPlayer.HandState> rightHandState = AccessTools.FieldRefAccess<GTPlayer, GTPlayer.HandState>("rightHand");
+        private static Vector3 lastLeftHand, lastRightHand, leftHandVelocity, rightHandVelocity, baseLeftOffset, baseRightOffset;
+        private static bool predicting;
+
+        public static void Predictions()
+        {
+            ref GTPlayer.HandState left = ref leftHandState(GTPlayer.Instance);
+            ref GTPlayer.HandState right = ref rightHandState(GTPlayer.Instance);
+            if (!predicting)
+            {
+                baseLeftOffset = left.handOffset;
+                baseRightOffset = right.handOffset;
+                predicting = true;
+            }
+
+            Vector3 head = GTPlayer.Instance.headCollider.transform.position;
+            Vector3 leftPosition = left.controllerTransform.position - head, rightPosition = right.controllerTransform.position - head;
+            leftHandVelocity = Vector3.Lerp(leftHandVelocity, (leftPosition - lastLeftHand) / Time.deltaTime, 0.5f);
+            rightHandVelocity = Vector3.Lerp(rightHandVelocity, (rightPosition - lastRightHand) / Time.deltaTime, 0.5f);
+            lastLeftHand = leftPosition;
+            lastRightHand = rightPosition;
+
+            float strength = predictionStrengths[predictionIndex % predictionStrengths.Length], scale = GTPlayer.Instance.scale;
+            left.handOffset = baseLeftOffset + Quaternion.Inverse(left.controllerTransform.rotation) * Vector3.ClampMagnitude(leftHandVelocity * strength, strength * 4f) / scale;
+            right.handOffset = baseRightOffset + Quaternion.Inverse(right.controllerTransform.rotation) * Vector3.ClampMagnitude(rightHandVelocity * strength, strength * 4f) / scale;
+        }
+
+        public static void DisablePredictions()
+        {
+            if (!predicting) return;
+            leftHandState(GTPlayer.Instance).handOffset = baseLeftOffset;
+            rightHandState(GTPlayer.Instance).handOffset = baseRightOffset;
+            leftHandVelocity = rightHandVelocity = Vector3.zero;
+            predicting = false;
+        }
+
+        private static Vector3 lastFlatVelocity;
+
+        public static void MomentumKeeper()
+        {
+            Rigidbody body = GorillaTagger.Instance.rigidbody;
+            Vector3 velocity = body.linearVelocity;
+            Vector3 flat = new Vector3(velocity.x, 0f, velocity.z);
+            if (!GTPlayer.Instance.BodyOnGround && lastFlatVelocity.magnitude > 3f && flat.magnitude > 0.3f && flat.magnitude < lastFlatVelocity.magnitude * 0.6f)
+            {
+                flat = flat.normalized * lastFlatVelocity.magnitude;
+                body.linearVelocity = new Vector3(flat.x, velocity.y, flat.z);
+            }
+            lastFlatVelocity = flat;
+        }
+
+        public static void GliderMonkey()
+        {
+            if (GTPlayer.Instance.BodyOnGround || GTPlayer.Instance.IsGroundedHand) return;
+            if (Vector3.Distance(GorillaTagger.Instance.leftHandTransform.position, GorillaTagger.Instance.rightHandTransform.position) < 1.1f) return;
+
+            Rigidbody body = GorillaTagger.Instance.rigidbody;
+            Vector3 velocity = body.linearVelocity;
+            if (velocity.y < -1.5f) velocity.y = Mathf.Lerp(velocity.y, -1.5f, Time.deltaTime * 5f);
+            Vector3 forward = Vector3.ProjectOnPlane(GTPlayer.Instance.headCollider.transform.forward, Vector3.up).normalized;
+            if (new Vector3(velocity.x, 0f, velocity.z).magnitude < 8f) velocity += forward * 6f * Time.deltaTime;
+            body.linearVelocity = velocity;
+        }
+
+        public static void JoystickFly()
+        {
+            if (Settings.isSearching || Settings.isChangingTitle) return;
+            Vector2 left = ControllerInputPoller.instance.leftControllerPrimary2DAxis;
+            Vector2 right = ControllerInputPoller.instance.rightControllerPrimary2DAxis;
+            Transform head = GTPlayer.Instance.headCollider.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
+            Vector3 side = Vector3.ProjectOnPlane(head.right, Vector3.up).normalized;
+            GorillaTagger.Instance.rigidbody.linearVelocity = (side * right.x + forward * right.y + Vector3.up * left.y) * (6f + movementSpeedIndex * 4f);
         }
 
         public static void VelocityFly()
@@ -195,6 +290,8 @@ namespace ShibaGTGenesisReborn.Mods
                 GorillaTagger.Instance.rigidbody.linearVelocity = GTPlayer.Instance.headCollider.transform.forward * flySpeed;
             }
         }
+
+        private static bool teleportGunPressed;
 
         public static void TeleportGun()
         {
@@ -232,6 +329,10 @@ namespace ShibaGTGenesisReborn.Mods
             GTPlayer.Instance.ForceRigidBodySync();
         }
 
+        public static float PullPower = 0.07f;
+        public static float UpHillPower = 0.065f;
+        private static bool lastLeftTouch, lastRightTouch;
+
         public static void PullMod()
         {
             if (appliedPullMode != pullmodeIndex) ApplyPullMode();
@@ -247,6 +348,10 @@ namespace ShibaGTGenesisReborn.Mods
             lastLeftTouch = leftTouch;
             lastRightTouch = rightTouch;
         }
+
+        public static string[] pullmodes = { "Light", "Legit", "Speed Boost", "High Jump", "Reset" };
+        [Setting] public static int pullmodeIndex = 1;
+        private static int appliedPullMode = -1;
 
         public static void ApplyPullMode()
         {
@@ -318,6 +423,10 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        public static GameObject checkpoint;
+        private static bool teleporting;
+        private static float teleportTime;
+
         public static void CheckPoint()
         {
             if (InputHandler.Instance.RightGrip.IsPressed)
@@ -345,7 +454,7 @@ namespace ShibaGTGenesisReborn.Mods
                 return;
             }
 
-            if (InputHandler.Instance.RightPrimary.WasPressed && !teleporting)
+            if (InputHandler.Instance.RightSecondary.WasPressed && !teleporting)
             {
                 teleporting = true;
                 teleportTime = 0.1f;
@@ -570,6 +679,9 @@ namespace ShibaGTGenesisReborn.Mods
                 }
             }
         }
+
+        private static bool catapultPressed, catapultFlying;
+        private static float catapultLaunchTime;
 
         public static void Catapult(float power = 40f)
         {

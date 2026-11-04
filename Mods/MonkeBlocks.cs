@@ -9,14 +9,14 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        private static float blockTime;
-
         private static BuilderTable GetBlocksTable() =>
             BuilderTable.TryGetBuilderTableForZone(GTZone.monkeBlocks, out BuilderTable table) && table.GetTableState() == BuilderTable.TableState.Ready ? table : null;
 
         private static IEnumerable<BuilderPiece> FreeBlocks(BuilderTable table) =>
             table.pieces.Where(piece => piece != null && !piece.IsPrivatePlot() &&
                 (piece.state == BuilderPiece.State.AttachedAndPlaced || piece.state == BuilderPiece.State.Dropped || piece.state == BuilderPiece.State.AttachedToDropped));
+
+        private static float blockTime;
 
         private static bool BlockTick(out BuilderTable table)
         {
@@ -59,6 +59,56 @@ namespace ShibaGTGenesisReborn.Mods
             Vector3 center = GorillaTagger.Instance.bodyCollider.transform.position;
             foreach (BuilderPiece piece in FreeBlocks(table).Where(piece => Vector3.Distance(piece.transform.position, center) > 3f).Take(3).ToArray())
                 DropBlock(table, piece, center + Random.insideUnitSphere * 1.5f + Vector3.up, Vector3.zero);
+        }
+
+        public static void BlockTornado()
+        {
+            if (!BlockTick(out BuilderTable table)) return;
+            Vector3 center = GorillaTagger.Instance.bodyCollider.transform.position;
+            foreach (BuilderPiece piece in FreeBlocks(table).OrderBy(_ => Random.value).Take(3).ToArray())
+            {
+                float angle = Random.value * Mathf.PI * 2f, height = Random.Range(0f, 6f), radius = 1f + height * 0.5f;
+                Vector3 outward = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                DropBlock(table, piece, center + outward * radius + Vector3.up * height, Vector3.Cross(Vector3.up, outward) * 8f + Vector3.up * 4f);
+            }
+        }
+
+        private static int orbitIndex;
+
+        public static void BlockOrbit()
+        {
+            if (!BlockTick(out BuilderTable table)) return;
+            Vector3 center = GorillaTagger.Instance.bodyCollider.transform.position;
+            BuilderPiece[] pieces = FreeBlocks(table).OrderBy(piece => Vector3.Distance(piece.transform.position, center)).Take(12).ToArray();
+            for (int k = 0; k < 3 && pieces.Length > 0; k++)
+            {
+                int i = orbitIndex++ % pieces.Length;
+                float angle = Time.time * 2f + i * Mathf.PI * 2f / pieces.Length;
+                Vector3 outward = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                DropBlock(table, pieces[i], center + outward * 1.5f + Vector3.up * 0.5f, Vector3.Cross(Vector3.up, outward) * 3f + Vector3.up * 2f);
+            }
+        }
+
+        public static void BlockFountain()
+        {
+            if (!BlockTick(out BuilderTable table)) return;
+            Vector3 hand = GorillaTagger.Instance.rightHandTransform.position;
+            foreach (BuilderPiece piece in FreeBlocks(table).OrderBy(_ => Random.value).Take(2).ToArray())
+                DropBlock(table, piece, hand + Vector3.up * 0.3f, (Vector3.up * 3f + Random.insideUnitSphere).normalized * BuilderTable.MAX_DROP_VELOCITY);
+        }
+
+        public static void BlockExplosionGun()
+        {
+            GunLib.StartGun(() =>
+            {
+                if (!BlockTick(out BuilderTable table)) return;
+                Vector3 point = GunLib.spherepointer.transform.position;
+                foreach (BuilderPiece piece in FreeBlocks(table).OrderBy(_ => Random.value).Take(3).ToArray())
+                {
+                    Vector3 direction = (Random.onUnitSphere + Vector3.up).normalized;
+                    DropBlock(table, piece, point + direction * 0.3f, direction * BuilderTable.MAX_DROP_VELOCITY);
+                }
+            }, false);
         }
 
         public static void DeleteBlockGun()

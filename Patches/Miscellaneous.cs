@@ -5,7 +5,7 @@ using ShibaGTGenesisReborn.Mods;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using UnityEngine; // test
+using UnityEngine;
 
 namespace ShibaGTGenesisReborn.Patches
 {

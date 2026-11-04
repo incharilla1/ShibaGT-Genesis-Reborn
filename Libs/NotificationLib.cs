@@ -291,7 +291,10 @@ namespace ShibaGTGenesisReborn.Libs
             if (!_typeColors.TryGetValue(type, out string color))
                 color = "#FFFFFF";
 
-            string text = string.Format("<color={0}>{1}</color> : {2}", color, type.ToString(), content);
+            Instance._notificationText.font = Settings.currentFont;
+            string text = Settings.newMenuDesign
+                ? string.Format("<color={0}>●</color>  {1}", color, content)
+                : string.Format("<color={0}>{1}</color> : {2}", color, type.ToString(), content);
 
             if (text == PreviousNotification && _notificationTimestamps.ContainsKey(text))
                 return;

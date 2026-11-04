@@ -5,6 +5,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using Photon.Voice.PUN;
 using Photon.Voice.Unity;
+using POpusCodec.Enums;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System.Collections;
@@ -16,7 +17,6 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        private static float nextTargetSpam;
         public static void DestroyGun()
         {
             GunLib.StartGun(() =>
@@ -37,6 +37,8 @@ namespace ShibaGTGenesisReborn.Mods
                 PhotonNetwork.OpRemoveCompleteCacheOfPlayer(player.ActorNumber);
             }
         }
+
+        private static float nextTargetSpam;
 
         public static void TargetSpam()
         {
@@ -74,13 +76,10 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        private static readonly Dictionary<VRRig, float> guardianLaunchTimes = new Dictionary<VRRig, float>();
-        private static int guardianGrabIndex;
-        private static float guardianGrabTime;
-        private static VRRig guardianGrabTarget;
-
         private static bool IsLocalGuardian() =>
             GorillaGameManager.instance is GorillaGuardianManager manager && manager.IsPlayerGuardian(NetworkSystem.Instance.LocalPlayer);
+
+        private static readonly Dictionary<VRRig, float> guardianLaunchTimes = new Dictionary<VRRig, float>();
 
         private static void GuardianLaunch(VRRig rig, Vector3 velocity)
         {
@@ -101,6 +100,10 @@ namespace ShibaGTGenesisReborn.Mods
                 GuardianLaunch(GunLib.LockedPlayer, Vector3.up * 20f);
             }, true);
         }
+
+        private static int guardianGrabIndex;
+        private static float guardianGrabTime;
+        private static VRRig guardianGrabTarget;
 
         public static void GuardianGrabAll()
         {
@@ -337,7 +340,7 @@ namespace ShibaGTGenesisReborn.Mods
         private static void BlastEarRape(VRRig target = null)
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            RPCProt(true);
+            RPCProt();
 
             NetworkingLibrary.SendRigPosition(GorillaTagger.Instance.headCollider.transform.position);
             
@@ -349,31 +352,5 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void BlindingFlashGun()
-        {
-            GunLib.StartGun(() =>
-            {
-                if (GunLib.LockedPlayer != null)
-                    TriggerBlindness(GunLib.LockedPlayer.headMesh.transform.position);
-            }, true);
-        }
-
-        public static void BlindingFlashAll()
-        {
-            foreach (VRRig rig in VRRigCache.ActiveRigs)
-            {
-                if (!rig.isLocal)
-                    TriggerBlindness(rig.headMesh.transform.position);
-            }
-        }
-
-        private static void TriggerBlindness(Vector3 targetHead)
-        {
-            if (!NetworkSystem.Instance.InRoom) return;
-            RPCProt(true);
-            VRRig.LocalRig.rightHandTransform.position = targetHead;
-            GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, targetHead, Quaternion.identity, 1f, 0.5f, true, true);
-            GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayGeodeEffect", RpcTarget.All, targetHead);
-        }
     }
 }

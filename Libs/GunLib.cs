@@ -9,7 +9,7 @@ namespace ShibaGTGenesisReborn.Libs
     public class GunLib
     {
         public static GameObject spherepointer;
-        public static VRRig LockedPlayer;
+        public static VRRig LockedPlayer = null;
 
         public static float GunLineWidth = 0.012f;
         public static float SphereSize = 0.15f;

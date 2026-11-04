@@ -1,6 +1,7 @@
 using BepInEx;
 using Photon.Pun;
 using Photon.Realtime;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -8,6 +9,19 @@ namespace ShibaGTGenesisReborn.Classes
 {
     internal class RigManager : BaseUnityPlugin
     {
+        public static List<VRRig> Mfs()
+        {
+            List<VRRig> result = new List<VRRig>();
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null) continue;
+                if (rig.isOfflineVRRig) continue;
+                result.Add(rig);
+            }
+
+            return result;
+        }
+
         public static VRRig GetClosestVRRig()
         {
             float min = float.MaxValue;

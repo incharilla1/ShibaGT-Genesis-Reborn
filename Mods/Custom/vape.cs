@@ -35,12 +35,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         public static bool isExhaling = false;
         private static float exhaleTimer = 0f;
         private static float exhaleDuration = 2.0f;
-        public static bool showTweakBar = false;
-        private static float tweakLevel = 0f;
-        private static float maxTweak = 10f;
-        private static GameObject tweakBar;
-        private static float originalFovMain = -1f;
-        private static float originalFovCurrent = -1f;
 
         static string Dir => ModsLib.GenesisDirectory;
         static string P_Obj => Path.Combine(Dir, "vape.obj");
@@ -232,6 +226,13 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             HandleTweaking();
             HandleUIBar(player);
         }
+
+        public static bool showTweakBar = false;
+        private static float tweakLevel = 0f;
+        private static float maxTweak = 10f;
+        private static GameObject tweakBar;
+        private static float originalFovMain = -1f;
+        private static float originalFovCurrent = -1f;
 
         void HandleTweaking()
         {

@@ -26,5 +26,8 @@ namespace ShibaGTGenesisReborn.Classes
         public KeyCode pcKey = KeyCode.None;
         public KeybindMode keybindMode = KeybindMode.Toggle;
         public bool needsMaster = false;
+        public bool hideInNewDesign = false;
+        public bool newDesignOnly = false;
+        public bool pmButton = false;
     }
 }

@@ -140,15 +140,6 @@ namespace ShibaGTGenesisReborn.Mods.Custom
         public static bool ShowHUD = false;
         public static bool AutoNotifyTrack = true;
 
-        private static GameObject hudOverlayObj;
-        private static UnityEngine.UI.Text hudOverlayText;
-        private static GameObject hudVrObj;
-        private static UnityEngine.UI.Text hudVrText;
-        private static float hudUpdateTimer;
-
-        private static string currentTrackDisplay = "Not Running";
-        private static string lastKnownTrack = "";
-
         public static void Initialize()
         {
             if (Instance == null)
@@ -402,6 +393,12 @@ namespace ShibaGTGenesisReborn.Mods.Custom
             NotificationLib.SendNotification(NotificationLib.NotificationType.Disabled, "<color=yellow>Spotify</color>\nClosed Spotify", 2f);
         }
 
+        private static GameObject hudOverlayObj;
+        private static UnityEngine.UI.Text hudOverlayText;
+        private static GameObject hudVrObj;
+        private static UnityEngine.UI.Text hudVrText;
+        private static float hudUpdateTimer;
+
         public static void EnableHUD()
         {
             ShowHUD = true;
@@ -546,6 +543,9 @@ namespace ShibaGTGenesisReborn.Mods.Custom
                 hudVrText = null;
             }
         }
+
+        private static string currentTrackDisplay = "Not Running";
+        private static string lastKnownTrack = "";
 
         private static string FormatDisplayString(string rawTrack)
         {

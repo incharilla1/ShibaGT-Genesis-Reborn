@@ -376,6 +376,27 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        public static void SmartHitbox()
+        {
+            if (NetworkSystem.Instance.InRoom && IsRigInfected(VRRig.LocalRig) && RigManager.GetClosestUntaggedVRRig(1f) != null)
+                GorillaTagger.Instance.SetTagRadiusOverrideThisFrame(0.2f);
+        }
+
+        public static void AntiTagAssist()
+        {
+            if (!NetworkSystem.Instance.InRoom || IsRigInfected(VRRig.LocalRig)) return;
+            Vector3 head = GorillaTagger.Instance.headCollider.transform.position;
+            Vector3 away = Vector3.zero;
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isLocal || !IsRigInfected(rig)) continue;
+                Vector3 offset = head - rig.head.rigTarget.position;
+                offset.y = 0f;
+                if (offset.magnitude < 2f) away += offset.normalized * (2f - offset.magnitude);
+            }
+            GorillaTagger.Instance.rigidbody.AddForce(away * 6f, ForceMode.Acceleration);
+        }
+
         public static void DisableHitboxExpander()
         {
             hitboxExpander = false;

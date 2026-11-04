@@ -126,7 +126,7 @@ namespace ShibaGTGenesisReborn
                     if (btn == null || btn.buttonText == "-" || btn.buttonText == "Save" || btn.buttonText == "Remove All Prefs") continue;
 
                     bool saveEnabled = btn.enabled && !btn.buttonText.EndsWith("Gun") && btn.buttonText != "Tag All" && btn.buttonText != "Tag Self";
-                    if (saveEnabled || btn.isFavorite || !string.IsNullOrEmpty(btn.overlapText) || btn.vrKey.HasValue || btn.pcKey != KeyCode.None)
+                    if (saveEnabled || btn.isTogglable || btn.isFavorite || !string.IsNullOrEmpty(btn.overlapText) || btn.vrKey.HasValue || btn.pcKey != KeyCode.None)
                     {
                         buttons[btn.buttonText] = new ButtonState
                         {
@@ -499,9 +499,6 @@ namespace ShibaGTGenesisReborn
         public static void SyncSettings()
         {
             Mods.mods.ApplyTheme();
-
-            if (Mods.mods.OutlineIndex >= 0 && Mods.mods.OutlineIndex < Mods.mods.outnames.Length)
-                Main.outlineColor = Mods.mods.outlines[Mods.mods.OutlineIndex];
 
             if (Mods.mods.Platcolor >= 0 && Mods.mods.Platcolor < Mods.mods.ColorNames.Length)
                 Mods.mods.PlatColor = Mods.mods.PlatColors[Mods.mods.Platcolor];

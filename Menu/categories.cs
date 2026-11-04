@@ -82,6 +82,18 @@ namespace ShibaGTGenesisReborn.Menu
             pageNumber = 0;
         }
 
+        public static void mastermods()
+        {
+            buttonsType = 28;
+            pageNumber = 0;
+        }
+
+        public static void detectedmods()
+        {
+            buttonsType = 29;
+            pageNumber = 0;
+        }
+
         public static void enablemods()
         {
             UpdateEnabledMods();

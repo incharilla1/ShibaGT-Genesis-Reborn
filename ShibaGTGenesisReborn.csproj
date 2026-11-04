@@ -13,6 +13,7 @@
 	  <EmbeddedResource Include="Resources\home.png" />
 	  <EmbeddedResource Include="Resources\heart.png" />
 	  <EmbeddedResource Include="Resources\search.png" />
+	  <EmbeddedResource Include="Resources\logo.png" />
 	  <Compile Remove="game\**" />
 	  <None Remove="game\**" /> <!-- assembly csharp decompiled for newest gtag version -->
 	  <Compile Remove="Worker\**" /> <!-- cxs worker -->

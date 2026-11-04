@@ -23,9 +23,6 @@ namespace ShibaGTGenesisReborn.Mods
         private static Shader textShader;
         public static Shader TextShader => textShader != null ? textShader : textShader = Shader.Find("GUI/Text Shader");
 
-        public static readonly List<LineRenderer> espLines = new List<LineRenderer>();
-        private static int espLineIndex;
-
         public static void Tracers()
         {
             foreach (VRRig rig in VRRigCache.ActiveRigs)
@@ -81,8 +78,6 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        private static float delayTimer;
-
         private static (bool tooFar, Vector3 closestPos) WardrboeThings()
         {
             Vector3 head = GorillaTagger.Instance.headCollider.transform.position;
@@ -106,6 +101,8 @@ namespace ShibaGTGenesisReborn.Mods
 
             return (closestDist > closestRad, closestPos);
         }
+
+        private static float delayTimer;
 
         public static void RGB(bool strobe = false)
         {
@@ -385,6 +382,70 @@ namespace ShibaGTGenesisReborn.Mods
             wireframePoolIndex = 0;
         }
 
+        private static bool tinyPlayers, thinPlayers, thickPlayers;
+
+        public static void SetPlayerShape(ref bool shape, bool enabled)
+        {
+            shape = enabled;
+            float width = (thinPlayers ? 0.4f : 1f) * (thickPlayers ? 2f : 1f), size = tinyPlayers ? 0.5f : 1f;
+            Patches.RemoteRigPatch.Scale = new Vector3(width * size, size, width * size);
+        }
+
+        public static void TinyPlayers(bool enabled) => SetPlayerShape(ref tinyPlayers, enabled);
+        public static void ThinPlayers(bool enabled) => SetPlayerShape(ref thinPlayers, enabled);
+        public static void ThickPlayers(bool enabled) => SetPlayerShape(ref thickPlayers, enabled);
+
+        private static float everyoneIsYouTime;
+
+        public static void EveryoneIsYou()
+        {
+            if (Time.time < everyoneIsYouTime) return;
+            everyoneIsYouTime = Time.time + 0.5f;
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+                if (rig != null && !rig.isLocal) rig.bodyRenderer.UpdateColor(VRRig.LocalRig.playerColor);
+        }
+
+        public static void DisableEveryoneIsYou()
+        {
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+                if (rig != null && !rig.isLocal) rig.bodyRenderer.UpdateColor(rig.playerColor);
+        }
+
+        public static void UpsideDownCamera() => WarpCameras(Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, 180f)));
+
+        public static void DrunkMode()
+        {
+            float t = Time.time;
+            Matrix4x4 warp = Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 20f), new Vector3(1f + Mathf.Sin(t * 1.3f) * 0.15f, 1f + Mathf.Cos(t * 1.1f) * 0.15f, 1f));
+            warp[0, 1] = Mathf.Sin(t * 0.9f) * 0.25f;
+            WarpCameras(warp);
+        }
+
+        private static void WarpCameras(Matrix4x4 warp)
+        {
+            foreach (Camera cam in Camera.allCameras)
+            {
+                if (cam.targetTexture != null) continue;
+                cam.ResetProjectionMatrix();
+                cam.ResetStereoProjectionMatrices();
+                if (cam.stereoEnabled)
+                {
+                    cam.SetStereoProjectionMatrix(Camera.StereoscopicEye.Left, cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left) * warp);
+                    cam.SetStereoProjectionMatrix(Camera.StereoscopicEye.Right, cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right) * warp);
+                }
+                cam.projectionMatrix = cam.projectionMatrix * warp;
+            }
+        }
+
+        public static void ResetCameras()
+        {
+            foreach (Camera cam in Camera.allCameras)
+            {
+                cam.ResetProjectionMatrix();
+                cam.ResetStereoProjectionMatrices();
+            }
+        }
+
         public static void NameAndDistanceTags()
         {
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
@@ -396,7 +457,8 @@ namespace ShibaGTGenesisReborn.Mods
                 NetPlayer netPlayer = RigManager.GetNetPlayerFromVRRig(rig);
                 string name = player != null ? player.NickName : (!string.IsNullOrEmpty(rig.playerNameVisible) ? rig.playerNameVisible : "Player");
                 float dist = Vector3.Distance(GorillaTagger.Instance.bodyCollider.transform.position, rig.transform.position);
-                int fps = rig.fps;
+                string voice = rig.muted ? " [Muted]" : rig.SpeakingLoudness > 0.05f ? " [Talking]" : "";
+                string info = $"{name} [{dist:F1}m] [{rig.fps} FPS] [{rig.LatestVelocity().magnitude:F1} m/s]{voice}";
 
                 GameObject tagObj = new GameObject("NameTagESP");
                 Vector3 headPos = (rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position) + Vector3.up * 0.35f;
@@ -405,7 +467,7 @@ namespace ShibaGTGenesisReborn.Mods
                     tagObj.transform.LookAt(tagObj.transform.position + cam.transform.rotation * Vector3.forward, cam.transform.rotation * Vector3.up);
 
                 TextMesh tm = tagObj.AddComponent<TextMesh>();
-                tm.text = $"{name} [{dist:F1}m] [{fps} FPS]";
+                tm.text = info;
                 tm.fontSize = 42;
                 tm.characterSize = 0.02f;
                 tm.alignment = TextAlignment.Center;
@@ -435,6 +497,9 @@ namespace ShibaGTGenesisReborn.Mods
                 Object.Destroy(tagObj, Time.deltaTime * 2f);
             }
         }
+
+        public static readonly List<LineRenderer> espLines = new List<LineRenderer>();
+        private static int espLineIndex;
 
         public static void DrawLine(Vector3 start, Vector3 end, Color col, float width = 0.012f)
         {
@@ -924,12 +989,6 @@ namespace ShibaGTGenesisReborn.Mods
         private static GameObject cachedVCam;
         private static Camera cachedTpc;
 
-        private static GameObject roomOverlayObj;
-        private static UnityEngine.UI.Text roomOverlayText;
-        private static GameObject roomVrObj;
-        private static TextMesh roomVrText;
-        private static float roomUpdateTimer;
-
         public static void DebugInfo()
         {
             if (debugOverlayObj == null)
@@ -961,7 +1020,13 @@ namespace ShibaGTGenesisReborn.Mods
                 rect.sizeDelta = new Vector2(500, 350);
             }
 
-            if (debugVrObj == null)
+            if (Settings.disableVRViewHUD && debugVrObj != null)
+            {
+                Object.Destroy(debugVrObj);
+                debugVrObj = null;
+                debugVrText = null;
+            }
+            else if (debugVrObj == null && !Settings.disableVRViewHUD)
             {
                 Camera cam = Camera.main ?? GorillaTagger.Instance.mainCamera?.GetComponent<Camera>();
                 if (cam != null)
@@ -1055,6 +1120,12 @@ namespace ShibaGTGenesisReborn.Mods
             cachedTpc = null;
         }
 
+        private static GameObject roomOverlayObj;
+        private static UnityEngine.UI.Text roomOverlayText;
+        private static GameObject roomVrObj;
+        private static TextMesh roomVrText;
+        private static float roomUpdateTimer;
+
         public static void RoomInfo()
         {
             if (roomOverlayObj == null)
@@ -1086,7 +1157,13 @@ namespace ShibaGTGenesisReborn.Mods
                 rect.sizeDelta = new Vector2(500, 300);
             }
 
-            if (roomVrObj == null)
+            if (Settings.disableVRViewHUD && roomVrObj != null)
+            {
+                Object.Destroy(roomVrObj);
+                roomVrObj = null;
+                roomVrText = null;
+            }
+            else if (roomVrObj == null && !Settings.disableVRViewHUD)
             {
                 Camera cam = Camera.main ?? GorillaTagger.Instance.mainCamera?.GetComponent<Camera>();
                 if (cam != null)

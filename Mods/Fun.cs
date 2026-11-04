@@ -15,9 +15,7 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        [Setting] public static bool bigSplashEnabled = false;
         public static float delay;
-        public static bool enablebracelet;
 
         public static void HoverboardSpam()
         {
@@ -110,16 +108,13 @@ namespace ShibaGTGenesisReborn.Mods
         public static void WaterSplash()
         {
             if (!NetworkSystem.Instance.InRoom) return;
-            bool isBig = bigSplashEnabled;
-            float splashScale = isBig ? 2f : 1f;
-            float boundingRadius = isBig ? 0.5f : 0.15f;
 
             if (Time.time > delay)
             {
                 if (InputHandler.Instance.RightTrigger.IsPressed)
                 {
                     delay = Time.time + 0.3f;
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, splashScale, boundingRadius, isBig, true });
+                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.rightHandTransform.position, GorillaTagger.Instance.rightHandTransform.rotation, 1f, 0.15f, false, true });
                 }
             }
             if (Time.time > delay)
@@ -127,7 +122,7 @@ namespace ShibaGTGenesisReborn.Mods
                 if (InputHandler.Instance.LeftTrigger.IsPressed)
                 {
                     delay = Time.time + 0.3f;
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.leftHandTransform.position, GorillaTagger.Instance.leftHandTransform.rotation, splashScale, boundingRadius, isBig, true });
+                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, new object[] { GorillaTagger.Instance.leftHandTransform.position, GorillaTagger.Instance.leftHandTransform.rotation, 1f, 0.15f, false, true });
                 }
             }
         }
@@ -150,10 +145,7 @@ namespace ShibaGTGenesisReborn.Mods
                 NetworkingLibrary.SendRigPosition(splashGunPos, view: RigManager.GetPhotonViewFromVRRig(VRRig.LocalRig));
                 if (Time.time >= splashGunDelay)
                 {
-                    bool isBig = bigSplashEnabled;
-                    float splashScale = isBig ? 2f : 1f;
-                    float boundingRadius = isBig ? 0.5f : 0.15f;
-                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, splashGunPos, Quaternion.identity, splashScale, boundingRadius, isBig, true);
+                    GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlaySplashEffect", RpcTarget.All, splashGunPos, Quaternion.identity, 1f, 0.15f, false, true);
                     splashGunPending = false;
                     splashGunDelay = Time.time + 0.3f;
                     RPCProt();
@@ -183,10 +175,6 @@ namespace ShibaGTGenesisReborn.Mods
             splashGunDelay = 0f;
             GunLib.CleanupPointer();
         }
-
-        private static readonly List<Color> braceletColorsBuffer = new List<Color>(16);
-        private static float dualSpamDelay;
-        private static bool dualBraceletState;
 
         private static void SyncBraceletColors(List<Color> colors, bool isLeftHand = false)
         {
@@ -229,6 +217,8 @@ namespace ShibaGTGenesisReborn.Mods
             if (NetworkSystem.Instance.InRoom && GorillaTagger.Instance.myVRRig != null)
                 GorillaTagger.Instance.myVRRig.SendRPC("EnableNonCosmeticHandItemRPC", RpcTarget.All, true, isLeftHand);
         }
+
+        private static readonly List<Color> braceletColorsBuffer = new List<Color>(16);
 
         public static void GetBracelet(bool isLeftHand = false)
         {
@@ -295,6 +285,8 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void NoBracelet() => RemoveBracelet();
 
+        public static bool enablebracelet;
+
         public static void BraceletSpam()
         {
             if (Time.time > delay + 0.1f)
@@ -311,6 +303,9 @@ namespace ShibaGTGenesisReborn.Mods
                 delay = Time.time;
             }
         }
+
+        private static float dualSpamDelay;
+        private static bool dualBraceletState;
 
         public static void DualBraceletSpam()
         {
@@ -406,14 +401,12 @@ namespace ShibaGTGenesisReborn.Mods
             return (GorillaTagger.Instance.rightHandTransform.position + GorillaTagger.Instance.rightHandTransform.rotation * GorillaLocomotion.GTPlayer.Instance.RightHand.handOffset, rot, rot * Vector3.up, rot * Vector3.forward, rot * Vector3.right);
         }
 
-        private static int flingRopeIndex;
         private static GorillaRopeSwing flingRope;
         private static float flingRopeTime;
         private static bool flingRopePositioned;
         private static GorillaRopeSwing flingGunRope;
         private static float flingGunTime;
         private static bool flingGunPositioned;
-        private static int joystickRopeIndex;
 
         public static void DisableRopes()
         {
@@ -428,6 +421,8 @@ namespace ShibaGTGenesisReborn.Mods
         }
 
         public static List<GorillaRopeSwing> ropes => GorillaRopeSwingUpdateManager.allGorillaRopeSwings;
+
+        private static int flingRopeIndex;
 
         public static void FlingAllRopes()
         {
@@ -537,6 +532,8 @@ namespace ShibaGTGenesisReborn.Mods
             flingGunPositioned = false;
             delay = Time.time + 0.1f;
         }
+
+        private static int joystickRopeIndex;
 
         public static void JoystickRope()
         {

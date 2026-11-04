@@ -18,9 +18,6 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        public static string lastmap;
-        private static float actionDelay;
-
         public static void BDisconnect()
         {
             if (InputHandler.Instance.RightSecondary.IsPressed)
@@ -44,6 +41,8 @@ namespace ShibaGTGenesisReborn.Mods
             PlayerPrefs.SetString("playerName", name);
             PlayerPrefs.Save();
         }
+
+        public static string lastmap;
 
         public static void JoinRandom()
         {
@@ -78,6 +77,22 @@ namespace ShibaGTGenesisReborn.Mods
             NetworkSystem.Instance.currentRegionIndex = Array.IndexOf(NetworkSystem.Instance.regionNames, region);
         }
 
+        private static void PushProperties(Hashtable properties)
+        {
+            if (!PhotonNetwork.InRoom) return;
+            PhotonNetwork.NetworkingClient.LoadBalancingPeer.SendOperation(OperationCode.SetProperties,
+                new Dictionary<byte, object> { { ParameterCode.Properties, properties }, { ParameterCode.ExpectedValues, null } }, SendOptions.SendReliable);
+            GorillaScoreboardTotalUpdater.instance.UpdateActiveScoreboards();
+        }
+
+        public static void LockRoom(bool locked) => PushProperties(new Hashtable
+        {
+            { GamePropertyKey.IsOpen, !locked },
+            { GamePropertyKey.MaxPlayers, locked ? PhotonNetworkController.Instance.currentJoinTrigger?.GetRoomSize(SubscriptionManager.IsLocalSubscribed()) ?? PhotonNetwork.CurrentRoom.MaxPlayers : 0 }
+        });
+
+        public static void HideRoom(bool hidden) => PushProperties(new Hashtable { { GamePropertyKey.IsVisible, !hidden } });
+
         private static string safeModeRoom;
 
         public static void SafeMode()
@@ -88,7 +103,7 @@ namespace ShibaGTGenesisReborn.Mods
             if (room != null) RPCProt();
         }
 
-        public static bool RPCProt(bool experimental = false)
+        public static bool RPCProt(/*bool experimental = false*/)
         {
             if (!NetworkSystem.Instance.InRoom) return false;
 
@@ -111,20 +126,18 @@ namespace ShibaGTGenesisReborn.Mods
                 PhotonNetwork.NetworkingClient.LoadBalancingPeer.SendOutgoingCommands();
                 PhotonNetwork.SendAllOutgoingCommands();
 
-                if (experimental)
-                {
-                    MonkeAgent.instance.logErrorCount = 0;
-                    MonkeAgent.instance.lastCheck = float.MaxValue;
-                    MonkeAgent.instance.reportCheckCooldown = float.MaxValue;
-                    MonkeAgent.instance.testAssault = false;
-                    MonkeAgent.instance._sendReport = false;
-                    MonkeAgent.instance._suspiciousPlayerId = "";
-                    MonkeAgent.instance._suspiciousPlayerName = "";
-                    MonkeAgent.instance._suspiciousReason = "";
+                MonkeAgent.instance.logErrorCount = 0;
+                MonkeAgent.instance.lastCheck = float.MaxValue;
+                MonkeAgent.instance.reportCheckCooldown = float.MaxValue;
+                MonkeAgent.instance.testAssault = false;
+                MonkeAgent.instance._sendReport = false;
+                MonkeAgent.instance._suspiciousPlayerId = "";
+                MonkeAgent.instance._suspiciousPlayerName = "";
+                MonkeAgent.instance._suspiciousReason = "";
 
-                    PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 60000;
-                    PhotonNetwork.NetworkingClient.LoadBalancingPeer.SentCountAllowance = int.MaxValue;
-                }
+                PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 60000;
+                PhotonNetwork.NetworkingClient.LoadBalancingPeer.SentCountAllowance = int.MaxValue;
+
             }
             catch { return false; }
 
@@ -230,6 +243,8 @@ namespace ShibaGTGenesisReborn.Mods
                         report(otherPlayer);
             }
         }
+
+        private static float actionDelay;
 
         public static void MuteGun()
         {

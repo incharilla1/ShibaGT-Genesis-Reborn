@@ -1,8 +1,10 @@
 using BepInEx;
 using GorillaLocomotion;
+using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -10,17 +12,8 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        private static bool gunLooking;
-        private static bool allLooking;
-        private static bool rigFrozen;
-        private static bool rigPaused;
-        private static bool ghostHeld;
-        private static bool invisHeld;
-        private static bool remoteHeld;
+        private static bool gunLooking, allLooking, rigFrozen;
         private static VRRig lookFreezeTarget;
-        private static VRRig beeTarget;
-        private static VRRig stareTarget;
-        private static float beeTime;
 
         public static void LookFreezeGun()
         {
@@ -60,8 +53,59 @@ namespace ShibaGTGenesisReborn.Mods
             return Vector3.Dot(forward, direction) >= (rigFrozen ? 0.8f : 0.85f);
         }
 
-        public static void GhostMonke() => ghostHeld = InputHandler.Instance.LeftPrimary.IsPressed || UnityInput.Current.GetKey(KeyCode.F);
-        public static void InvisMonke() => invisHeld = InputHandler.Instance.RightPrimary.IsPressed || UnityInput.Current.GetKey(KeyCode.B);
+        [Setting] public static int ghostModeIndex;
+        public static readonly string[] ghostModeNames = { "Hold", "Toggle" };
+        [Setting] public static bool showRealPosition;
+        private static bool ghostHeld, invisHeld, ghostToggled, invisToggled, ghostWasPressed, invisWasPressed;
+        private static GameObject[] realMarkers;
+
+        private static bool GhostInput(bool pressed, ref bool wasPressed, ref bool toggled)
+        {
+            if (ghostModeIndex % ghostModeNames.Length == 0) return pressed;
+            if (pressed && !wasPressed) toggled = !toggled;
+            wasPressed = pressed;
+            return toggled;
+        }
+
+        public static void GhostMonke() => ghostHeld = GhostInput((Settings.rightHanded ? InputHandler.Instance.LeftPrimary : InputHandler.Instance.RightPrimary).IsPressed || UnityInput.Current.GetKey(KeyCode.F), ref ghostWasPressed, ref ghostToggled);
+        public static void InvisMonke() => invisHeld = GhostInput(InputHandler.Instance.RightSecondary.IsPressed || UnityInput.Current.GetKey(KeyCode.B), ref invisWasPressed, ref invisToggled);
+        public static void ResetGhostToggles() => ghostToggled = invisToggled = false;
+
+        private static void UpdateRealMarkers(bool show)
+        {
+            if (!show)
+            {
+                if (realMarkers != null)
+                    foreach (GameObject marker in realMarkers)
+                        if (marker != null) marker.SetActive(false);
+                return;
+            }
+
+            if (realMarkers == null || realMarkers[0] == null)
+            {
+                realMarkers = new GameObject[4];
+                float[] sizes = { 0.25f, 0.35f, 0.1f, 0.1f };
+                for (int i = 0; i < realMarkers.Length; i++)
+                {
+                    GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    UnityEngine.Object.Destroy(marker.GetComponent<Collider>());
+                    Material material = marker.GetComponent<Renderer>().material;
+                    material.shader = TextShader;
+                    material.color = new Color(1f, 1f, 1f, 0.35f);
+                    marker.transform.localScale = Vector3.one * sizes[i];
+                    realMarkers[i] = marker;
+                }
+            }
+
+            realMarkers[0].transform.position = GorillaTagger.Instance.headCollider.transform.position;
+            realMarkers[1].transform.position = GorillaTagger.Instance.bodyCollider.transform.position;
+            realMarkers[2].transform.position = GorillaTagger.Instance.leftHandTransform.position;
+            realMarkers[3].transform.position = GorillaTagger.Instance.rightHandTransform.position;
+            foreach (GameObject marker in realMarkers)
+                marker.SetActive(true);
+        }
+
+        private static bool rigPaused, remoteHeld;
 
         public static void UpdateRigTracking()
         {
@@ -70,6 +114,7 @@ namespace ShibaGTGenesisReborn.Mods
             else if (!pause && rigPaused) TickSystem<object>.AddPostTickCallback(VRRig.LocalRig);
             rigPaused = pause;
 
+            UpdateRealMarkers(pause && showRealPosition);
             if (invisHeld) VRRig.LocalRig.transform.position = new Vector3(0f, -999f, 0f);
 
             rigFrozen = gunLooking || allLooking;
@@ -86,7 +131,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 GTPlayer.Instance.transform.localScale -= new Vector3(0.01f, 0.01f, 0.01f);
             }
-            else if (InputHandler.Instance.RightPrimary.IsPressed)
+            else if (InputHandler.Instance.RightSecondary.IsPressed)
             {
                 GTPlayer.Instance.transform.localScale = new Vector3(1f, 1f, 1f);
             }
@@ -149,6 +194,8 @@ namespace ShibaGTGenesisReborn.Mods
             VRRig.LocalRig.transform.LookAt(head);
         }
 
+        private static VRRig stareTarget;
+
         public static void StareGun()
         {
             GunLib.StartGun(() => stareTarget = GunLib.LockedPlayer, true);
@@ -179,7 +226,105 @@ namespace ShibaGTGenesisReborn.Mods
         private static void StareAt(VRRig rig) =>
             VRRig.LocalRig.head.rigTarget.rotation = Quaternion.LookRotation(rig.head.rigTarget.position - VRRig.LocalRig.head.rigTarget.position);
 
+        private static float rapidTapTime;
+        private static bool rapidTapLeft;
+
+        public static void RapidHandTaps()
+        {
+            if (Time.time < rapidTapTime || !PhotonNetwork.InRoom) return;
+            rapidTapTime = Time.time + 0.1f;
+            rapidTapLeft = !rapidTapLeft;
+            GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayHandTap", RpcTarget.All, Mathf.Max(GorillaTagger.Instance.audioClipIndex, 0), rapidTapLeft, 0.6f);
+        }
+
+        public static void TPose()
+        {
+            if (!InputHandler.Instance.RightSecondary.IsPressed) return;
+            remoteHeld = true;
+            VRRig rig = VRRig.LocalRig;
+            Transform body = GorillaTagger.Instance.bodyCollider.transform;
+            rig.transform.SetPositionAndRotation(body.position + Vector3.up * 0.15f, body.rotation);
+            rig.head.rigTarget.rotation = body.rotation;
+            rig.leftHand.rigTarget.SetPositionAndRotation(rig.transform.position - rig.transform.right, rig.transform.rotation * Quaternion.Euler(rig.leftHand.trackingRotationOffset));
+            rig.rightHand.rigTarget.SetPositionAndRotation(rig.transform.position + rig.transform.right, rig.transform.rotation * Quaternion.Euler(rig.rightHand.trackingRotationOffset));
+        }
+
         public static void FakeLagRig() => remoteHeld = Time.time % 0.5f > 0.08f;
+
+        private static readonly Queue<(float time, Vector3 position, Quaternion rotation, Quaternion head, Vector3 left, Quaternion leftRotation, Vector3 right, Quaternion rightRotation)> rigHistory =
+            new Queue<(float, Vector3, Quaternion, Quaternion, Vector3, Quaternion, Vector3, Quaternion)>();
+
+        public static void DelayedRig()
+        {
+            Transform body = GorillaTagger.Instance.bodyCollider.transform;
+            Transform left = GorillaTagger.Instance.leftHandTransform, right = GorillaTagger.Instance.rightHandTransform;
+            rigHistory.Enqueue((Time.time, body.position + Vector3.up * 0.15f, body.rotation, GorillaTagger.Instance.headCollider.transform.rotation, left.position, left.rotation, right.position, right.rotation));
+            while (rigHistory.Peek().time < Time.time - 2f) rigHistory.Dequeue();
+
+            (_, Vector3 position, Quaternion rotation, Quaternion head, Vector3 leftPosition, Quaternion leftRotation, Vector3 rightPosition, Quaternion rightRotation) = rigHistory.Peek();
+            VRRig rig = VRRig.LocalRig;
+            remoteHeld = true;
+            rig.transform.SetPositionAndRotation(position, rotation);
+            rig.head.rigTarget.rotation = head;
+            rig.leftHand.rigTarget.SetPositionAndRotation(leftPosition, leftRotation * Quaternion.Euler(rig.leftHand.trackingRotationOffset));
+            rig.rightHand.rigTarget.SetPositionAndRotation(rightPosition, rightRotation * Quaternion.Euler(rig.rightHand.trackingRotationOffset));
+        }
+
+        public static void DisableDelayedRig() => rigHistory.Clear();
+
+        private static Rigidbody ragdollBody, ragdollLeft, ragdollRight;
+
+        public static void Ragdoll()
+        {
+            if (ragdollBody == null)
+            {
+                VRRig local = VRRig.LocalRig;
+                ragdollBody = RagdollPart(PrimitiveType.Capsule, local.transform.position, new Vector3(0.35f, 0.3f, 0.35f));
+                ragdollBody.rotation = local.transform.rotation;
+                ragdollBody.linearVelocity = GorillaTagger.Instance.rigidbody.linearVelocity;
+                ragdollBody.AddTorque(UnityEngine.Random.insideUnitSphere * 3f, ForceMode.VelocityChange);
+                ragdollLeft = RagdollPart(PrimitiveType.Sphere, local.leftHand.rigTarget.position, Vector3.one * 0.12f);
+                ragdollRight = RagdollPart(PrimitiveType.Sphere, local.rightHand.rigTarget.position, Vector3.one * 0.12f);
+                foreach (Rigidbody hand in new[] { ragdollLeft, ragdollRight })
+                {
+                    SpringJoint joint = hand.gameObject.AddComponent<SpringJoint>();
+                    joint.connectedBody = ragdollBody;
+                    joint.spring = 60f;
+                    joint.damper = 2f;
+                    joint.maxDistance = 0.55f;
+                }
+            }
+
+            VRRig rig = VRRig.LocalRig;
+            remoteHeld = true;
+            rig.transform.SetPositionAndRotation(ragdollBody.position, ragdollBody.rotation);
+            rig.head.rigTarget.rotation = ragdollBody.rotation;
+            rig.leftHand.rigTarget.SetPositionAndRotation(ragdollLeft.position, ragdollBody.rotation * Quaternion.Euler(rig.leftHand.trackingRotationOffset));
+            rig.rightHand.rigTarget.SetPositionAndRotation(ragdollRight.position, ragdollBody.rotation * Quaternion.Euler(rig.rightHand.trackingRotationOffset));
+        }
+
+        public static void DisableRagdoll()
+        {
+            foreach (Rigidbody part in new[] { ragdollBody, ragdollLeft, ragdollRight })
+                if (part != null) UnityEngine.Object.Destroy(part.gameObject);
+        }
+
+        private static Rigidbody RagdollPart(PrimitiveType type, Vector3 position, Vector3 scale)
+        {
+            GameObject part = GameObject.CreatePrimitive(type);
+            UnityEngine.Object.Destroy(part.GetComponent<Renderer>());
+            part.transform.position = position;
+            part.transform.localScale = scale;
+            Collider collider = part.GetComponent<Collider>();
+            Physics.IgnoreCollision(collider, GorillaTagger.Instance.bodyCollider);
+            Physics.IgnoreCollision(collider, GorillaTagger.Instance.headCollider);
+            Rigidbody body = part.AddComponent<Rigidbody>();
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            return body;
+        }
+
+        private static VRRig beeTarget;
+        private static float beeTime;
 
         public static void Bees()
         {

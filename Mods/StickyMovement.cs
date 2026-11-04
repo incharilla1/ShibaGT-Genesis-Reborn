@@ -6,10 +6,8 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        public static bool stickyHands;
         private static readonly Collider[] stickySurfaces = new Collider[2];
         private static readonly Vector3[] stickyPoints = new Vector3[2];
-        private static bool? stickyGravity;
 
         private static void UpdateStickyHand(bool left)
         {
@@ -62,6 +60,9 @@ namespace ShibaGTGenesisReborn.Mods
 
             return true;
         }
+
+        public static bool stickyHands;
+        private static bool? stickyGravity;
 
         public static void UpdateStickyMovement()
         {

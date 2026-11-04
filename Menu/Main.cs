@@ -18,7 +18,7 @@ using static ShibaGTGenesisReborn.Settings;
 
 namespace ShibaGTGenesisReborn.Menu
 {
-    public class Main : MonoBehaviour
+    public partial class Main : MonoBehaviour
     {
         private static Transform draggingHand;
         private static Vector3 dragOffset;
@@ -281,6 +281,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (keyboardOpen) isPCMenu = true;
                 else if (toOpen) isPCMenu = false;
+                if (!toOpen) waitForRelease = false;
 
                 try
                 {
@@ -293,7 +294,8 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (menu == null)
                 {
-                    if (toOpen || keyboardOpen)
+                    menuPinned = false;
+                    if ((toOpen && !waitForRelease) || keyboardOpen)
                     {
                         CreateMenu();
                         if (barkMenu && !isPCMenu)
@@ -315,38 +317,27 @@ namespace ShibaGTGenesisReborn.Menu
                         HandlePCTyping();
                         if (draggingHand == null) HandlePageInputs();
                     }
+                    else if (menuPinned)
+                    {
+                        if (toOpen && !waitForRelease)
+                        {
+                            menuPinned = false;
+                            waitForRelease = true;
+                            CloseMenu(false);
+                        }
+                    }
                     else if (toOpen || keyboardOpen)
                     {
                         RecenterMenu(rightHanded, isPCMenu);
                         HandlePageInputs();
                     }
+                    else if (menuReleaseIndex == 1 && !isPCMenu)
+                    {
+                        menuPinned = true;
+                    }
                     else
                     {
-                        try
-                        {
-                            if (shoulderCamera != null) 
-                                shoulderCamera.transform.Find("CM vcam1")?.gameObject.SetActive(true);
-
-                            if (menu != null)
-                                Destroy(menu);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogError($"[Genesis] Error destroying menu: {ex.Message}");
-                        }
-                        finally
-                        {
-                            menu = null;
-
-                            if (reference != null)
-                            {
-                                Destroy(reference);
-                                reference = null;
-                            }
-                            DestroyDualReferences();
-                            buttonCollider = null;
-                            isPCMenu = false;
-                        }
+                        CloseMenu(true);
                     }
                 }
             }
@@ -367,6 +358,7 @@ namespace ShibaGTGenesisReborn.Menu
                     Load();
                     Loaded = true;
                 }
+                if (!introDone && Time.time > 8f && GorillaTagger.Instance != null) Intro.Begin();
 
                 for (int i = 0; i < buttons.Length; i++)
                 {
@@ -411,6 +403,84 @@ namespace ShibaGTGenesisReborn.Menu
             }
         }
 
+        private static bool menuPinned, waitForRelease;
+
+        private static void CloseMenu(bool release)
+        {
+            try
+            {
+                if (shoulderCamera != null)
+                    shoulderCamera.transform.Find("CM vcam1")?.gameObject.SetActive(true);
+
+                if (menu != null)
+                {
+                    if (release) ReleaseMenu(menu);
+                    else Destroy(menu);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Genesis] Error destroying menu: {ex.Message}");
+            }
+            finally
+            {
+                menu = null;
+
+                if (reference != null)
+                {
+                    Destroy(reference);
+                    reference = null;
+                }
+                DestroyDualReferences();
+                buttonCollider = null;
+                isPCMenu = false;
+            }
+        }
+
+        private static void ReleaseMenu(GameObject released)
+        {
+            if (menuReleaseIndex < 2 || isPCMenu)
+            {
+                Destroy(released);
+                return;
+            }
+
+            foreach (Classes.Button button in released.GetComponentsInChildren<Classes.Button>())
+                Destroy(button);
+
+            switch (menuReleaseIndex)
+            {
+                case 2:
+                    released.AddComponent<MenuDrift>();
+                    Destroy(released, 2.5f);
+                    break;
+                case 3:
+                    menuBackground.AddComponent<BoxCollider>();
+                    released.AddComponent<Rigidbody>().mass = 0.3f;
+                    Destroy(released, 5f);
+                    break;
+                default:
+                    Vector3 center = released.transform.position;
+                    List<Transform> parts = new List<Transform>();
+                    foreach (Transform child in released.transform) parts.Add(child);
+                    foreach (Transform part in parts)
+                    {
+                        if (part.GetComponent<Canvas>() != null) continue;
+                        part.SetParent(null, true);
+                        Collider collider = part.GetComponent<Collider>();
+                        if (collider == null) collider = part.gameObject.AddComponent<BoxCollider>();
+                        collider.isTrigger = false;
+                        Rigidbody body = part.gameObject.AddComponent<Rigidbody>();
+                        body.mass = 0.1f;
+                        body.linearVelocity = (part.position - center).normalized * 2.5f + Vector3.up * 1.5f + UnityEngine.Random.insideUnitSphere;
+                        body.angularVelocity = UnityEngine.Random.insideUnitSphere * 10f;
+                        Destroy(part.gameObject, 3f);
+                    }
+                    Destroy(released);
+                    break;
+            }
+        }
+
         private void OnDestroy()
         {
             if (timeHooked && NetworkSystem.Instance != null)
@@ -442,11 +512,12 @@ namespace ShibaGTGenesisReborn.Menu
         }
 
         [Setting] public static bool sideLayout;
-        public static Color outlineColor = Color.blue;
+        public static Color outlineColor => Mods.mods.outlines[Mods.mods.OutlineIndex % Mods.mods.outlines.Length];
         [Setting] public static bool showOutline;
         public static System.Collections.Generic.List<ButtonInfo> favoriteButtons = new System.Collections.Generic.List<ButtonInfo>();
 
-        public static readonly Vector3 defaultMenuScale = new Vector3(0.1f, 0.3f, 0.3825f);
+        private static readonly Vector3 baseMenuScale = new Vector3(0.1f, 0.3f, 0.3825f);
+        public static Vector3 defaultMenuScale => baseMenuScale * menuSizes[menuSizeIndex % menuSizes.Length];
         public static float menuOpenTime;
         public static bool isMenuAnimating;
 
@@ -626,6 +697,7 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void OutlineObj(GameObject toOut, Color color1, Color color2, bool parentself = false, float thickness = 1)
         {
+            thickness *= outlineThicknesses[outlineThicknessIndex % outlineThicknesses.Length];
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(gameObject.GetComponent<BoxCollider>());
             UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
@@ -635,8 +707,9 @@ namespace ShibaGTGenesisReborn.Menu
 
             gameObject.transform.rotation = Quaternion.identity;
             gameObject.transform.localPosition = toOut.transform.localPosition;
-            gameObject.transform.localScale = toOut.transform.localScale + new Vector3(-0.01f / thickness, 0.01f * thickness, 0.0075f * thickness);
-            if (Settings.roundedMenu && toOut != null)
+            Vector3 scale = toOut.transform.localScale;
+            gameObject.transform.localScale = new Vector3(scale.x * 0.9f, scale.y + 0.01f * thickness, scale.z + 0.0075f * thickness);
+            if ((Settings.roundedMenu || newMenuDesign) && toOut != null)
             {
                 MeshFilter outMf = toOut.GetComponent<MeshFilter>();
                 if (outMf != null && outMf.sharedMesh != null)
@@ -675,7 +748,7 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             float elapsed = Time.unscaledTime - menuOpenTime;
-            float duration = 0.16f;
+            float duration = openAnimIndex == 6 ? 0.45f : 0.25f;
             if (elapsed >= duration)
             {
                 isMenuAnimating = false;
@@ -684,6 +757,7 @@ namespace ShibaGTGenesisReborn.Menu
             }
 
             float t = Mathf.Clamp01(elapsed / duration);
+            float easeOut = 1f - Mathf.Pow(1f - t, 5f);
             Vector3 posOffset = Vector3.zero;
             Quaternion rotOffset = Quaternion.identity;
             float scaleMult = 1f;
@@ -692,36 +766,26 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 case 1:
                 {
-                    scaleMult = t < 0.7f ? Mathf.Lerp(0.85f, 1.08f, t / 0.7f) : Mathf.Lerp(1.08f, 1f, (t - 0.7f) / 0.3f);
+                    float back = 1f + 2.2f * Mathf.Pow(t - 1f, 3f) + 1.2f * Mathf.Pow(t - 1f, 2f);
+                    scaleMult = Mathf.LerpUnclamped(0.6f, 1f, back);
                     break;
                 }
                 case 2:
-                {
-                    scaleMult = Mathf.Lerp(0.85f, 1f, 1f - Mathf.Pow(1f - t, 3f));
+                    scaleMult = Mathf.Lerp(0.7f, 1f, easeOut);
                     break;
-                }
                 case 3:
-                {
-                    float ease = 1f - Mathf.Pow(1f - t, 3f);
-                    posOffset = -menu.transform.forward * ((1f - ease) * 0.12f);
+                    posOffset = -menu.transform.forward * ((1f - easeOut) * 0.12f);
                     break;
-                }
                 case 4:
-                {
-                    float ease = 1f - Mathf.Pow(1f - t, 3f);
-                    posOffset = menu.transform.up * ((1f - ease) * 0.12f);
+                    posOffset = menu.transform.up * ((1f - easeOut) * 0.12f);
                     break;
-                }
                 case 5:
-                {
-                    float ease = 1f - Mathf.Pow(1f - t, 3f);
-                    rotOffset = Quaternion.Euler((1f - ease) * 60f, 0f, 0f);
+                    rotOffset = Quaternion.Euler((1f - easeOut) * 60f, 0f, 0f);
                     break;
-                }
                 case 6:
                 {
-                    float s = Mathf.Sin(-13f * (t + 1f) * Mathf.PI * 0.5f) * Mathf.Pow(2f, -10f * t) + 1f;
-                    scaleMult = Mathf.Clamp(s, 0.85f, 1.12f);
+                    float elastic = Mathf.Pow(2f, -10f * t) * Mathf.Sin((t * 10f - 0.75f) * (2f * Mathf.PI / 3f)) + 1f;
+                    scaleMult = Mathf.LerpUnclamped(0.8f, 1f, elastic);
                     break;
                 }
             }
@@ -760,30 +824,47 @@ namespace ShibaGTGenesisReborn.Menu
             }
         }
 
+        private static bool skipMenuIntro, pageTurn;
+        private static int builtButtonsType = -1;
+
         public static void CreateMenu()
         {
             if (Lockdown) return;
-            
+            builtButtonsType = buttonsType;
+            CreateMenuRoot();
+            if (newMenuDesign) BuildNewMenu();
+            else BuildMenu();
+            menu.transform.localScale = defaultMenuScale;
+        }
+
+        private static void CreateMenuRoot()
+        {
             menu = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(menu.GetComponent<Rigidbody>());
             UnityEngine.Object.Destroy(menu.GetComponent<BoxCollider>());
             UnityEngine.Object.Destroy(menu.GetComponent<Renderer>());
             menuOpenTime = Time.unscaledTime;
             isMenuAnimating = (openAnimIndex > 0);
-            menu.transform.localScale = defaultMenuScale;
+            menu.transform.localScale = baseMenuScale;
 
             menuBackground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(menuBackground.GetComponent<Rigidbody>());
             UnityEngine.Object.Destroy(menuBackground.GetComponent<BoxCollider>());
             menuBackground.transform.parent = menu.transform;
             menuBackground.transform.rotation = Quaternion.identity;
-            menuBackground.transform.localScale = menuSize;
+            menuBackground.transform.localScale = newMenuDesign ? new Vector3(flatMenu ? 0.002f : 0.02f, menuSize.y, menuSize.z) : menuSize;
             menuBackground.GetComponent<Renderer>().material.color = backgroundColor.colors[0].color;
             menuBackground.transform.position = new Vector3(0.05f, 0f, 0f);
             ColorChanger bgChanger = menuBackground.AddComponent<ColorChanger>();
             bgChanger.colorInfo = backgroundColor;
+            if (transparentMenu)
+            {
+                menuBackground.GetComponent<Renderer>().material.shader = Mods.mods.TextShader;
+                bgChanger.alpha = 1f - transparencyIndex % transparencyNames.Length * 0.1f;
+            }
             bgChanger.Start();
-            if (Settings.roundedMenu) ApplyRoundedMesh(menuBackground, menuSize.y, menuSize.z, 0.025f);
+            if (newMenuDesign) { if (Rounding > 0f) ApplyRoundedMesh(menuBackground, menuSize.y * 0.3f, menuSize.z * 0.3825f, 0.012f * Rounding); }
+            else if (Settings.roundedMenu) ApplyRoundedMesh(menuBackground, menuSize.y, menuSize.z, 0.025f);
             if (showOutline) OutlineObj(menuBackground, outlineColor, outlineColor, false, 3);
 
             canvasObject = new GameObject();
@@ -794,18 +875,17 @@ namespace ShibaGTGenesisReborn.Menu
             canvas.renderMode = RenderMode.WorldSpace;
             canvasScaler.dynamicPixelsPerUnit = 1000f;
 
-            int lastPage = 0;
-            if (buttonsType < buttons.Length)
-            {
-                lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
-                if (lastPage < 0) lastPage = 0;
-            }
-
-            if (pageNumber > lastPage || pageNumber < 0)
+            if (pageNumber > LastPage || pageNumber < 0)
             {
                 pageNumber = 0;
             }
+        }
 
+        private static ButtonInfo[] CurrentButtons => buttonsType < buttons.Length ? buttons[buttonsType].Where(button => newMenuDesign ? !button.hideInNewDesign : !button.newDesignOnly).ToArray() : new ButtonInfo[0];
+        private static int LastPage => Mathf.Max(0, (CurrentButtons.Length + buttonsPerPage - 1) / buttonsPerPage - 1);
+
+        private static void BuildMenu()
+        {
             Text text = new GameObject
             {
                 transform =
@@ -814,7 +894,7 @@ namespace ShibaGTGenesisReborn.Menu
                 }
             }.AddComponent<Text>();
             text.font = currentFont;
-            text.text = (isSearching || isChangingTitle) ? "" : (string.IsNullOrEmpty(menuTitle) ? PluginInfo.Name : menuTitle);
+            text.text = isChangingTitle ? titleInput + "_" : (isSearching || hideTitle) ? "" : (string.IsNullOrEmpty(menuTitle) ? PluginInfo.Name : menuTitle);
             text.fontSize = 1;
             SetUiColor(text, textColors[0], 0);
             text.supportRichText = true;
@@ -1055,10 +1135,9 @@ namespace ShibaGTGenesisReborn.Menu
                 rectt.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
 
-            if ((isSearching && showSearchKeyboard) || isChangingTitle)
+            if (isSearching || isChangingTitle)
             {
-                RenderVirtualKeyboard();
-                return;
+                CreateKeyboard();
             }
 
             if (isSearching)
@@ -1146,25 +1225,16 @@ namespace ShibaGTGenesisReborn.Menu
                 component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
             }
 
-            ButtonInfo[] activeButtons;
-
-            if (buttonsType < buttons.Length)
-            {
-                activeButtons = buttons[buttonsType].Skip(pageNumber * buttonsPerPage).Take(buttonsPerPage).ToArray();
-            }
-            else
-            {
-                activeButtons = new ButtonInfo[0];
-            }
+            ButtonInfo[] activeButtons = CurrentButtons.Skip(pageNumber * buttonsPerPage).Take(buttonsPerPage).ToArray();
 
             float startOffset = isSearching ? 0.055f : 0f;
             for (int i = 0; i < activeButtons.Length; i++)
             {
-                CreateButton(i * 0.095f + startOffset, activeButtons[i]);
+                CreateButton(i * 0.095f + startOffset, activeButtons[i], !hideFavoriteHearts);
             }
         }
 
-        public static void CreateButton(float offset, ButtonInfo method)
+        public static void CreateButton(float offset, ButtonInfo method, bool showFavorite = true)
         {
             Vector3 btnScale = new Vector3(0.05f, 0.6f, 0.08f);
             Vector3 favScale = new Vector3(0.05f, 0.1f, 0.085f);
@@ -1198,6 +1268,14 @@ namespace ShibaGTGenesisReborn.Menu
                     textHeight = 0.026f;
                     break;
             }
+            if (method.pmButton)
+            {
+                btnScale.y *= 0.56f;
+                float side = btnScale.y / 2f + 0.07f;
+                CreateKey(0.56f, 0.1f + side, 0.25f - offset, 0.1f, btnScale.z, "-", "minus_" + method.buttonText);
+                CreateKey(0.56f, 0.1f - side, 0.25f - offset, 0.1f, btnScale.z, "+", method.buttonText);
+            }
+            textWidth = Mathf.Min(textWidth, btnScale.y * 0.27f);
 
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(gameObject.GetComponent<Rigidbody>());
@@ -1206,9 +1284,13 @@ namespace ShibaGTGenesisReborn.Menu
             gameObject.transform.rotation = Quaternion.identity;
             gameObject.transform.localScale = btnScale;
             gameObject.transform.localPosition = new Vector3(0.56f, 0.1f, 0.25f - offset);
-            Classes.Button btn = gameObject.AddComponent<Classes.Button>();
-            btn.relatedText = method.buttonText;
-            btn.buttonInfo = method;
+            if (method.pmButton) UnityEngine.Object.Destroy(gameObject.GetComponent<BoxCollider>());
+            else
+            {
+                Classes.Button btn = gameObject.AddComponent<Classes.Button>();
+                btn.relatedText = method.buttonText;
+                btn.buttonInfo = method;
+            }
             gameObject.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
             if (Settings.roundedMenu) ApplyRoundedMesh(gameObject, btnScale.y, btnScale.z, 0.014f);
             if (showOutline || buttonStyleIndex == 3)
@@ -1216,24 +1298,27 @@ namespace ShibaGTGenesisReborn.Menu
                 OutlineObj(gameObject, outlineColor, outlineColor, false, 3);
             }
 
-            GameObject gameObject1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            UnityEngine.Object.Destroy(gameObject1.GetComponent<Rigidbody>());
-            gameObject1.GetComponent<BoxCollider>().isTrigger = true;
-            gameObject1.transform.parent = menu.transform;
-            gameObject1.transform.rotation = Quaternion.identity;
-            gameObject1.transform.localScale = favScale;
-            gameObject1.transform.localPosition = new Vector3(0.56f, -0.35f, 0.25f - offset);
-            Classes.Button favBtn = gameObject1.AddComponent<Classes.Button>();
-            favBtn.relatedText = "fav_" + method.buttonText;
-            favBtn.buttonInfo = method;
-            gameObject1.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
-            ColorChanger ccFav = gameObject1.AddComponent<ColorChanger>();
-            ccFav.colorInfo = buttonColors[0];
-            ccFav.Start();
-            if (Settings.roundedMenu) ApplyRoundedMesh(gameObject1, favScale.y, favScale.z, 0.012f);
-            if (showOutline || buttonStyleIndex == 3)
+            if (showFavorite)
             {
-                OutlineObj(gameObject1, outlineColor, outlineColor, false, 3);
+                GameObject gameObject1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                UnityEngine.Object.Destroy(gameObject1.GetComponent<Rigidbody>());
+                gameObject1.GetComponent<BoxCollider>().isTrigger = true;
+                gameObject1.transform.parent = menu.transform;
+                gameObject1.transform.rotation = Quaternion.identity;
+                gameObject1.transform.localScale = favScale;
+                gameObject1.transform.localPosition = new Vector3(0.56f, -0.35f, 0.25f - offset);
+                Classes.Button favBtn = gameObject1.AddComponent<Classes.Button>();
+                favBtn.relatedText = "fav_" + method.buttonText;
+                favBtn.buttonInfo = method;
+                gameObject1.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
+                ColorChanger ccFav = gameObject1.AddComponent<ColorChanger>();
+                ccFav.colorInfo = buttonColors[0];
+                ccFav.Start();
+                if (Settings.roundedMenu) ApplyRoundedMesh(gameObject1, favScale.y, favScale.z, 0.012f);
+                if (showOutline || buttonStyleIndex == 3)
+                {
+                    OutlineObj(gameObject1, outlineColor, outlineColor, false, 3);
+                }
             }
 
             ColorChanger colorChanger = gameObject.AddComponent<ColorChanger>();
@@ -1260,6 +1345,8 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 text.text = method.overlapText;
             }
+            if (textCaseIndex % textCaseNames.Length == 1) text.text = text.text.ToUpperInvariant();
+            else if (textCaseIndex % textCaseNames.Length == 2) text.text = text.text.ToLowerInvariant();
             text.supportRichText = true;
             text.fontSize = 1;
             SetUiColor(text, method.enabled ? textColors[1] : textColors[0], method.enabled ? 1 : 0);
@@ -1273,6 +1360,8 @@ namespace ShibaGTGenesisReborn.Menu
             component.sizeDelta = new Vector2(textWidth, textHeight);
             component.localPosition = new Vector3(.064f, 0.03f, 0.095625f - offset * 0.3825f);
             component.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
+
+            if (!showFavorite) return;
 
             RawImage heartImg = new GameObject
             {
@@ -1292,38 +1381,44 @@ namespace ShibaGTGenesisReborn.Menu
 
         public static void NextPage()
         {
-            int lastPage = 0;
-            if (buttonsType < buttons.Length)
-            {
-                lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
-                if (lastPage < 0) lastPage = 0;
-            }
             pageNumber++;
-            if (pageNumber > lastPage)
+            if (pageNumber > LastPage)
             {
                 pageNumber = 0;
             }
+            pageTurn = true;
             RecreateMenu();
         }
 
         public static void PreviousPage()
         {
-            int lastPage = 0;
-            if (buttonsType < buttons.Length)
-            {
-                lastPage = ((buttons[buttonsType].Length + buttonsPerPage - 1) / buttonsPerPage) - 1;
-                if (lastPage < 0) lastPage = 0;
-            }
             pageNumber--;
             if (pageNumber < 0)
             {
-                pageNumber = lastPage;
+                pageNumber = LastPage;
             }
+            pageTurn = true;
             RecreateMenu();
         }
 
+        private static float scrollTime;
+
         private static void HandlePageInputs()
         {
+            if (joystickScroll && Time.time > scrollTime)
+            {
+                float left = ControllerInputPoller.instance.leftControllerPrimary2DAxis.y;
+                float right = ControllerInputPoller.instance.rightControllerPrimary2DAxis.y;
+                float stick = Mathf.Abs(left) > Mathf.Abs(right) ? left : right;
+                if (Mathf.Abs(stick) > 0.7f)
+                {
+                    scrollTime = Time.time + 0.35f;
+                    MenuAudio.PlayClickSound();
+                    if (stick < 0f) NextPage();
+                    else PreviousPage();
+                }
+            }
+
             if (Settings.pageButtonIndex < 2) return;
 
             if (Settings.pageButtonIndex == 2)
@@ -1358,13 +1453,20 @@ namespace ShibaGTGenesisReborn.Menu
         {
             if (menu != null)
             {
+                Vector3 pinnedPosition = menu.transform.position;
+                Quaternion pinnedRotation = menu.transform.rotation;
                 UnityEngine.Object.Destroy(menu);
                 menu = null;
 
+                skipMenuIntro = !pageTurn && buttonsType == builtButtonsType;
+                pageTurn = false;
                 CreateMenu();
+                skipMenuIntro = false;
                 isMenuAnimating = false;
-                if (menu != null) menu.transform.localScale = defaultMenuScale;
-                RecenterMenu(rightHanded, isPCMenu || UnityInput.Current.GetKey(keyboardButton));
+                if (menu == null) return;
+                menu.transform.localScale = defaultMenuScale;
+                if (menuPinned) menu.transform.SetPositionAndRotation(pinnedPosition, pinnedRotation);
+                else RecenterMenu(rightHanded, isPCMenu || UnityInput.Current.GetKey(keyboardButton));
             }
         }
 
@@ -1716,8 +1818,36 @@ namespace ShibaGTGenesisReborn.Menu
             MenuAudio.Initialize();
         }
 
+        private static readonly HashSet<string> dangerousButtons = new HashSet<string> { "Disconnect", "Remove All Prefs" };
+        private static string pendingConfirm;
+        private static float pendingConfirmTime;
+
+        public static int pressCount;
+
         public static void Toggle(string buttonText, ButtonInfo target = null)
         {
+            pressCount++;
+            if (confirmDangerous && dangerousButtons.Contains(buttonText))
+            {
+                if (pendingConfirm != buttonText || Time.time > pendingConfirmTime)
+                {
+                    pendingConfirm = buttonText;
+                    pendingConfirmTime = Time.time + 2f;
+                    NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"Press {buttonText} again to confirm", 2f);
+                    return;
+                }
+                pendingConfirm = null;
+            }
+
+            if (buttonText.StartsWith("minus_"))
+            {
+                changeStep = -1;
+                try { (target ?? GetIndex(buttonText.Substring(6)))?.method?.Invoke(); }
+                finally { changeStep = 1; }
+                RecreateMenu();
+                return;
+            }
+
             if (buttonText.StartsWith("fav_"))
             {
                 ToggleFavorite(buttonText.Substring(4), target);
@@ -1822,23 +1952,6 @@ namespace ShibaGTGenesisReborn.Menu
                 return;
             }
 
-            if (buttonText == "Search_ShowResults")
-            {
-                showSearchKeyboard = false;
-                buttonsType = 24;
-                pageNumber = 0;
-                SettingsMods.UpdateSearchResults();
-                RecreateMenu();
-                return;
-            }
-
-            if (buttonText == "Search_ShowKeyboard")
-            {
-                showSearchKeyboard = true;
-                RecreateMenu();
-                return;
-            }
-
             if (buttonText == "PreviousPage")
             {
                 PreviousPage();
@@ -1899,6 +2012,8 @@ namespace ShibaGTGenesisReborn.Menu
                         if (target.isTogglable)
                         {
                             target.enabled = !target.enabled;
+                            lastToggled = target;
+                            lastToggleTime = Time.unscaledTime;
                             if (target.enabled)
                             {
                                 if (target.enableMethod != null)
@@ -1942,6 +2057,8 @@ namespace ShibaGTGenesisReborn.Menu
                         if (target.isTogglable)
                         {
                             target.enabled = !target.enabled;
+                            lastToggled = target;
+                            lastToggleTime = Time.unscaledTime;
                             if (target.enabled)
                             {
                                 if (target.enableMethod != null)
@@ -2018,11 +2135,12 @@ namespace ShibaGTGenesisReborn.Menu
             return button;
         }
 
+        public static int changeStep = 1;
+
         public static void Change(string buttonText, ref int index, string[] names, Action sideEffect = null, string prefix = null)
         {
             if (names == null || names.Length == 0) return;
-            index = ((index % names.Length) + names.Length) % names.Length;
-            index = (index + 1) % names.Length;
+            index = ((index + changeStep) % names.Length + names.Length) % names.Length;
 
             ButtonInfo btn = GetIndex(buttonText);
             if (btn != null)
@@ -2086,7 +2204,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (motdBody.TryGetComponent<TMP_Text>(out var motdBodyText))
                 {
-                    motdBodyText.text = "Credits to ShibaGT/TAI for making the original menu!\nThis is just a remake!\n<color=red>We Are Not Responsible For Any Bans Using This Mod Menu!</color>".ToUpper();
+                   motdBodyText.text = "credits to shibagt for making the original menu\nthis is just a remake\n<color=red>i (incharilla) am not responsible for any bans using this mod menu</color>".ToUpper();
                 }
             }
         }
@@ -2147,100 +2265,105 @@ namespace ShibaGTGenesisReborn.Menu
             RectTransform rect = keyText.GetComponent<RectTransform>();
             rect.localPosition = Vector3.zero;
             rect.sizeDelta = new Vector2(width * 0.3f, height * 0.3825f);
-            rect.localPosition = new Vector3(0.064f, posY * 0.3f, posZ * 0.3825f);
+            rect.localPosition = new Vector3((posX + 0.08f) * 0.1f, posY * 0.3f, posZ * 0.3825f);
             rect.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
         }
 
-        private static void RenderVirtualKeyboard()
+        private const float KeyboardDepth = 0.7f, KeyboardScale = 1.5f;
+        private static readonly Vector3 KeyboardPivot = new Vector3(0.56f, 0f, -0.5f);
+        private static readonly Quaternion KeyboardTilt = Quaternion.Euler(0f, -50f, 0f);
+        public static GameObject keyboardRoot;
+
+        private static void CreateKeyboard()
         {
-            GameObject searchBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            UnityEngine.Object.Destroy(searchBox.GetComponent<Rigidbody>());
-            searchBox.GetComponent<BoxCollider>().isTrigger = true;
-            searchBox.transform.parent = menu.transform;
-            searchBox.transform.rotation = Quaternion.identity;
-            searchBox.transform.localScale = new Vector3(0.05f, 0.88f, 0.09f);
-            searchBox.transform.localPosition = new Vector3(0.56f, 0f, 0.33f);
-            searchBox.GetComponent<Renderer>().material.color = buttonColors[0].colors[0].color;
-            ColorChanger ccBox = searchBox.AddComponent<ColorChanger>();
-            ccBox.colorInfo = buttonColors[0];
-            ccBox.Start();
-            if (Settings.roundedMenu) ApplyRoundedMesh(searchBox, 0.88f, 0.09f, 0.012f);
-            if (showOutline) OutlineObj(searchBox, outlineColor, outlineColor, false, 2);
+            if (keyboardRoot != null) UnityEngine.Object.Destroy(keyboardRoot);
+            keyboardRoot = new GameObject("Keyboard");
+            keyboardRoot.transform.localScale = baseMenuScale;
+            keyboardRoot.transform.position = Vector3.Scale(KeyboardPivot, baseMenuScale);
+            GameObject keys = new GameObject("Keys");
+            keys.transform.SetParent(keyboardRoot.transform, false);
+            keys.transform.localPosition = -KeyboardPivot;
 
-            Text searchBoxText = new GameObject
+            GameObject menuRoot = menu, menuCanvas = canvasObject;
+            menu = keys;
+            canvasObject = new GameObject();
+            canvasObject.transform.parent = keys.transform;
+            canvasObject.AddComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvasObject.AddComponent<CanvasScaler>().dynamicPixelsPerUnit = newMenuDesign ? 3000f : 1000f;
+            try { BuildKeyboard(); }
+            finally
             {
-                transform = { parent = canvasObject.transform }
-            }.AddComponent<Text>();
-            searchBoxText.font = currentFont;
-            string displayText = isChangingTitle
-                ? (string.IsNullOrEmpty(titleInput) ? "<color=grey>Type title...</color>" : titleInput + "_")
-                : (string.IsNullOrEmpty(searchQuery) ? "<color=grey>Type here...</color>" : searchQuery + "_");
-            string headerPrefix = isChangingTitle ? "<color=yellow>Title:</color> " : "<color=yellow>Search:</color> ";
-            searchBoxText.text = $"{headerPrefix}{displayText}";
-            searchBoxText.supportRichText = true;
-            searchBoxText.fontSize = 1;
-            SetUiColor(searchBoxText, textColors[0], 0);
-            searchBoxText.alignment = TextAnchor.MiddleCenter;
-            searchBoxText.fontStyle = FontStyle.Bold;
-            searchBoxText.resizeTextForBestFit = true;
-            searchBoxText.resizeTextMinSize = 0;
-
-            RectTransform rectBox = searchBoxText.GetComponent<RectTransform>();
-            rectBox.localPosition = Vector3.zero;
-            rectBox.sizeDelta = new Vector2(0.26f, 0.035f);
-            rectBox.localPosition = new Vector3(0.064f, 0f, 0.33f * 0.3825f);
-            rectBox.rotation = Quaternion.Euler(new Vector3(180f, 90f, 90f));
-
-            float z0 = 0.20f;
-            for (int i = 0; i < KeyboardRow0.Length; i++)
-            {
-                float y = 0.405f - i * 0.09f;
-                CreateKey(0.56f, y, z0, 0.08f, 0.075f, KeyboardRow0[i], "vkey_" + KeyboardRow0[i]);
+                menu = menuRoot;
+                canvasObject = menuCanvas;
             }
+        }
 
-            float z1 = 0.105f;
-            for (int i = 0; i < KeyboardRow1.Length; i++)
+        private void LateUpdate()
+        {
+            if (keyboardRoot == null) return;
+            if (menu == null || (!isSearching && !isChangingTitle))
             {
-                float y = 0.405f - i * 0.09f;
-                CreateKey(0.56f, y, z1, 0.08f, 0.075f, KeyboardRow1[i], "vkey_" + KeyboardRow1[i]);
+                Destroy(keyboardRoot);
+                keyboardRoot = null;
+                return;
             }
+            keyboardRoot.transform.SetPositionAndRotation(menu.transform.TransformPoint(KeyboardPivot), menu.transform.rotation * KeyboardTilt);
+            keyboardRoot.transform.localScale = menu.transform.lossyScale * KeyboardScale;
+        }
 
-            float z2 = 0.01f;
-            for (int i = 0; i < KeyboardRow2.Length; i++)
+        private static void BuildKeyboard()
+        {
+            GameObject backdrop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.Destroy(backdrop.GetComponent<BoxCollider>());
+            backdrop.transform.parent = menu.transform;
+            backdrop.transform.rotation = Quaternion.identity;
+            backdrop.transform.localScale = new Vector3(0.02f, 0.98f, 0.5f);
+            backdrop.transform.localPosition = new Vector3(KeyboardDepth - 0.04f, 0f, -0.79f);
+            ColorChanger backdropColor = backdrop.AddComponent<ColorChanger>();
+            backdropColor.colorInfo = backgroundColor;
+            backdropColor.Start();
+            if (newMenuDesign) { if (Rounding > 0f) ApplyRoundedMesh(backdrop, 0.98f * 0.3f, 0.5f * 0.3825f, 0.012f * Rounding); }
+            else if (Settings.roundedMenu) ApplyRoundedMesh(backdrop, 0.98f, 0.5f, 0.03f);
+
+            string[][] rows = { KeyboardRow0, KeyboardRow1, KeyboardRow2, KeyboardRow3 };
+            for (int r = 0; r < rows.Length; r++)
             {
-                float y = 0.36f - i * 0.09f;
-                CreateKey(0.56f, y, z2, 0.082f, 0.075f, KeyboardRow2[i], "vkey_" + KeyboardRow2[i]);
+                float start = r < 2 ? 0.405f : 0.36f;
+                for (int i = 0; i < rows[r].Length; i++)
+                    KeyboardKey(start - i * 0.09f, -0.6f - r * 0.095f, 0.08f, rows[r][i], "vkey_" + rows[r][i]);
             }
+            KeyboardKey(-0.315f, -0.885f, 0.17f, "<-", isChangingTitle ? "Title_Backspace" : "Search_Backspace");
 
-            float z3 = -0.085f;
-            for (int i = 0; i < KeyboardRow3.Length; i++)
-            {
-                float y = 0.36f - i * 0.09f;
-                CreateKey(0.56f, y, z3, 0.082f, 0.075f, KeyboardRow3[i], "vkey_" + KeyboardRow3[i]);
-            }
-            CreateKey(0.56f, -0.315f, z3, 0.17f, 0.075f, "<-", isChangingTitle ? "Title_Backspace" : "Search_Backspace");
-
-            float z4 = -0.18f;
             if (isChangingTitle)
             {
-                CreateKey(0.56f, 0.30f, z4, 0.20f, 0.075f, "Space", "Title_Space");
-                CreateKey(0.56f, 0.09f, z4, 0.18f, 0.075f, "Clear", "Title_Clear");
-                CreateKey(0.56f, -0.11f, z4, 0.18f, 0.075f, "Apply", "Title_Apply");
-                CreateKey(0.56f, -0.30f, z4, 0.17f, 0.075f, "Cancel", "Title_Cancel");
+                KeyboardKey(0.30f, -0.98f, 0.20f, "Space", "Title_Space");
+                KeyboardKey(0.09f, -0.98f, 0.18f, "Clear", "Title_Clear");
+                KeyboardKey(-0.11f, -0.98f, 0.18f, "Apply", "Title_Apply");
+                KeyboardKey(-0.30f, -0.98f, 0.17f, "Cancel", "Title_Cancel");
             }
             else
             {
-                CreateKey(0.56f, 0.27f, z4, 0.28f, 0.075f, "Space", "Search_Space");
-                CreateKey(0.56f, -0.01f, z4, 0.22f, 0.075f, "Clear", "Search_Clear");
-                int matchCount = Buttons.buttons.Length > 24 && Buttons.buttons[24] != null ? Buttons.buttons[24].Length : 0;
-                CreateKey(0.56f, -0.28f, z4, 0.28f, 0.075f, $"Results ({matchCount})", "Search_ShowResults");
+                KeyboardKey(0.27f, -0.98f, 0.28f, "Space", "Search_Space");
+                KeyboardKey(-0.01f, -0.98f, 0.22f, "Clear", "Search_Clear");
+                KeyboardKey(-0.28f, -0.98f, 0.28f, "Done", "Search");
             }
+        }
+
+        private static void KeyboardKey(float y, float z, float width, string label, string action)
+        {
+            if (!newMenuDesign)
+            {
+                CreateKey(KeyboardDepth, y, z, width, 0.075f, label, action);
+                return;
+            }
+            AddPanel(y, z, width, 0.075f, 0.03f, surfaceColor, relatedText: action, depth: KeyboardDepth);
+            AddText(label, y, z, width - 0.02f, 0.045f, TextAnchor.MiddleCenter, textColors[0], depth: KeyboardDepth);
         }
 
         private static void RenderSearchResultsHeader()
         {
             int matchCount = Buttons.buttons.Length > 24 && Buttons.buttons[24] != null ? Buttons.buttons[24].Length : 0;
-            CreateKey(0.56f, 0f, 0.38f, 0.88f, 0.065f, $"Query: \"{searchQuery}\" ({matchCount}) - Tap to Edit", "Search_ShowKeyboard");
+            CreateKey(0.56f, 0f, 0.38f, 0.88f, 0.065f, $"Search: {searchQuery}_ ({matchCount})", "");
         }
 
         public static void CreateDualReferences()
@@ -2299,7 +2422,6 @@ namespace ShibaGTGenesisReborn.Menu
             isSearching = !isSearching;
             if (isSearching)
             {
-                showSearchKeyboard = true;
                 buttonsType = 24;
                 pageNumber = 0;
                 SettingsMods.UpdateSearchResults();
@@ -2323,7 +2445,6 @@ namespace ShibaGTGenesisReborn.Menu
             }
             else
             {
-                showSearchKeyboard = false;
                 searchQuery = "";
                 buttonsType = 0;
                 pageNumber = 0;
@@ -2435,7 +2556,6 @@ namespace ShibaGTGenesisReborn.Menu
                     }
                     else
                     {
-                        showSearchKeyboard = false;
                         buttonsType = 24;
                         pageNumber = 0;
                         SettingsMods.UpdateSearchResults();

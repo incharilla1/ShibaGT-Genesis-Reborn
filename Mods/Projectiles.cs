@@ -14,11 +14,7 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
-        [Setting] public static bool biig;
-        [Setting] public static bool rainbowProjectiles;
-        [Setting] public static int projectileSpeedIndex;
         [Setting] public static int SelectedProjectileIndex;
-
         public static readonly string[] ProjectileTypeNames =
         {
             "Snowball",
@@ -32,19 +28,9 @@ namespace ShibaGTGenesisReborn.Mods
             "Apple"
         };
 
+        [Setting] public static int projectileSpeedIndex;
         public static readonly string[] projectileSpeedNames = { "Slow", "Fast", "Quick" };
-
         private static readonly float[] delayRates = { 0.7f, 0.4f, 0.3f };
-        private static readonly SnowballThrowable[] leftPresets = new SnowballThrowable[9];
-        private static readonly SnowballThrowable[] rightPresets = new SnowballThrowable[9];
-        private static readonly List<ProjectileEntry> projectileEntries = new List<ProjectileEntry>();
-        private static int growingSnowballIndex = -1;
-
-        private static bool initialized;
-        private static float nextFire;
-        private static float orbitAngle;
-        private static float haloAngle;
-        private static bool altHand;
 
         public static float FireCooldown => delayRates[projectileSpeedIndex % delayRates.Length];
 
@@ -67,6 +53,12 @@ namespace ShibaGTGenesisReborn.Mods
             }
             return null;
         }
+
+        private static readonly SnowballThrowable[] leftPresets = new SnowballThrowable[9];
+        private static readonly SnowballThrowable[] rightPresets = new SnowballThrowable[9];
+        private static readonly List<ProjectileEntry> projectileEntries = new List<ProjectileEntry>();
+        private static int growingSnowballIndex = -1;
+        private static bool initialized;
 
         private static void InitPresets()
         {
@@ -165,6 +157,8 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        [Setting] public static bool biig;
+
         public static void BigSnowballs()
         {
             biig = true;
@@ -235,6 +229,9 @@ namespace ShibaGTGenesisReborn.Mods
             VRRig.LocalRig.reliableState?.SetIsDirty();
             VRRig.LocalRig.myBodyDockPositions?.RefreshTransferrableItems();
         }
+
+        [Setting] public static bool rainbowProjectiles;
+        private static float nextFire;
 
         public static void FireProjectile(Vector3 pos, Vector3 vel, bool isLeft = false, Color? tint = null, int forcedScale = -1, int typeIndex = -1)
         {
@@ -333,6 +330,8 @@ namespace ShibaGTGenesisReborn.Mods
             if (active) FireProjectile(origin, vel, false);
         }
 
+        private static bool altHand;
+
         public static void DualProjectileSpam()
         {
             bool active = InputHandler.Instance.RightSecondary.IsPressed || InputHandler.Instance.RightTrigger.IsPressed || (Mouse.current != null && Mouse.current.rightButton.isPressed);
@@ -383,6 +382,8 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        private static float orbitAngle;
+
         public static void ProjectileOrbit()
         {
             Vector3 center = GorillaTagger.Instance.headCollider.transform.position;
@@ -403,6 +404,8 @@ namespace ShibaGTGenesisReborn.Mods
 
             FireProjectile(pos, vel, false);
         }
+
+        private static float haloAngle;
 
         public static void ProjectileHalo()
         {
