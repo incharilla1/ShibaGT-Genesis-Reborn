@@ -1,6 +1,7 @@
 using ExitGames.Client.Photon;
 using GorillaNetworking;
 using GorillaTagScripts;
+using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
 using Photon.Voice.PUN;
@@ -8,8 +9,10 @@ using Photon.Voice.Unity;
 using POpusCodec.Enums;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
+using ShibaGTGenesisReborn.Menu;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using UnityEngine;
 
@@ -352,5 +355,73 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        private static bool antiBanJoinPending;
+        private static float antiBanCooldown;
+
+        [HarmonyPatch(typeof(GorillaNetworkJoinTrigger), "GetFullDesiredGameModeString")]
+        public class GamemodePatch
+        {
+            public static void Postfix(ref string __result)
+            {
+                if (antiBanJoinPending)
+                {
+                    __result = "private;DEFAULT;MODDED_Casual;;";
+                    antiBanJoinPending = false;
+                }
+            }
+        }
+
+        public static void AntiBan()
+        {
+            if (!Main.GetIndex("Anti Ban [Private]").enabled) return;
+            if (Time.time < antiBanCooldown) return;
+            antiBanCooldown = Time.time + 3f;
+
+            GorillaComputer computer = GorillaComputer.instance;
+            PhotonNetworkController controller = PhotonNetworkController.Instance;
+            if (computer == null || controller == null) return;
+
+            string[] allowedMaps = computer.allowedMapsToJoin;
+            if (allowedMaps.Length == 0) return;
+
+            int mapIndex = Mathf.Clamp(computer.groupMapJoinIndex, 0, allowedMaps.Length - 1);
+            GorillaNetworkJoinTrigger trigger = computer.GetJoinTriggerForZone(allowedMaps[mapIndex]);
+            GorillaFriendCollider collider = computer.friendJoinCollider;
+
+            int others = collider.playerIDsCurrentlyTouching.Count;
+            if (collider.playerIDsCurrentlyTouching.Contains(NetworkSystem.Instance.LocalPlayer.UserId)) others--;
+            if (others < 1) return;
+
+            if (FriendshipGroupDetection.Instance.IsInParty)
+            {
+                if (trigger.CanPartyJoin())
+                {
+                    antiBanJoinPending = true;
+                    controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.ForceJoinWithParty);
+                }
+                return;
+            }
+
+            if (!NetworkSystem.Instance.InRoom || !NetworkSystem.Instance.SessionIsPrivate)
+            {
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, "You arent in a private room");
+                return;
+            }
+
+            controller.SetFriendIDList(collider.playerIDsCurrentlyTouching);
+            controller.shuffler = Random.Range(0, 99).ToString().PadLeft(2, '0') + Random.Range(0, 99999999).ToString().PadLeft(8, '0');
+            controller.keyStr = Random.Range(0, 99999999).ToString().PadLeft(8, '0');
+
+            object[] followData = { controller.shuffler, controller.keyStr };
+            foreach (NetPlayer player in RoomSystem.PlayersInRoom)
+            {
+                if (player != NetworkSystem.Instance.LocalPlayer && collider.playerIDsCurrentlyTouching.Contains(player.UserId))
+                    RoomSystem.SendEvent(4, followData, new NetEventOptions { TargetActors = new[] { player.ActorNumber } }, false);
+            }
+
+            PhotonNetwork.SendAllOutgoingCommands();
+            antiBanJoinPending = true;
+            controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.JoinWithNearby, null, false);
+        }
     }
 }

@@ -1,10 +1,7 @@
-using GorillaLocomotion;
 using GorillaNetworking;
-using Oculus.Interaction;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
-using ShibaGTGenesisReborn.Menu;
 using ShibaGTGenesisReborn.Mods;
 using ShibaGTGenesisReborn.Mods.Custom;
 using UnityEngine;
@@ -32,7 +29,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Monke Blocks", method =() => SettingsMods.monkeblocks(), isTogglable = false, toolTip = "Monke Blocks mods" },
                 new ButtonInfo { buttonText = "Master", method =() => SettingsMods.mastermods(), isTogglable = false, toolTip = "Master client mods" },
                 new ButtonInfo { buttonText = "Overpowered", method =() => SettingsMods.overpowered(), isTogglable = false, toolTip = "OP mods" },
-                new ButtonInfo { buttonText = "Detected", method =() => SettingsMods.overpowered(), isTogglable = false, toolTip = "OP mods" },
+                new ButtonInfo { buttonText = "Detected", method =() => SettingsMods.detectedmods(), isTogglable = false, toolTip = "Detected mods" },
                 new ButtonInfo { buttonText = "Spotify", method = () => SettingsMods.spotify(), isTogglable = false, toolTip = "Spotify player" },
             },
 
@@ -59,7 +56,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Safe Mode", method =() => mods.SafeMode(), isTogglable = true, toolTip = "Run RPC Protection every time you join a room", enabled = true},
                 new ButtonInfo { buttonText = "Lock Room", enableMethod =() => mods.LockRoom(true), disableMethod =() => mods.LockRoom(false), isTogglable = true, toolTip = "Stop anyone else from joining the room" },
                 new ButtonInfo { buttonText = "Hide Room", enableMethod =() => mods.HideRoom(true), disableMethod =() => mods.HideRoom(false), isTogglable = true, toolTip = "Take the room out of matchmaking" },
-                
+
                 new ButtonInfo { buttonText = "RPC Logger", enableMethod =() => Patches.RpcLoggerPatch.Enabled = true, disableMethod =() => Patches.RpcLoggerPatch.Enabled = false, enabled = Patches.RpcLoggerPatch.Enabled, isTogglable = true, toolTip = "Log outgoing client RPCs with arguments to console" },
 
                 new ButtonInfo { buttonText = "Disconnect", method =() => { NetworkSystem.Instance.ReturnToSinglePlayer(); PhotonNetwork.Disconnect(); }, enabled = false, isTogglable = false, toolTip = "Leave room" },
@@ -336,6 +333,8 @@ namespace ShibaGTGenesisReborn.Menu
 
             new ButtonInfo[]
             { // overpowered [8]
+                new ButtonInfo { buttonText = "Anti Ban [Private]", method =() => mods.AntiBan(), isTogglable = false, toolTip = "Sets any rock monkey game into infection", needsMaster = true },
+
                 new ButtonInfo { buttonText = "Tag To Infection (Master)", method =() => { if (GorillaGameManager.instance is GorillaTagManager manager) manager.infectedModeThreshold = 1; }, isTogglable = false, toolTip = "Sets any rock monkey game into infection", needsMaster = true },
                 new ButtonInfo { buttonText = "Infection To Tag (Master)", method =() =>  { if (GorillaGameManager.instance is GorillaTagManager manager) manager.infectedModeThreshold = PhotonNetwork.CurrentRoom.MaxPlayers + 1; }, isTogglable = true, toolTip = "Sets any infection game into rock monkey", needsMaster = true },
 
@@ -537,11 +536,11 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Give Guardian Gun (Master)", method =() => mods.GiveGuardianGun(), isTogglable = true, toolTip = "Shoot a player to make them Guardian", needsMaster = true },
             },
 
-            new ButtonInfo[] 
+            new ButtonInfo[]
             { // Detected [29]
                 new ButtonInfo { buttonText = "Destroy Gun (Master and Detected?)", method =() => mods.DestroyGun(), isTogglable = true, toolTip = "Anyone new who joins cannot see or hear the player(s) you destroyed", needsMaster = true },
                 new ButtonInfo { buttonText = "Destroy All (Master and Detected?)", method =() => mods.DestroyAll(), isTogglable = true, toolTip = "Anyone new who joins cannot see or hear the player(s) you destroyed", needsMaster = true },
-            }            
+            }
         };
     }
 }
