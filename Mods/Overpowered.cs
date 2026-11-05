@@ -355,27 +355,11 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        private static bool antiBanJoinPending;
-        private static float antiBanCooldown;
-
-        [HarmonyPatch(typeof(GorillaNetworkJoinTrigger), "GetFullDesiredGameModeString")]
-        public class GamemodePatch
-        {
-            public static void Postfix(ref string __result)
-            {
-                if (antiBanJoinPending)
-                {
-                    __result = "private;DEFAULT;MODDED_Casual;;";
-                    antiBanJoinPending = false;
-                }
-            }
-        }
-
         public static void AntiBan()
         {
             if (!Main.GetIndex("Anti Ban [Private]").enabled) return;
-            if (Time.time < antiBanCooldown) return;
-            antiBanCooldown = Time.time + 3f;
+            if (Time.time < Patches.AntiCheatPatches.GamemodePatch.antiBanCooldown) return;
+            Patches.AntiCheatPatches.GamemodePatch.antiBanCooldown = Time.time + 3f;
 
             GorillaComputer computer = GorillaComputer.instance;
             PhotonNetworkController controller = PhotonNetworkController.Instance;
@@ -396,7 +380,7 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 if (trigger.CanPartyJoin())
                 {
-                    antiBanJoinPending = true;
+                    Patches.AntiCheatPatches.GamemodePatch.antiBanJoinPending = true;
                     controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.ForceJoinWithParty);
                 }
                 return;
@@ -420,7 +404,7 @@ namespace ShibaGTGenesisReborn.Mods
             }
 
             PhotonNetwork.SendAllOutgoingCommands();
-            antiBanJoinPending = true;
+            Patches.AntiCheatPatches.GamemodePatch.antiBanJoinPending = true;
             controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.JoinWithNearby, null, false);
         }
     }

@@ -1,3 +1,4 @@
+using GorillaNetworking;
 using HarmonyLib;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Libs;
@@ -147,6 +148,21 @@ namespace ShibaGTGenesisReborn.Patches
             {
                 __result = true;
                 return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(GorillaNetworkJoinTrigger), "GetFullDesiredGameModeString")]
+        public class GamemodePatch
+        {
+            public static bool antiBanJoinPending;
+            public static float antiBanCooldown;
+            private static void Postfix(ref string __result)
+            {
+                if (antiBanJoinPending)
+                {
+                    __result = "private;DEFAULT;MODDED_Casual;;";
+                    antiBanJoinPending = false;
+                }
             }
         }
     }
