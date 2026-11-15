@@ -1,3 +1,4 @@
+using GorillaNetworking;
 using HarmonyLib;
 using Photon.Pun;
 using ShibaGTGenesisReborn.Menu;
@@ -16,6 +17,14 @@ namespace ShibaGTGenesisReborn.Patches
         {
             if (mods.noSlip) __result = 0f;
         }
+    }
+
+    [HarmonyPatch(typeof(PhotonNetworkController), "AttemptToFollowIntoPub")]
+    public class AntiComputerKickPatch
+    {
+        public static bool Enabled;
+
+        private static bool Prefix() => !Enabled;
     }
 
     [HarmonyPatch(typeof(MonkeAgent), "IncrementRPCCallLocal")]

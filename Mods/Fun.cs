@@ -36,7 +36,7 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void SpawnBoard()
         {
-            GTPlayer.Instance.GrabPersonalHoverboard(false, Vector3.zero, Quaternion.identity, VRRig.LocalRig.playerColor);
+            GTPlayer.Instance.GrabPersonalHoverboard(false, Vector3.zero, Quaternion.identity, VRRig.LocalRig.playerColor, NetworkSystem.Instance.LocalPlayer.ActorNumber);
             GTPlayer.Instance.SetHoverActive(true);
         }
 

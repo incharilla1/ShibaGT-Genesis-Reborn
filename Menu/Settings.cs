@@ -81,6 +81,7 @@ namespace ShibaGTGenesisReborn
         public static readonly float[] roundings = { 0f, 0.6f, 1f, 1.5f, 2.2f };
         [Setting] public static bool confirmDangerous = true;
         [Setting] public static bool joystickScroll;
+        [Setting] public static bool sendCrashReports;
         [Setting] public static int menuReleaseIndex;
         public static readonly string[] menuReleaseNames = { "Close", "Pin", "Float Away", "Physical", "Explode" };
 

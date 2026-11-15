@@ -216,6 +216,7 @@ namespace ShibaGTGenesisReborn.Menu
             Instance = this;
             DontDestroyOnLoad(gameObject);
             GorillaTagger.OnPlayerSpawned(OnPlayerSpawned);
+            Application.logMessageReceived += OnLog;
         }
 
         private static void OnPlayerSpawned() 
@@ -233,6 +234,37 @@ namespace ShibaGTGenesisReborn.Menu
                 Preferences.LoadSettings();
             } catch { }
         }
+
+        private static readonly Dictionary<ButtonInfo, float> modErrorTimes = new Dictionary<ButtonInfo, float>();
+        private static readonly HashSet<string> reportedCrashes = new HashSet<string>();
+
+        private static void ReportCrash(string source, Exception exc) => ReportCrash(source, exc.GetType().Name + ": " + exc.Message, exc.StackTrace);
+
+        private static void ReportCrash(string source, string message, string stackTrace)
+        {
+            if (!sendCrashReports || !reportedCrashes.Add(source + message)) return;
+            string json = $"{{\"source\":\"{Escape(source)}\",\"version\":\"{PluginInfo.Version}\",\"error\":\"{Escape(message + "\n" + stackTrace)}\"}}";
+            string url = ServerData.GetWorkerUrl("crash");
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    using System.Net.Http.HttpClient client = new System.Net.Http.HttpClient();
+                    await client.PostAsync(url, new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+                }
+                catch { }
+            });
+        }
+
+        private static void OnLog(string message, string stackTrace, LogType type)
+        {
+            if (type != LogType.Exception && type != LogType.Error) return;
+            if (stackTrace.Contains("ShibaGTGenesisReborn") || stackTrace.Contains("Harmony") || stackTrace.Contains("DMD<") || message.Contains("Harmony") || message.Contains("[Genesis]"))
+                ReportCrash(type.ToString(), message, stackTrace);
+        }
+
+        private static string Escape(string text) =>
+            text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n").Replace("\t", " ");
 
         private void Update()
         {
@@ -344,6 +376,7 @@ namespace ShibaGTGenesisReborn.Menu
             catch (Exception exc)
             {
                 NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error initializing at {1}: {2}", PluginInfo.Name, exc.StackTrace, exc.Message));
+                ReportCrash("Menu", exc);
             }
 
             try
@@ -385,7 +418,12 @@ namespace ShibaGTGenesisReborn.Menu
                             }
                             catch (Exception exc)
                             {
-                                NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with mod {1} at {2}: {3}", PluginInfo.Name, button.buttonText, exc.StackTrace, exc.Message));
+                                if (Time.time >= modErrorTimes.GetValueOrDefault(button))
+                                {
+                                    modErrorTimes[button] = Time.time + 5f;
+                                    NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with mod {1} at {2}: {3}", PluginInfo.Name, button.buttonText, exc.StackTrace, exc.Message));
+                                    ReportCrash(button.buttonText, exc);
+                                }
                             }
                         }
                     }
@@ -400,6 +438,7 @@ namespace ShibaGTGenesisReborn.Menu
             catch (Exception exc)
             {
                 NotificationLib.SendNotification(NotificationLib.NotificationType.Error, string.Format("{0} // Error with executing mods at {1}: {2}", PluginInfo.Name, exc.StackTrace, exc.Message));
+                ReportCrash("Mod loop", exc);
             }
         }
 
@@ -1227,10 +1266,9 @@ namespace ShibaGTGenesisReborn.Menu
 
             ButtonInfo[] activeButtons = CurrentButtons.Skip(pageNumber * buttonsPerPage).Take(buttonsPerPage).ToArray();
 
-            float startOffset = isSearching ? 0.055f : 0f;
             for (int i = 0; i < activeButtons.Length; i++)
             {
-                CreateButton(i * 0.095f + startOffset, activeButtons[i], !hideFavoriteHearts);
+                CreateButton(i * 0.095f, activeButtons[i], !hideFavoriteHearts);
             }
         }
 
@@ -2174,10 +2212,27 @@ namespace ShibaGTGenesisReborn.Menu
             if (shoulderCamera == null)
                 shoulderCamera = GameObject.Find("Shoulder Camera");
 
+            if (welcomeText == null || welcomeHint == null)
+            {
+                TMP_Text[] texts = UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsSortMode.None);
+                welcomeText ??= texts.FirstOrDefault(t => t.text.ToUpper().Contains("WELCOME TO GORILLA TAG"));
+                welcomeHint ??= texts.FirstOrDefault(t => t.text.ToUpper().Contains("HEAD OUTSIDE"));
+            }
+            if (welcomeText != null)
+            {
+                welcomeText.color = Intro.Blue;
+                welcomeText.text = "SHIBAGT GENESIS REBORN";
+            }
+            if (welcomeHint != null)
+            {
+                welcomeHint.color = textColors[0];
+                welcomeHint.text = $"This is a remake of the longest lasting paid mod menu Shiba GT Genesis!\nVersion {PluginInfo.Version}  |  {GetTotalButtonCount()} mods".ToUpper();
+            }
+
             if (cocHeading != null && cocHeading.TryGetComponent<TMP_Text>(out var cocHeadText))
             {
-                cocHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
-                cocHeadText.fontSize = 75f;
+                cocHeadText.text = "HOW TO USE";
+                cocHeadText.color = Intro.Blue;
             }
 
             if (cocBody != null)
@@ -2187,14 +2242,15 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (cocBody.TryGetComponent<TMP_Text>(out var cocBodyText))
                 {
-                    cocBodyText.richText = true;
-                    cocBodyText.text = $"\nWelcome To ShibaGT Genesis Reborn!\nThis is a Remake of the Longest Lasting Paid Mod Menu Shiba GT Genesis!\nWe currently have {GetTotalButtonCount()} total mods right now".ToUpper();
+                    cocBodyText.color = textColors[0];
+                    cocBodyText.text = "Hold A or Y to open the menu\nHold Q to open it on PC\nPress buttons with your other hand".ToUpper();
                 }
             }
 
             if (motdHeading != null && motdHeading.TryGetComponent<TMP_Text>(out var motdHeadText))
             {
-                motdHeadText.text = "<color=blue>ShibaGT Genesis Reborn</color>".ToUpper();
+                motdHeadText.text = "ShibaGT Genesis Reborn".ToUpper();
+                motdHeadText.color = Intro.Blue;
             }
 
             if (motdBody != null)
@@ -2204,10 +2260,13 @@ namespace ShibaGTGenesisReborn.Menu
 
                 if (motdBody.TryGetComponent<TMP_Text>(out var motdBodyText))
                 {
+                   motdBodyText.color = textColors[0];
                    motdBodyText.text = "credits to shibagt for making the original menu\nthis is just a remake\n<color=red>i (incharilla) am not responsible for any bans using this mod menu</color>".ToUpper();
                 }
             }
         }
+
+        private static TMP_Text welcomeText, welcomeHint;
 
         public static void CleanupResources()
         {
@@ -2220,6 +2279,7 @@ namespace ShibaGTGenesisReborn.Menu
             cocBody = null;
             motdHeading = null;
             motdBody = null;
+            welcomeText = welcomeHint = null;
             shoulderCamera = null;
             cachedTPC = null;
         }
@@ -2270,7 +2330,7 @@ namespace ShibaGTGenesisReborn.Menu
         }
 
         private const float KeyboardDepth = 0.7f, KeyboardScale = 1.5f;
-        private static readonly Vector3 KeyboardPivot = new Vector3(0.56f, 0f, -0.5f);
+        private static readonly Vector3 KeyboardPivot = new Vector3(0.56f, 0f, -0.5f), KeyboardAnchor = new Vector3(0.56f, 0f, -0.62f);
         private static readonly Quaternion KeyboardTilt = Quaternion.Euler(0f, -50f, 0f);
         public static GameObject keyboardRoot;
 
@@ -2307,7 +2367,7 @@ namespace ShibaGTGenesisReborn.Menu
                 keyboardRoot = null;
                 return;
             }
-            keyboardRoot.transform.SetPositionAndRotation(menu.transform.TransformPoint(KeyboardPivot), menu.transform.rotation * KeyboardTilt);
+            keyboardRoot.transform.SetPositionAndRotation(menu.transform.TransformPoint(KeyboardAnchor), menu.transform.rotation * KeyboardTilt);
             keyboardRoot.transform.localScale = menu.transform.lossyScale * KeyboardScale;
         }
 
@@ -2711,6 +2771,10 @@ namespace ShibaGTGenesisReborn.Menu
             NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"{action} needs master");
             return false;
         }
+
+        public static bool InGhostReactor(VRRig rig) =>
+            rig != null && rig.zoneEntity != null &&
+            (rig.zoneEntity.currentZone == GTZone.ghostReactor || rig.zoneEntity.currentZone == GTZone.ghostReactorDrill);
 
         public static bool isPCMenu = false;
         public static GameObject menu;

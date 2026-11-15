@@ -56,26 +56,62 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        private static TappableGuardianIdol guardianIdol;
+        private static float guardianTapTime;
+
         public static void BecomeGuardian()
         {
-            int changed = 0;
-            NetPlayer localPlayer = NetworkSystem.Instance.LocalPlayer;
-            foreach (GorillaGuardianZoneManager zone in GorillaGuardianZoneManager.zoneManagers)
+            if (!(GorillaGameManager.instance is GorillaGuardianManager manager))
             {
-                if (zone == null || !zone.IsZoneValid()) continue;
-                zone.SetGuardian(localPlayer);
-                changed++;
+                DisableBecomeGuardian();
+                return;
             }
+
+            NetPlayer localPlayer = NetworkSystem.Instance.LocalPlayer;
+            if (manager.IsPlayerGuardian(localPlayer))
+            {
+                if (guardianIdol != null) VRRig.LocalRig.enabled = true;
+                guardianIdol = null;
+                return;
+            }
+
+            if (NetworkSystem.Instance.IsMasterClient)
+            {
+                foreach (GorillaGuardianZoneManager zone in GorillaGuardianZoneManager.zoneManagers)
+                {
+                    if (zone != null && zone.IsZoneValid()) zone.SetGuardian(localPlayer);
+                }
+                return;
+            }
+
+            if (guardianIdol == null || !guardianIdol.isActiveAndEnabled)
+            {
+                guardianIdol = GameObject.FindObjectsByType<TappableGuardianIdol>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                    .OrderBy(idol => Vector3.Distance(idol.transform.position, VRRig.LocalRig.transform.position))
+                    .FirstOrDefault();
+            }
+            if (guardianIdol == null) return;
+
+            VRRig.LocalRig.enabled = false;
+            VRRig.LocalRig.transform.position = guardianIdol.transform.position;
+
+            if (Time.time < guardianTapTime) return;
+            guardianTapTime = Time.time + 1f;
+            guardianIdol.OnTap();
+        }
+
+        public static void DisableBecomeGuardian()
+        {
+            if (guardianIdol != null) VRRig.LocalRig.enabled = true;
+            guardianIdol = null;
         }
 
         public static void EjectAllGuardians()
         {
-            int changed = 0;
             foreach (GorillaGuardianZoneManager zone in GorillaGuardianZoneManager.zoneManagers)
             {
                 if (zone == null || zone.CurrentGuardian == null) continue;
                 zone.SetGuardian(null);
-                changed++;
             }
         }
 
@@ -406,6 +442,111 @@ namespace ShibaGTGenesisReborn.Mods
             PhotonNetwork.SendAllOutgoingCommands();
             Patches.AntiCheatPatches.GamemodePatch.antiBanJoinPending = true;
             controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.JoinWithNearby, null, false);
+        }
+
+        private static float grKickTime;
+
+        public static void GhostReactorKickAll()
+        {
+            if (!NetworkSystem.Instance.InRoom || Time.time < grKickTime || !Main.InGhostReactor(VRRig.LocalRig)) return;
+
+            VRRig[] targets = VRRigCache.ActiveRigs.Where(r => r != null && !r.isLocal && Main.InGhostReactor(r)).ToArray();
+            if (targets.Length == 0)
+            {
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "No one else is in Ghost Reactor");
+                return;
+            }
+
+            GameEntityManager manager = GameEntityManager.GetManagerForZone(VRRig.LocalRig.zoneEntity.currentZone);
+            if (!OwnZone(manager)) return;
+
+            grKickTime = Time.time + 0.25f;
+            SendKick(manager, RpcTarget.Others, VRRig.LocalRig.transform.position - new Vector3(0f, 2f, 0f));
+            if (manager.guard.isTrulyMine) manager.guard.TransferOwnership(targets[0].Creator, "");
+        }
+
+        public static void GhostReactorKickGun() => GunLib.StartGun(() =>
+        {
+            if (GunLib.LockedPlayer != null) GhostReactorKickRig(GunLib.LockedPlayer);
+        }, true);
+
+        public static void GhostReactorKickTouch() => KickOnTouch(false);
+
+        public static void GhostReactorKickOnTouch() => KickOnTouch(true);
+
+        private static void KickOnTouch(bool incoming)
+        {
+            if (!NetworkSystem.Instance.InRoom || !Main.InGhostReactor(VRRig.LocalRig)) return;
+            VRRig local = VRRig.LocalRig;
+            Vector3 body = local.transform.position;
+
+            foreach (VRRig rig in VRRigCache.ActiveRigs)
+            {
+                if (rig == null || rig.isLocal || !Main.InGhostReactor(rig)) continue;
+                bool near = incoming
+                    ? Vector3.Distance(rig.rightHandTransform.position, body) < 0.35f || Vector3.Distance(rig.leftHandTransform.position, body) < 0.35f
+                    : Vector3.Distance(local.rightHandTransform.position, rig.transform.position) < 0.35f || Vector3.Distance(local.leftHandTransform.position, rig.transform.position) < 0.35f;
+                if (near) GhostReactorKickRig(rig);
+            }
+        }
+
+        private static void GhostReactorKickRig(VRRig target)
+        {
+            if (!NetworkSystem.Instance.InRoom || target == null || target.isLocal || Time.time < grKickTime ||
+                !Main.InGhostReactor(VRRig.LocalRig) || !Main.InGhostReactor(target)) return;
+
+            GameEntityManager manager = GameEntityManager.GetManagerForZone(VRRig.LocalRig.zoneEntity.currentZone);
+            if (!OwnZone(manager)) return;
+
+            grKickTime = Time.time + 0.25f;
+            SendKick(manager, target.Creator.GetPlayerRef(), VRRig.LocalRig.transform.position - new Vector3(0f, 2f, 0f));
+            if (manager.guard.isTrulyMine) manager.guard.TransferOwnership(target.Creator, "");
+        }
+
+        private static bool OwnZone(GameEntityManager manager)
+        {
+            if (manager == null) return false;
+            if (manager.IsMine) return true;
+
+            if (PhotonNetwork.LocalPlayer.IsMasterClient)
+                manager.guard.RequestOwnershipImmediatelyWithGuaranteedAuthority();
+            else
+                manager.guard.RequestOwnership(null, null);
+            return false;
+        }
+
+        private static void SendKick(GameEntityManager manager, object target, Vector3 position)
+        {
+            const int type = -20887423, count = 101, batch = 50;
+            int builtIn = 1 + manager.FactoryGetBuiltInEntityCountById(type);
+            int createdBy = manager.GetNetIdFromEntityId(GameEntityId.Invalid);
+            long packedPos = BitPackUtils.PackWorldPosForNetwork(position);
+            int packedRot = BitPackUtils.PackQuaternionForNetwork(Quaternion.identity);
+
+            for (int offset = 0; offset < count; offset += batch)
+            {
+                int n = System.Math.Min(batch, count - offset);
+                int[] netIds = new int[n];
+                int[] types = new int[n];
+                long[] positions = new long[n];
+                int[] rotations = new int[n];
+                long[] data = new long[n];
+                int[] creators = new int[n];
+
+                for (int i = 0; i < n; i++)
+                {
+                    netIds[i] = manager.nextNetId;
+                    manager.nextNetId += offset + i + builtIn;
+                    types[i] = type;
+                    positions[i] = packedPos;
+                    rotations[i] = packedRot;
+                    creators[i] = createdBy;
+                }
+
+                object[] args = { netIds, types, positions, rotations, data, creators };
+                if (target is Player player) manager.photonView.RPC("CreateItemRPC", player, args);
+                else manager.photonView.RPC("CreateItemRPC", (RpcTarget)target, args);
+            }
         }
     }
 }

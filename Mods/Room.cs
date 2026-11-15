@@ -18,6 +18,12 @@ namespace ShibaGTGenesisReborn.Mods
 {
     public partial class mods
     {
+        public static void DontKickMe(bool enable)
+        {
+            Patches.AntiComputerKickPatch.Enabled = enable;
+            PhotonNetworkController.Instance.disableAFKKick = enable;
+        }
+
         public static void BDisconnect()
         {
             if (InputHandler.Instance.RightSecondary.IsPressed)
@@ -155,7 +161,6 @@ namespace ShibaGTGenesisReborn.Mods
                     bool shouldMute = state ?? (PlayerPrefs.GetInt(p.UserId, 0) == 0);
                     int muteValue = shouldMute ? 1 : 0;
                     PlayerPrefs.SetInt(p.UserId, muteValue);
-                    PlayerPrefs.Save();
 
                     if (VRRigCache.Instance != null && VRRigCache.Instance.TryGetVrrig(p, out RigContainer rigContainer) && rigContainer != null)
                     {

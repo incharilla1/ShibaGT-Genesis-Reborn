@@ -86,6 +86,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Rejoin Room", method =() => mods.RejoinRoom(), isTogglable = false, toolTip = "Reconnect to current room" },
 
                 new ButtonInfo { buttonText = "Anti Earrape", enableMethod =() => mods.antiEarrape = true, disableMethod =() => mods.antiEarrape = false, isTogglable = true, enabled = mods.antiEarrape, toolTip = "Block spammed sounds from other players" },
+                new ButtonInfo { buttonText = "Dont fucking kick me", enableMethod =() => mods.DontKickMe(true), disableMethod =() => mods.DontKickMe(false), isTogglable = true, toolTip = "Block computer join kicks and AFK kicks" },
                 new ButtonInfo { buttonText = "Anti Moderator", method =() => mods.AntiModerator(), isTogglable = true, toolTip = "Disconnect immediately if a moderator/admin is in the room" },
                 new ButtonInfo { buttonText = "Hide on Leaderboard", method =() => mods.HideOnLeaderboard(), isTogglable = true, toolTip = "Desync your name and swatch color on the scoreboard" },
             },
@@ -343,7 +344,7 @@ namespace ShibaGTGenesisReborn.Menu
 
                 new ButtonInfo { buttonText = "Target Spam (Master)", method =() => mods.TargetSpam(), isTogglable = true, toolTip = "Spam hits on all targets in map", needsMaster = true },
 
-                new ButtonInfo { buttonText = "Become Guardian (Master)", method =() => mods.BecomeGuardian(), isTogglable = false, toolTip = "Take Guardian control in every active Guardian zone", needsMaster = true },
+                new ButtonInfo { buttonText = "Become Guardian", method =() => mods.BecomeGuardian(), disableMethod =() => mods.DisableBecomeGuardian(), isTogglable = true, toolTip = "Take Guardian control in every active Guardian zone, or tap the idol if you are not master" },
                 new ButtonInfo { buttonText = "Eject Guardians (Master)", method =() => mods.EjectAllGuardians(), isTogglable = false, toolTip = "Remove the Guardian from every active Guardian zone", needsMaster = true },
                 new ButtonInfo { buttonText = "Guardian Fling Gun", method =() => mods.GuardianFlingGun(), isTogglable = true, toolTip = "As Guardian, shoot a player to launch them into the sky" },
                 new ButtonInfo { buttonText = "Guardian Grab All", method =() => mods.GuardianGrabAll(), isTogglable = true, toolTip = "As Guardian, keep pulling every player to you" },
@@ -352,6 +353,11 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Ghost Reactor God Mode", method =() => mods.GhostReactorGodMode(), disableMethod =() => mods.DisableGhostReactorGodMode(), isTogglable = true, toolTip = "Continuously revive, heal, shield, illuminate, and cloak yourself" },
                 new ButtonInfo { buttonText = "Kill All GR Enemies", method =() => mods.KillAllGhostReactorEnemies(), isTogglable = false, toolTip = "Instantly eliminate all current non-boss Ghost Reactor enemies" },
                 new ButtonInfo { buttonText = "GR Nuker (Master)", method =() => mods.GRNuker(), isTogglable = true, toolTip = "Nuke all enemies, boss, breakables, barriers, and hazards in Ghost Reactor", needsMaster = true },
+
+                new ButtonInfo { buttonText = "GR Kick All", method =() => mods.GhostReactorKickAll(), isTogglable = false, toolTip = "Kick everyone in Ghost Reactor (requires being zone owner)" },
+                new ButtonInfo { buttonText = "GR Kick Gun", method =() => mods.GhostReactorKickGun(), isTogglable = true, toolTip = "Shoot a player in Ghost Reactor to kick them" },
+                new ButtonInfo { buttonText = "GR Kick Touch", method =() => mods.GhostReactorKickTouch(), isTogglable = true, toolTip = "Touch a player in Ghost Reactor to kick them" },
+                new ButtonInfo { buttonText = "GR Kick On Touch", method =() => mods.GhostReactorKickOnTouch(), isTogglable = true, toolTip = "Kick players in Ghost Reactor who touch you" },
 
                 new ButtonInfo { buttonText = "Force Start Game (Master)", method =() => mods.ForceStartCurrentGame(), isTogglable = false, toolTip = "Force the active game mode to start", needsMaster = true },
                 new ButtonInfo { buttonText = "Reset Current Game (Master)", method =() => mods.ResetCurrentGame(), isTogglable = false, toolTip = "Immediately reset the active game mode", needsMaster = true },
@@ -415,6 +421,7 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "transparency", pmButton = true, overlapText = "Transparency: " + Settings.transparencyNames[Settings.transparencyIndex], isTogglable = false, method = () => Main.Change("transparency", ref Settings.transparencyIndex, Settings.transparencyNames, () => Main.RecreateMenu()), toolTip = "How see-through the transparent menu is" },
                 new ButtonInfo { buttonText = "Confirm Dangerous Buttons", enableMethod = () => Settings.confirmDangerous = true, disableMethod = () => Settings.confirmDangerous = false, enabled = Settings.confirmDangerous, isTogglable = true, toolTip = "Press Disconnect and Remove All Prefs twice to use them" },
                 new ButtonInfo { buttonText = "Joystick Scrolling", enableMethod = () => Settings.joystickScroll = true, disableMethod = () => Settings.joystickScroll = false, enabled = Settings.joystickScroll, isTogglable = true, toolTip = "Flick a joystick up or down to change pages" },
+                new ButtonInfo { buttonText = "Send Anonymous Crash Reports", enableMethod = () => Settings.sendCrashReports = true, disableMethod = () => Settings.sendCrashReports = false, enabled = Settings.sendCrashReports, isTogglable = true, toolTip = "Send mod errors to the developers, without your name or ID" },
                 new ButtonInfo { buttonText = "menu release", pmButton = true,overlapText = "On Release: " + Settings.menuReleaseNames[Settings.menuReleaseIndex], isTogglable = false, method = () => Main.Change("menu release", ref Settings.menuReleaseIndex, Settings.menuReleaseNames), toolTip = "What the menu does when you let go of the menu button" },
                 new ButtonInfo { buttonText = "menu size", pmButton = true,overlapText = "Menu Size: " + Settings.menuSizeNames[Settings.menuSizeIndex], isTogglable = false, method = () => Main.Change("menu size", ref Settings.menuSizeIndex, Settings.menuSizeNames, () => Main.RecreateMenu()), toolTip = "Change how big the menu is" },
                 new ButtonInfo { buttonText = "menu font", pmButton = true,overlapText = "Font: " + Settings.fontNames[Settings.fontIndex], isTogglable = false, method = () => Main.Change("menu font", ref Settings.fontIndex, Settings.fontNames, () => Main.RecreateMenu()), toolTip = "Change the menu font" },
@@ -533,6 +540,8 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Infect All (Master)", method =() => mods.InfectAll(), isTogglable = false, toolTip = "Infect everyone but you", needsMaster = true },
                 new ButtonInfo { buttonText = "Cure Gun (Master)", method =() => mods.CureGun(), isTogglable = true, toolTip = "Shoot a player to cure them", needsMaster = true },
                 new ButtonInfo { buttonText = "Cure All (Master)", method =() => mods.CureAll(), isTogglable = false, toolTip = "Cure everyone", needsMaster = true },
+                new ButtonInfo { buttonText = "UnTag Self (Master)", method =() => mods.UnTagSelf(), isTogglable = false, toolTip = "Untag yourself", needsMaster = true },
+                new ButtonInfo { buttonText = "UnTag All (Master)", method =() => mods.UnTagAll(), isTogglable = false, toolTip = "Untag everyone", needsMaster = true },
                 new ButtonInfo { buttonText = "Give Guardian Gun (Master)", method =() => mods.GiveGuardianGun(), isTogglable = true, toolTip = "Shoot a player to make them Guardian", needsMaster = true },
             },
 

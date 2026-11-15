@@ -55,7 +55,7 @@ namespace ShibaGTGenesisReborn.Patches
 
     }
 
-    [HarmonyPatch(typeof(GTPlayer), "stuckHandsCheckLateUpdate")]
+    [HarmonyPatch(typeof(GTPlayer), "StuckHandsCheckLateUpdate")]
     internal static class StickyReleasePatch
     {
         private static void Prefix(ref bool ___stuckLeft, ref bool ___stuckRight)

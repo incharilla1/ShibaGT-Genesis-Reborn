@@ -13,7 +13,7 @@ namespace ShibaGTGenesisReborn.Menu
     {
         private const float Length = 11f, Land = 6.5f, Fade = 1.5f, MusicVolume = 0.35f, Distance = 0.4f, LogoSize = 300f;
         private const int Rate = 44100, Grid = 10;
-        private static readonly Color Blue = new Color(0.25f, 0.45f, 1f);
+        public static readonly Color Blue = new Color(0.25f, 0.45f, 1f);
         private static Intro instance;
 
         private class Piece { public Vector2 home, from; public float spin, arrive; }

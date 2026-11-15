@@ -114,6 +114,13 @@ namespace ShibaGTGenesisReborn.Libs
                 if (mods.espLines[i] != null)
                     HideObject(mods.espLines[i].gameObject);
             }
+
+            foreach (TextMesh tag in mods.nameTags)
+                if (tag != null) HideObject(tag.gameObject);
+
+            foreach (List<Renderer> pool in mods.espShapes.Values)
+                foreach (Renderer shape in pool)
+                    if (shape != null) HideObject(shape.gameObject);
         }
 
         private static void OnCameraPostRender(Camera cam)

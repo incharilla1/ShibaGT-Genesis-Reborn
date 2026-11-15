@@ -214,15 +214,16 @@ namespace ShibaGTGenesisReborn.Mods
         {
             ref GTPlayer.HandState left = ref leftHandState(GTPlayer.Instance);
             ref GTPlayer.HandState right = ref rightHandState(GTPlayer.Instance);
+            Vector3 head = GTPlayer.Instance.headCollider.transform.position;
+            Vector3 leftPosition = left.controllerTransform.position - head, rightPosition = right.controllerTransform.position - head;
             if (!predicting)
             {
                 baseLeftOffset = left.handOffset;
                 baseRightOffset = right.handOffset;
+                lastLeftHand = leftPosition;
+                lastRightHand = rightPosition;
                 predicting = true;
             }
-
-            Vector3 head = GTPlayer.Instance.headCollider.transform.position;
-            Vector3 leftPosition = left.controllerTransform.position - head, rightPosition = right.controllerTransform.position - head;
             leftHandVelocity = Vector3.Lerp(leftHandVelocity, (leftPosition - lastLeftHand) / Time.deltaTime, 0.5f);
             rightHandVelocity = Vector3.Lerp(rightHandVelocity, (rightPosition - lastRightHand) / Time.deltaTime, 0.5f);
             lastLeftHand = leftPosition;

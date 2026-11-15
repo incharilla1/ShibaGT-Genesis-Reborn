@@ -182,18 +182,7 @@ namespace ShibaGTGenesisReborn.Mods
                 Vector3 extents = new Vector3(0.35f, 0.45f, 0.35f);
 
                 if (filledESP)
-                {
-                    GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    Object.Destroy(cube.GetComponent<Collider>());
-                    cube.name = "3DBoxESP_Filled";
-                    cube.transform.position = center;
-                    cube.transform.localScale = extents * 2f;
-
-                    Renderer rend = cube.GetComponent<Renderer>();
-                    rend.material.shader = TextShader;
-                    rend.material.color = new Color(col.r, col.g, col.b, 0.35f);
-                    Object.Destroy(cube, Time.deltaTime * 2f);
-                }
+                    DrawShape(PrimitiveType.Cube, center, Quaternion.identity, extents * 2f, new Color(col.r, col.g, col.b, 0.35f));
 
                 Vector3 c0 = center + new Vector3(-extents.x, -extents.y, -extents.z);
                 Vector3 c1 = center + new Vector3(extents.x, -extents.y, -extents.z);
@@ -237,20 +226,7 @@ namespace ShibaGTGenesisReborn.Mods
                 Vector3 extents = new Vector3(0.325f, 0.425f, 0f);
 
                 if (filledESP)
-                {
-                    GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    Object.Destroy(quad.GetComponent<Collider>());
-                    quad.name = "2DBoxESP";
-                    quad.transform.position = center;
-                    quad.transform.localScale = new Vector3(0.65f, 0.85f, 1f);
-                    if (cam != null)
-                        quad.transform.rotation = cam.transform.rotation;
-
-                    Renderer rend = quad.GetComponent<Renderer>();
-                    rend.material.shader = TextShader;
-                    rend.material.color = new Color(col.r, col.g, col.b, 0.45f);
-                    Object.Destroy(quad, Time.deltaTime * 2f);
-                }
+                    DrawShape(PrimitiveType.Quad, center, cam != null ? cam.transform.rotation : Quaternion.identity, new Vector3(0.65f, 0.85f, 1f), new Color(col.r, col.g, col.b, 0.45f));
 
                 if (cam != null)
                 {
@@ -446,6 +422,9 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
+        public static readonly List<TextMesh> nameTags = new List<TextMesh>();
+        private static int nameTagIndex;
+
         public static void NameAndDistanceTags()
         {
             Camera cam = Camera.main != null ? Camera.main : GorillaTagger.Instance.mainCamera.GetComponent<Camera>();
@@ -460,42 +439,60 @@ namespace ShibaGTGenesisReborn.Mods
                 string voice = rig.muted ? " [Muted]" : rig.SpeakingLoudness > 0.05f ? " [Talking]" : "";
                 string info = $"{name} [{dist:F1}m] [{rig.fps} FPS] [{rig.LatestVelocity().magnitude:F1} m/s]{voice}";
 
-                GameObject tagObj = new GameObject("NameTagESP");
-                Vector3 headPos = (rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position) + Vector3.up * 0.35f;
-                tagObj.transform.position = headPos;
-                if (cam != null)
-                    tagObj.transform.LookAt(tagObj.transform.position + cam.transform.rotation * Vector3.forward, cam.transform.rotation * Vector3.up);
-
-                TextMesh tm = tagObj.AddComponent<TextMesh>();
-                tm.text = info;
-                tm.fontSize = 42;
-                tm.characterSize = 0.02f;
-                tm.alignment = TextAlignment.Center;
-                tm.anchor = TextAnchor.MiddleCenter;
-                tm.color = rig.playerColor;
-
-                bool isSteam = ModsLib.IsSteamUser(netPlayer);
-                Material platformMat = isSteam ? ModsLib.GetSteamMaterial() : ModsLib.GetMetaMaterial();
-
-                if (platformMat != null)
+                if (nameTagIndex == nameTags.Count || nameTags[nameTagIndex] == null)
                 {
+                    TextMesh created = new GameObject("NameTagESP").AddComponent<TextMesh>();
+                    created.fontSize = 42;
+                    created.characterSize = 0.02f;
+                    created.alignment = TextAlignment.Center;
+                    created.anchor = TextAnchor.MiddleCenter;
                     GameObject platformQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     Object.Destroy(platformQuad.GetComponent<Collider>());
-                    platformQuad.name = isSteam ? "SteamPlatformQuad" : "MetaPlatformQuad";
-                    platformQuad.transform.SetParent(tagObj.transform, false);
+                    platformQuad.transform.SetParent(created.transform, false);
                     platformQuad.transform.localPosition = new Vector3(0f, 0.12f, 0f);
-                    platformQuad.transform.localRotation = Quaternion.identity;
                     platformQuad.transform.localScale = new Vector3(0.24f, 0.24f, 1f);
-
-                    Renderer quadRenderer = platformQuad.GetComponent<Renderer>();
-                    if (quadRenderer != null)
-                    {
-                        quadRenderer.sharedMaterial = platformMat;
-                    }
+                    if (nameTagIndex == nameTags.Count) nameTags.Add(created);
+                    else nameTags[nameTagIndex] = created;
                 }
 
-                Object.Destroy(tagObj, Time.deltaTime * 2f);
+                TextMesh tm = nameTags[nameTagIndex++];
+                tm.gameObject.SetActive(true);
+                tm.transform.position = (rig.headConstraint != null ? rig.headConstraint.position : rig.transform.position) + Vector3.up * 0.35f;
+                if (cam != null)
+                    tm.transform.rotation = cam.transform.rotation;
+                tm.text = info;
+                tm.color = rig.playerColor;
+
+                Material platformMat = ModsLib.IsSteamUser(netPlayer) ? ModsLib.GetSteamMaterial() : ModsLib.GetMetaMaterial();
+                Renderer quadRenderer = tm.transform.GetChild(0).GetComponent<Renderer>();
+                quadRenderer.enabled = platformMat != null;
+                quadRenderer.sharedMaterial = platformMat;
             }
+        }
+
+        public static readonly Dictionary<PrimitiveType, List<Renderer>> espShapes = new Dictionary<PrimitiveType, List<Renderer>>();
+        private static readonly Dictionary<PrimitiveType, int> espShapeIndex = new Dictionary<PrimitiveType, int>();
+
+        private static void DrawShape(PrimitiveType type, Vector3 position, Quaternion rotation, Vector3 scale, Color color)
+        {
+            if (!espShapes.TryGetValue(type, out List<Renderer> pool)) espShapes[type] = pool = new List<Renderer>();
+            int index = espShapeIndex.GetValueOrDefault(type);
+            if (index == pool.Count || pool[index] == null)
+            {
+                GameObject shape = GameObject.CreatePrimitive(type);
+                Object.Destroy(shape.GetComponent<Collider>());
+                Renderer created = shape.GetComponent<Renderer>();
+                created.material.shader = TextShader;
+                if (index == pool.Count) pool.Add(created);
+                else pool[index] = created;
+            }
+
+            Renderer renderer = pool[index];
+            espShapeIndex[type] = index + 1;
+            renderer.enabled = true;
+            renderer.transform.SetPositionAndRotation(position, rotation);
+            renderer.transform.localScale = scale;
+            renderer.material.color = color;
         }
 
         public static readonly List<LineRenderer> espLines = new List<LineRenderer>();
@@ -529,6 +526,23 @@ namespace ShibaGTGenesisReborn.Mods
                     espLines[i].enabled = false;
             }
             espLineIndex = 0;
+
+            for (int i = nameTagIndex; i < nameTags.Count; i++)
+            {
+                if (nameTags[i] != null && nameTags[i].gameObject.activeSelf)
+                    nameTags[i].gameObject.SetActive(false);
+            }
+            nameTagIndex = 0;
+
+            foreach (KeyValuePair<PrimitiveType, List<Renderer>> pool in espShapes)
+            {
+                for (int i = espShapeIndex.GetValueOrDefault(pool.Key); i < pool.Value.Count; i++)
+                {
+                    if (pool.Value[i] != null && pool.Value[i].enabled)
+                        pool.Value[i].enabled = false;
+                }
+            }
+            espShapeIndex.Clear();
         }
 
         private struct MaterialState
