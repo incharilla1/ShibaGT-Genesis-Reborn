@@ -445,39 +445,30 @@ namespace ShibaGTGenesisReborn.Mods
         }
 
         private static float grKickTime;
-
         public static void GhostReactorKickAll()
         {
-            if (!NetworkSystem.Instance.InRoom || Time.time < grKickTime || !Main.InGhostReactor(VRRig.LocalRig)) return;
+            VRRig local = VRRig.LocalRig;
+            if (!NetworkSystem.Instance.InRoom || Time.time < grKickTime || !Main.InGhostReactor(local)) return;
 
             VRRig[] targets = VRRigCache.ActiveRigs.Where(r => r != null && !r.isLocal && Main.InGhostReactor(r)).ToArray();
-            if (targets.Length == 0)
-            {
-                NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "No one else is in Ghost Reactor");
-                return;
-            }
+            if (targets.Length == 0) { NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "No one else is in Ghost Reactor"); return; }
 
-            GameEntityManager manager = GameEntityManager.GetManagerForZone(VRRig.LocalRig.zoneEntity.currentZone);
+            GameEntityManager manager = GameEntityManager.GetManagerForZone(local.zoneEntity.currentZone);
             if (!OwnZone(manager)) return;
 
             grKickTime = Time.time + 0.25f;
-            SendKick(manager, RpcTarget.Others, VRRig.LocalRig.transform.position - new Vector3(0f, 2f, 0f));
+            SendKick(manager, RpcTarget.Others, local.transform.position - new Vector3(0f, 2f, 0f));
             if (manager.guard.isTrulyMine) manager.guard.TransferOwnership(targets[0].Creator, "");
         }
 
-        public static void GhostReactorKickGun() => GunLib.StartGun(() =>
-        {
-            if (GunLib.LockedPlayer != null) GhostReactorKickRig(GunLib.LockedPlayer);
-        }, true);
-
+        public static void GhostReactorKickGun() => GunLib.StartGun(() => { if (GunLib.LockedPlayer != null) GhostReactorKickRig(GunLib.LockedPlayer); }, true);
         public static void GhostReactorKickTouch() => KickOnTouch(false);
-
         public static void GhostReactorKickOnTouch() => KickOnTouch(true);
 
         private static void KickOnTouch(bool incoming)
         {
-            if (!NetworkSystem.Instance.InRoom || !Main.InGhostReactor(VRRig.LocalRig)) return;
             VRRig local = VRRig.LocalRig;
+            if (!NetworkSystem.Instance.InRoom || !Main.InGhostReactor(local)) return;
             Vector3 body = local.transform.position;
 
             foreach (VRRig rig in VRRigCache.ActiveRigs)
@@ -492,14 +483,15 @@ namespace ShibaGTGenesisReborn.Mods
 
         private static void GhostReactorKickRig(VRRig target)
         {
+            VRRig local = VRRig.LocalRig;
             if (!NetworkSystem.Instance.InRoom || target == null || target.isLocal || Time.time < grKickTime ||
-                !Main.InGhostReactor(VRRig.LocalRig) || !Main.InGhostReactor(target)) return;
+                !Main.InGhostReactor(local) || !Main.InGhostReactor(target)) return;
 
-            GameEntityManager manager = GameEntityManager.GetManagerForZone(VRRig.LocalRig.zoneEntity.currentZone);
+            GameEntityManager manager = GameEntityManager.GetManagerForZone(local.zoneEntity.currentZone);
             if (!OwnZone(manager)) return;
 
             grKickTime = Time.time + 0.25f;
-            SendKick(manager, target.Creator.GetPlayerRef(), VRRig.LocalRig.transform.position - new Vector3(0f, 2f, 0f));
+            SendKick(manager, target.Creator.GetPlayerRef(), local.transform.position - new Vector3(0f, 2f, 0f));
             if (manager.guard.isTrulyMine) manager.guard.TransferOwnership(target.Creator, "");
         }
 
@@ -507,11 +499,8 @@ namespace ShibaGTGenesisReborn.Mods
         {
             if (manager == null) return false;
             if (manager.IsMine) return true;
-
-            if (PhotonNetwork.LocalPlayer.IsMasterClient)
-                manager.guard.RequestOwnershipImmediatelyWithGuaranteedAuthority();
-            else
-                manager.guard.RequestOwnership(null, null);
+            if (PhotonNetwork.LocalPlayer.IsMasterClient) manager.guard.RequestOwnershipImmediatelyWithGuaranteedAuthority();
+            else manager.guard.RequestOwnership(null, null);
             return false;
         }
 
@@ -525,13 +514,9 @@ namespace ShibaGTGenesisReborn.Mods
 
             for (int offset = 0; offset < count; offset += batch)
             {
-                int n = System.Math.Min(batch, count - offset);
-                int[] netIds = new int[n];
-                int[] types = new int[n];
-                long[] positions = new long[n];
-                int[] rotations = new int[n];
-                long[] data = new long[n];
-                int[] creators = new int[n];
+                int n = Math.Min(batch, count - offset);
+                int[] netIds = new int[n], types = new int[n], rotations = new int[n], creators = new int[n];
+                long[] positions = new long[n], data = new long[n];
 
                 for (int i = 0; i < n; i++)
                 {
