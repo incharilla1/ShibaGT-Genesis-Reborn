@@ -1204,7 +1204,7 @@ namespace CXS
                 }
             }
 
-            if (command == "confirmusing" && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
+            if (command == "confirmusing" && ServerData.IsLocalAdmin())
             {
                 VRRig vrrig = GetVRRigFromPlayer(sender);
                 if (vrrig != null)

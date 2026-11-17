@@ -13,7 +13,7 @@ namespace ShibaGTGenesisReborn.Mods
             BuilderTable.TryGetBuilderTableForZone(GTZone.monkeBlocks, out BuilderTable table) && table.GetTableState() == BuilderTable.TableState.Ready ? table : null;
 
         private static IEnumerable<BuilderPiece> FreeBlocks(BuilderTable table) =>
-            table.pieces.Where(piece => piece != null && !piece.IsPrivatePlot() &&
+            table.pieces.Where(piece => piece != null && !piece.isBuiltIntoTable && !piece.IsPrivatePlot() &&
                 (piece.state == BuilderPiece.State.AttachedAndPlaced || piece.state == BuilderPiece.State.Dropped || piece.state == BuilderPiece.State.AttachedToDropped));
 
         private static float blockTime;
@@ -26,9 +26,14 @@ namespace ShibaGTGenesisReborn.Mods
             return true;
         }
 
-        private static void DropBlock(BuilderTable table, BuilderPiece piece, Vector3 position, Vector3 velocity) =>
-            table.builderNetworking.photonView.RPC("PieceDroppedRPC", RpcTarget.All, table.builderNetworking.CreateLocalCommandId(), piece.pieceId,
+        private static void DropBlock(BuilderTable table, BuilderPiece piece, Vector3 position, Vector3 velocity)
+        {
+            PhotonView view = table.builderNetworking.photonView;
+            view.RPC("PieceGrabbedRPC", RpcTarget.All, table.builderNetworking.CreateLocalCommandId(), piece.pieceId, false,
+                BitPackUtils.PackHandPosRotForNetwork(Vector3.zero, Quaternion.identity), PhotonNetwork.LocalPlayer);
+            view.RPC("PieceDroppedRPC", RpcTarget.All, table.builderNetworking.CreateLocalCommandId(), piece.pieceId,
                 position, Random.rotation, velocity, Random.insideUnitSphere * 5f, PhotonNetwork.LocalPlayer);
+        }
 
         public static void BlockGun()
         {

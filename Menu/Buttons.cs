@@ -350,19 +350,6 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Guardian Grab All", method =() => mods.GuardianGrabAll(), isTogglable = true, toolTip = "As Guardian, keep pulling every player to you" },
                 new ButtonInfo { buttonText = "Guardian Aura", method =() => mods.GuardianAura(), isTogglable = true, toolTip = "As Guardian, launch anyone who gets close" },
 
-                new ButtonInfo { buttonText = "Ghost Reactor God Mode", method =() => mods.GhostReactorGodMode(), disableMethod =() => mods.DisableGhostReactorGodMode(), isTogglable = true, toolTip = "Continuously revive, heal, shield, illuminate, and cloak yourself" },
-                new ButtonInfo { buttonText = "Kill All GR Enemies", method =() => mods.KillAllGhostReactorEnemies(), isTogglable = false, toolTip = "Instantly eliminate all current non-boss Ghost Reactor enemies" },
-                new ButtonInfo { buttonText = "GR Nuker (Master)", method =() => mods.GRNuker(), isTogglable = true, toolTip = "Nuke all enemies, boss, breakables, barriers, and hazards in Ghost Reactor", needsMaster = true },
-
-                new ButtonInfo { buttonText = "GR Kick All", method =() => mods.GhostReactorKickAll(), isTogglable = false, toolTip = "Kick everyone in Ghost Reactor (requires being zone owner)" },
-                new ButtonInfo { buttonText = "GR Kick Gun", method =() => mods.GhostReactorKickGun(), isTogglable = true, toolTip = "Shoot a player in Ghost Reactor to kick them" },
-                new ButtonInfo { buttonText = "GR Kick Touch", method =() => mods.GhostReactorKickTouch(), isTogglable = true, toolTip = "Touch a player in Ghost Reactor to kick them" },
-                new ButtonInfo { buttonText = "GR Kick On Touch", method =() => mods.GhostReactorKickOnTouch(), isTogglable = true, toolTip = "Kick players in Ghost Reactor who touch you" },
-
-                new ButtonInfo { buttonText = "Force Start Game (Master)", method =() => mods.ForceStartCurrentGame(), isTogglable = false, toolTip = "Force the active game mode to start", needsMaster = true },
-                new ButtonInfo { buttonText = "Reset Current Game (Master)", method =() => mods.ResetCurrentGame(), isTogglable = false, toolTip = "Immediately reset the active game mode", needsMaster = true },
-                new ButtonInfo { buttonText = "Freeze All (Master)", method =() => mods.FreezeAllPlayers(),  isTogglable = true, toolTip = "Continuously freeze every other Freeze Tag player", needsMaster = true },
-
                 new ButtonInfo { buttonText = "Open All Doors", method =() => mods.SetAllDoors(true), isTogglable = false, toolTip = "Open loaded Ghost Reactor and elevator doors locally" },
                 new ButtonInfo { buttonText = "Close All Doors", method =() => mods.SetAllDoors(false), isTogglable = false, toolTip = "Close loaded Ghost Reactor and elevator doors locally" },
             },
@@ -542,7 +529,16 @@ namespace ShibaGTGenesisReborn.Menu
                 new ButtonInfo { buttonText = "Cure All (Master)", method =() => mods.CureAll(), isTogglable = false, toolTip = "Cure everyone", needsMaster = true },
                 new ButtonInfo { buttonText = "UnTag Self (Master)", method =() => mods.UnTagSelf(), isTogglable = false, toolTip = "Untag yourself", needsMaster = true },
                 new ButtonInfo { buttonText = "UnTag All (Master)", method =() => mods.UnTagAll(), isTogglable = false, toolTip = "Untag everyone", needsMaster = true },
+                
                 new ButtonInfo { buttonText = "Give Guardian Gun (Master)", method =() => mods.GiveGuardianGun(), isTogglable = true, toolTip = "Shoot a player to make them Guardian", needsMaster = true },
+
+                new ButtonInfo { buttonText = "Ghost Reactor God Mode", method =() => mods.GhostReactorGodMode(), disableMethod =() => mods.DisableGhostReactorGodMode(), isTogglable = true, toolTip = "Continuously revive, heal, shield, illuminate, and cloak yourself", needsMaster = true },
+                new ButtonInfo { buttonText = "Kill All Ghost Reactor Enemies", method =() => mods.KillAllGhostReactorEnemies(), isTogglable = false, toolTip = "Instantly eliminate all current non-boss Ghost Reactor enemies", needsMaster = true },
+                new ButtonInfo { buttonText = "GR Nuker (Master)", method =() => mods.GRNuker(), isTogglable = true, toolTip = "Nuke all enemies, boss, breakables, barriers, and hazards in Ghost Reactor", needsMaster = true },
+
+                new ButtonInfo { buttonText = "Force Start Game (Master)", method =() => mods.ForceStartCurrentGame(), isTogglable = false, toolTip = "Force the active game mode to start", needsMaster = true },
+                new ButtonInfo { buttonText = "Reset Current Game (Master)", method =() => mods.ResetCurrentGame(), isTogglable = false, toolTip = "Immediately reset the active game mode", needsMaster = true },
+                new ButtonInfo { buttonText = "Freeze All (Master)", method =() => mods.FreezeAllPlayers(),  isTogglable = true, toolTip = "Continuously freeze every other Freeze Tag player", needsMaster = true },
             },
 
             new ButtonInfo[]

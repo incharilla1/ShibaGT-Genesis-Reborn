@@ -1,20 +1,15 @@
-using ExitGames.Client.Photon;
 using GorillaNetworking;
 using GorillaTagScripts;
-using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
-using Photon.Voice.PUN;
-using Photon.Voice.Unity;
-using POpusCodec.Enums;
 using ShibaGTGenesisReborn.Classes;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
-using System.Collections;
+using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Linq;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace ShibaGTGenesisReborn.Mods
 {
@@ -238,37 +233,32 @@ namespace ShibaGTGenesisReborn.Mods
             {
                 phantom.SetHP(0);
                 phantom.SetBehavior(GREnemyPhantom.Behavior.Return, true);
-                if (phantom.entity != null)
-                    phantom.entity.RequestState(phantom.entity.id, 0L);
+                phantom.entity?.RequestState(phantom.entity.id, 0L);
             }
 
             foreach (GRBreakable breakable in GameObject.FindObjectsByType<GRBreakable>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 if (breakable.BrokenLocal) continue;
                 breakable.BreakLocal();
-                if (breakable.gameEntity != null)
-                    breakable.gameEntity.RequestState(breakable.gameEntity.id, 1L);
+                breakable.gameEntity?.RequestState(breakable.gameEntity.id, 1L);
             }
 
             foreach (GRBarrierOverloadable barrier in GameObject.FindObjectsByType<GRBarrierOverloadable>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 barrier.SetState(GRBarrierOverloadable.State.Destroyed);
-                if (barrier.gameEntity != null)
-                    barrier.gameEntity.RequestState(barrier.gameEntity.id, 1L);
+                barrier.gameEntity?.RequestState(barrier.gameEntity.id, 1L);
             }
 
             foreach (GRBarrierSpectral spectral in GameObject.FindObjectsByType<GRBarrierSpectral>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 spectral.ChangeHealth(0);
-                if (spectral.entity != null)
-                    spectral.entity.RequestState(spectral.entity.id, 0L);
+                spectral.entity?.RequestState(spectral.entity.id, 0L);
             }
 
             foreach (GRMetalEnergyGate gate in GameObject.FindObjectsByType<GRMetalEnergyGate>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 gate.SetState(GRMetalEnergyGate.State.Open);
-                if (gate.gameEntity != null)
-                    gate.gameEntity.RequestState(gate.gameEntity.id, 1L);
+                gate.gameEntity?.RequestState(gate.gameEntity.id, 1L);
             }
 
             foreach (GRHazardTower tower in GameObject.FindObjectsByType<GRHazardTower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
@@ -362,35 +352,6 @@ namespace ShibaGTGenesisReborn.Mods
             }
         }
 
-        public static void EarRapeGun()
-        {
-            GunLib.StartGun(() =>
-            {
-                if (GunLib.LockedPlayer != null)
-                    BlastEarRape(GunLib.LockedPlayer);
-            }, true);
-        }
-
-        public static void EarRapeAll()
-        {
-            BlastEarRape(null);
-        }
-
-        private static void BlastEarRape(VRRig target = null)
-        {
-            if (!NetworkSystem.Instance.InRoom) return;
-            RPCProt();
-
-            NetworkingLibrary.SendRigPosition(GorillaTagger.Instance.headCollider.transform.position);
-            
-            int[] loudIds = { 66, 67, 8, 12, 24, 32 };
-            for (int i = 0; i < 6; i++)
-            {
-                int sound = loudIds[i % loudIds.Length];
-                GorillaTagger.Instance.myVRRig.SendRPC("RPC_PlayHandTap", RpcTarget.Others, sound, (i % 2 == 0), 0.1f);
-            }
-        }
-
         public static void AntiBan()
         {
             if (!Main.GetIndex("Anti Ban [Private]").enabled) return;
@@ -442,96 +403,6 @@ namespace ShibaGTGenesisReborn.Mods
             PhotonNetwork.SendAllOutgoingCommands();
             Patches.AntiCheatPatches.GamemodePatch.antiBanJoinPending = true;
             controller.AttemptToJoinPublicRoom(trigger, GorillaNetworking.JoinType.JoinWithNearby, null, false);
-        }
-
-        private static float grKickTime;
-        public static void GhostReactorKickAll()
-        {
-            VRRig local = VRRig.LocalRig;
-            if (!NetworkSystem.Instance.InRoom || Time.time < grKickTime || !Main.InGhostReactor(local)) return;
-
-            VRRig[] targets = VRRigCache.ActiveRigs.Where(r => r != null && !r.isLocal && Main.InGhostReactor(r)).ToArray();
-            if (targets.Length == 0) { NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "No one else is in Ghost Reactor"); return; }
-
-            GameEntityManager manager = GameEntityManager.GetManagerForZone(local.zoneEntity.currentZone);
-            if (!OwnZone(manager)) return;
-
-            grKickTime = Time.time + 0.25f;
-            SendKick(manager, RpcTarget.Others, local.transform.position - new Vector3(0f, 2f, 0f));
-            if (manager.guard.isTrulyMine) manager.guard.TransferOwnership(targets[0].Creator, "");
-        }
-
-        public static void GhostReactorKickGun() => GunLib.StartGun(() => { if (GunLib.LockedPlayer != null) GhostReactorKickRig(GunLib.LockedPlayer); }, true);
-        public static void GhostReactorKickTouch() => KickOnTouch(false);
-        public static void GhostReactorKickOnTouch() => KickOnTouch(true);
-
-        private static void KickOnTouch(bool incoming)
-        {
-            VRRig local = VRRig.LocalRig;
-            if (!NetworkSystem.Instance.InRoom || !Main.InGhostReactor(local)) return;
-            Vector3 body = local.transform.position;
-
-            foreach (VRRig rig in VRRigCache.ActiveRigs)
-            {
-                if (rig == null || rig.isLocal || !Main.InGhostReactor(rig)) continue;
-                bool near = incoming
-                    ? Vector3.Distance(rig.rightHandTransform.position, body) < 0.35f || Vector3.Distance(rig.leftHandTransform.position, body) < 0.35f
-                    : Vector3.Distance(local.rightHandTransform.position, rig.transform.position) < 0.35f || Vector3.Distance(local.leftHandTransform.position, rig.transform.position) < 0.35f;
-                if (near) GhostReactorKickRig(rig);
-            }
-        }
-
-        private static void GhostReactorKickRig(VRRig target)
-        {
-            VRRig local = VRRig.LocalRig;
-            if (!NetworkSystem.Instance.InRoom || target == null || target.isLocal || Time.time < grKickTime ||
-                !Main.InGhostReactor(local) || !Main.InGhostReactor(target)) return;
-
-            GameEntityManager manager = GameEntityManager.GetManagerForZone(local.zoneEntity.currentZone);
-            if (!OwnZone(manager)) return;
-
-            grKickTime = Time.time + 0.25f;
-            SendKick(manager, target.Creator.GetPlayerRef(), local.transform.position - new Vector3(0f, 2f, 0f));
-            if (manager.guard.isTrulyMine) manager.guard.TransferOwnership(target.Creator, "");
-        }
-
-        private static bool OwnZone(GameEntityManager manager)
-        {
-            if (manager == null) return false;
-            if (manager.IsMine) return true;
-            if (PhotonNetwork.LocalPlayer.IsMasterClient) manager.guard.RequestOwnershipImmediatelyWithGuaranteedAuthority();
-            else manager.guard.RequestOwnership(null, null);
-            return false;
-        }
-
-        private static void SendKick(GameEntityManager manager, object target, Vector3 position)
-        {
-            const int type = -20887423, count = 101, batch = 50;
-            int builtIn = 1 + manager.FactoryGetBuiltInEntityCountById(type);
-            int createdBy = manager.GetNetIdFromEntityId(GameEntityId.Invalid);
-            long packedPos = BitPackUtils.PackWorldPosForNetwork(position);
-            int packedRot = BitPackUtils.PackQuaternionForNetwork(Quaternion.identity);
-
-            for (int offset = 0; offset < count; offset += batch)
-            {
-                int n = Math.Min(batch, count - offset);
-                int[] netIds = new int[n], types = new int[n], rotations = new int[n], creators = new int[n];
-                long[] positions = new long[n], data = new long[n];
-
-                for (int i = 0; i < n; i++)
-                {
-                    netIds[i] = manager.nextNetId;
-                    manager.nextNetId += offset + i + builtIn;
-                    types[i] = type;
-                    positions[i] = packedPos;
-                    rotations[i] = packedRot;
-                    creators[i] = createdBy;
-                }
-
-                object[] args = { netIds, types, positions, rotations, data, creators };
-                if (target is Player player) manager.photonView.RPC("CreateItemRPC", player, args);
-                else manager.photonView.RPC("CreateItemRPC", (RpcTarget)target, args);
-            }
         }
     }
 }

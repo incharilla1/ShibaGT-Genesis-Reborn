@@ -838,7 +838,7 @@ namespace ShibaGTGenesisReborn.Mods
             collider ??= computer?.friendJoinCollider?.GetComponent<CapsuleCollider>();
             if (collider == null)
             {
-                if (objects != null) objects.SetActive(false);
+                objects?.SetActive(false);
                 return;
             }
 

@@ -19,6 +19,17 @@ namespace ShibaGTGenesisReborn.Patches
         }
     }
 
+    [HarmonyPatch(typeof(GorillaTagScripts.BuilderTable), "IsPlayerHandNearAction")]
+    public class BlockHandRangePatch
+    {
+        private static bool Prefix(NetPlayer player, ref bool __result)
+        {
+            if (player == null || !player.IsLocal) return true;
+            __result = true;
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(PhotonNetworkController), "AttemptToFollowIntoPub")]
     public class AntiComputerKickPatch
     {

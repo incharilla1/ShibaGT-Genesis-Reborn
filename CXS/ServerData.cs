@@ -24,8 +24,6 @@ namespace CXS
         public const string AssetsURL = "https://raw.githubusercontent.com/ImudTrust-Projects/CXS-AssetBundles/refs/heads/master/ServerData";
         public const bool ServerDataEnabled = true;
 
-        public const string IncharillaAdminId = "C7887DEBBCC18F92";
-        public const string MaxAdminId = "8DF2F9E495F6402F";
         private static readonly RSA TokenKey = CreateTokenKey("ruIYU8bczMVgsJyjTXctQYHPwcIDZ9nyznayUuiv0lZKXeQofzRFXy88h+Z/XjUPWKQXyA2z/CGb4YVOGKAROkyZ0EIR/zyIPT12wwpZbD07ahHwZsjB/gc0hMOpWfcLS0V6yVYDrwzXmKjMRyMkkJBcJ1xzDCTVYIhaNln3y4h4vxO6ag4UqZ2SSCF58vmES6HUg0+DT0QScnAUsIGwBKBb23/6S+DnnDwyrL4q7ZAJCzHxG44T1AzMteGOJKLHKrau4DvgJ4cT+jeRR9pl45peGCSb/Ey5CtYxpohNgvHAEFCc0vAZEFPA3TQ66K1ESyYstXuz+T1pZRaJkIv7XQ==");
         private static readonly HashSet<string> VerifiedTokens = new HashSet<string>();
         public static string AdminToken { get; private set; }
@@ -56,36 +54,12 @@ namespace CXS
             return true;
         }
 
-        private static string cachedAdminSecretKey;
-        public static string AdminSecretKey
-        {
-            get => cachedAdminSecretKey ??= LoadAdminSecretKey();
-            set => cachedAdminSecretKey = value;
-        }
-
-        private static string LoadAdminSecretKey()
-        {
-            try
-            {
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string keyPath = Path.Combine(localAppData, "Genesis", "admin.key");
-
-                if (File.Exists(keyPath))
-                    return File.ReadAllText(keyPath).Trim();
-            }
-            catch { }
-
-            return string.Empty;
-        }
+        private static string SessionTicket => PlayFab.PlayFabClientAPI.IsClientLoggedIn() ? PlayFab.PlayFabSettings.staticPlayer.ClientSessionTicket : null;
 
         public static bool IsGlobalLockdown = false;
         public static string LockdownReason = "Menu is temporarily locked for maintenance.";
 
-        public static readonly Dictionary<string, string> Administrators = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            { IncharillaAdminId, "incharilla" },
-            { MaxAdminId, "max" }
-        };
+        public static readonly Dictionary<string, string> Administrators = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public static readonly HashSet<string> BlacklistedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public static readonly HashSet<string> DisabledMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -164,10 +138,10 @@ namespace CXS
             }
 
             string userId = PhotonNetwork.LocalPlayer?.UserId;
-            if (Time.time > nextTokenTime && IsAdmin(userId) && !string.IsNullOrEmpty(AdminSecretKey))
+            if (Time.time > nextTokenTime && IsAdmin(userId) && !string.IsNullOrEmpty(SessionTicket))
             {
                 nextTokenTime = Time.time + 30f;
-                StartCoroutine(PostJsonCoroutine("verify", $"{{\"userId\":\"{userId}\"}}", response =>
+                StartCoroutine(PostJsonCoroutine("verify", new JObject { ["userId"] = userId }.ToString(), response =>
                 {
                     string token = JObject.Parse(response)["token"]?.ToString();
                     if (!VerifyToken(token, userId)) return;
@@ -321,9 +295,6 @@ namespace CXS
                     }
                 }
 
-                Administrators[IncharillaAdminId] = "incharilla";
-                Administrators[MaxAdminId] = "max";
-
                 BlacklistedIds.Clear();
                 JToken blacklisted = data["blacklisted-ids"] ?? data["blacklisted"] ?? data["blacklist"];
                 if (blacklisted is JArray bArray)
@@ -377,7 +348,7 @@ namespace CXS
 
         public static void PostBringRoom(string roomName, int slots = 0)
         {
-            if (instance == null || string.IsNullOrEmpty(WorkerEndpoint))
+            if (instance == null || string.IsNullOrEmpty(WorkerEndpoint) || !IsLocalAdmin())
                 return;
 
             if (slots <= 0)
@@ -387,13 +358,13 @@ namespace CXS
                 slots = Math.Max(1, maxPlayers - currentPlayers);
             }
 
-            instance.StartCoroutine(PostJsonCoroutine("bring", $"{{\"room\":\"{roomName}\",\"slots\":{slots},\"userId\":\"{PhotonNetwork.LocalPlayer?.UserId}\"}}"));
+            instance.StartCoroutine(PostJsonCoroutine("bring", new JObject { ["room"] = roomName, ["slots"] = slots, ["userId"] = PhotonNetwork.LocalPlayer.UserId }.ToString()));
         }
 
         public static void PostGlobalNotify(string message)
         {
-            if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint))
-                instance.StartCoroutine(PostJsonCoroutine("notify", $"{{\"message\":\"{message}\",\"userId\":\"{PhotonNetwork.LocalPlayer?.UserId}\"}}"));
+            if (instance != null && !string.IsNullOrEmpty(WorkerEndpoint) && IsLocalAdmin())
+                instance.StartCoroutine(PostJsonCoroutine("notify", new JObject { ["message"] = message, ["userId"] = PhotonNetwork.LocalPlayer.UserId }.ToString()));
         }
 
         public static IEnumerator SendHeartbeatPing()
@@ -415,37 +386,19 @@ namespace CXS
             yield return req.SendWebRequest();
         }
 
-        private static string ComputeHmacSha256(string data, string key)
-        {
-            using HMACSHA256 hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
-            byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
-            StringBuilder sb = new StringBuilder(hash.Length * 2);
-            foreach (byte b in hash)
-                sb.Append(b.ToString("x2"));
-            return sb.ToString();
-        }
-
         private static IEnumerator PostJsonCoroutine(string endpoint, string json, Action<string> onSuccess = null)
         {
-            if (string.IsNullOrEmpty(WorkerEndpoint)) yield break;
-
-            if (string.IsNullOrEmpty(AdminSecretKey))
-            {
-                NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "<color=red>CXS</color>\nAdmin key file not found on disk.", 4f);
-                yield break;
-            }
+            string ticket = SessionTicket;
+            if (string.IsNullOrEmpty(WorkerEndpoint) || string.IsNullOrEmpty(ticket)) yield break;
 
             string url = GetWorkerUrl(endpoint);
-            string timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-            string signature = ComputeHmacSha256($"{timestamp}:{json}", AdminSecretKey);
 
             using UnityWebRequest req = new UnityWebRequest(url, "POST");
             byte[] body = Encoding.UTF8.GetBytes(json);
             req.uploadHandler = new UploadHandlerRaw(body) { contentType = "application/json" };
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
-            req.SetRequestHeader("X-CXS-Timestamp", timestamp);
-            req.SetRequestHeader("X-CXS-Signature", signature);
+            req.SetRequestHeader("X-CXS-Ticket", ticket);
             req.timeout = 7;
             yield return req.SendWebRequest();
 
