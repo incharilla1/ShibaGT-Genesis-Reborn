@@ -1310,8 +1310,8 @@ namespace ShibaGTGenesisReborn.Menu
             {
                 btnScale.y *= 0.56f;
                 float side = btnScale.y / 2f + 0.07f;
-                CreateKey(0.56f, 0.1f + side, 0.25f - offset, 0.1f, btnScale.z, "-", "minus_" + method.buttonText);
-                CreateKey(0.56f, 0.1f - side, 0.25f - offset, 0.1f, btnScale.z, "+", method.buttonText);
+                CreateKey(0.56f, 0.1f + side, 0.25f - offset, 0.1f, btnScale.z, "-", "minus_" + method.buttonText, method);
+                CreateKey(0.56f, 0.1f - side, 0.25f - offset, 0.1f, btnScale.z, "+", method.buttonText, method);
             }
             textWidth = Mathf.Min(textWidth, btnScale.y * 0.27f);
 
@@ -2289,7 +2289,7 @@ namespace ShibaGTGenesisReborn.Menu
         private static readonly string[] KeyboardRow2 = new string[] { "A", "S", "D", "F", "G", "H", "J", "K", "L" };
         private static readonly string[] KeyboardRow3 = new string[] { "Z", "X", "C", "V", "B", "N", "M" };
 
-        private static void CreateKey(float posX, float posY, float posZ, float width, float height, string label, string relatedText)
+        private static void CreateKey(float posX, float posY, float posZ, float width, float height, string label, string relatedText, ButtonInfo info = null)
         {
             GameObject keyObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.Destroy(keyObj.GetComponent<Rigidbody>());
@@ -2308,6 +2308,7 @@ namespace ShibaGTGenesisReborn.Menu
 
             Classes.Button btn = keyObj.AddComponent<Classes.Button>();
             btn.relatedText = relatedText;
+            btn.buttonInfo = info;
 
             Text keyText = new GameObject
             {

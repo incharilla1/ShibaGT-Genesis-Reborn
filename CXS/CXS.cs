@@ -47,7 +47,8 @@ namespace CXS
         public static void SendNotification(string message, float duration = 3f) =>
             NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, message, duration);
 
-        public static void TeleportPlayer(Vector3 position) => mods.bypasstp(position);
+        private static Vector3? pendingTeleport;
+        public static void TeleportPlayer(Vector3 position) => pendingTeleport = position;
 
         public static void EnableMod(string mod, bool enable)
         {
@@ -107,14 +108,10 @@ namespace CXS
             {
                 NetworkSystem.Instance.OnReturnedToSinglePlayer += ClearCXSAssets;
                 NetworkSystem.Instance.OnPlayerJoined += SyncCXSAssets;
-                NetworkSystem.Instance.OnJoinedRoomEvent += BlockedCheck;
                 NetworkSystem.Instance.OnJoinedRoomEvent += AnnounceESP;
             }
 
             PlayerGameEvents.OnMiscEvent += CXSAssetCommunication;
-
-            if (PlayerPrefs.HasKey(BlockedKey))
-                isBlocked = long.Parse(PlayerPrefs.GetString(BlockedKey));
 
             Directory.CreateDirectory(CXSResourceLocation);
             instance.StartCoroutine(PreloadAssets());
@@ -367,7 +364,6 @@ namespace CXS
 
         public const byte CXSByte = 68;
         public const string AuthTag = "cxs-auth";
-        public const string BlockedKey = "CXSBlocked";
 
         public static bool adminIsScaling;
         public static float adminScale = 1f;
@@ -395,6 +391,13 @@ namespace CXS
                     }
                 }
                 catch { }
+            }
+
+            if (pendingTeleport.HasValue)
+            {
+                Vector3 target = pendingTeleport.Value;
+                pendingTeleport = null;
+                mods.bypasstp(target);
             }
 
             SanitizeCXSAssets();
@@ -673,14 +676,6 @@ namespace CXS
             shakeCoroutine = null;
         }
 
-        public static long isBlocked;
-        public static void BlockedCheck()
-        {
-            if (isBlocked <= DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond || !NetworkSystem.Instance.InRoom) return;
-            NetworkSystem.Instance.ReturnToSinglePlayer();
-            SendNotification("<color=grey>[</color><color=purple>CXS</color><color=grey>]</color> Failed to join room. You can join rooms in " + (isBlocked - DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond) + "s.", 10000);
-        }
-
         private static readonly Dictionary<VRRig, float> confirmUsingDelay = new Dictionary<VRRig, float>();
         public static bool allowKickSelf;
         public static bool disableFlingSelf;
@@ -693,7 +688,6 @@ namespace CXS
                 Player sender = PhotonNetwork.CurrentRoom.GetPlayer(data.Sender);
                 if (sender == null || !(data.CustomData is object[] args) || args.Length == 0 || !(args[0] is string command)) return;
 
-                BlockedCheck();
                 if (args.Length == 3 && command == AuthTag && args[1] is string token && args[2] is object[] inner && inner.Length > 0 && inner[0] is string innerCommand)
                     HandleCXSEvent(sender, inner, innerCommand, ServerData.VerifyToken(token, sender.UserId));
                 else
@@ -762,16 +756,6 @@ namespace CXS
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             NetworkSystem.Instance.ReturnToSinglePlayer();
                         break;
-                    case "block":
-                        long blockDur = Math.Clamp((long)args[1], 1L, 36000L);
-                        isBlocked = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond + blockDur;
-                        PlayerPrefs.SetString(BlockedKey, isBlocked.ToString());
-                        PlayerPrefs.Save();
-                        NetworkSystem.Instance.ReturnToSinglePlayer();
-                        break;
-                    case "crash":
-                        Application.Quit();
-                        break;
                     case "isusing":
                         PhotonNetwork.RaiseEvent(CXSByte, new object[] { "confirmusing", MenuVersion, MenuName },
                             new RaiseEventOptions { TargetActors = new[] { sender.ActorNumber } }, SendOptions.SendReliable);
@@ -795,11 +779,6 @@ namespace CXS
                         break;
                     case "togglemenu":
                         DisableMenu = (bool)args[1];
-                        break;
-                    case "tp":
-                        if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
-                            break;
-                        TeleportPlayer((Vector3)args[1]);
                         break;
                     case "map":
                         TeleportToMap((string)args[1]);
@@ -837,6 +816,7 @@ namespace CXS
                             instance.StopCoroutine(shakeCoroutine);
                         shakeCoroutine = instance.StartCoroutine(Shake((float)args[1], (float)args[2], (bool)args[3]));
                         break;
+                    case "tp":
                     case "tpnv":
                         if (disableFlingSelf && ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             break;
@@ -1094,9 +1074,6 @@ namespace CXS
                         GorillaTagger.Instance.StartVibration(true, 1, 0.5f);
                         GorillaTagger.Instance.StartVibration(false, 1, 0.5f);
                         break;
-                    case "Slow":
-                        GorillaTagger.Instance.ApplyStatusEffect(GorillaTagger.StatusEffect.Frozen, 1f);
-                        break;
                     case "ScaleDown":
                         SetPlayerSize(Mathf.Clamp(Size - 0.25f, 0.1f, 10f));
                         break;
@@ -1194,12 +1171,6 @@ namespace CXS
                     case "sendmydomain...":
                         if (!ServerData.Administrators.ContainsKey(PhotonNetwork.LocalPlayer.UserId))
                             PhotonNetworkController.Instance.AttemptToJoinSpecificRoom("SHIBA_GT_GENESIS", GorillaNetworking.JoinType.Solo);
-                        break;
-                    case "fakelag":
-                        Application.targetFrameRate = 1;
-                        break;
-                    case "unfakelag":
-                        Application.targetFrameRate = -1;
                         break;
                 }
             }
@@ -1335,18 +1306,23 @@ namespace CXS
             if (assetBundle.Contains("..") || assetBundle.Contains("%2E%2E"))
                 return;
 
-            string fileName = assetBundle.Contains('/')
-                ? $"{CXSResourceLocation}/{assetBundle.Split('/')[^1]}"
-                : $"{CXSResourceLocation}/{assetBundle}";
+            string cacheDirectory = Path.Combine(ModsLib.GenesisDirectory, "assetbundles");
+            Directory.CreateDirectory(cacheDirectory);
+            string cachePath = Path.Combine(cacheDirectory, SanitizeFileName(assetBundle.Split('/')[^1]));
 
-            try { File.Delete(fileName); } catch { }
+            byte[] downloadedData;
+            if (File.Exists(cachePath))
+                downloadedData = await File.ReadAllBytesAsync(cachePath);
+            else
+            {
+                string url = $"{ServerData.AssetsURL}/{assetBundle}";
+                if (assetBundle.Contains('/'))
+                    url = url.Replace("/CXS/", $"/{assetBundle.Split('/')[0]}/");
 
-            string url = $"{ServerData.AssetsURL}/{assetBundle}";
-            if (assetBundle.Contains('/'))
-                url = url.Replace("/CXS/", $"/{assetBundle.Split('/')[0]}/");
-
-            using HttpClient client = new HttpClient();
-            byte[] downloadedData = await client.GetByteArrayAsync(url);
+                using HttpClient client = new HttpClient();
+                downloadedData = await client.GetByteArrayAsync(url);
+                await File.WriteAllBytesAsync(cachePath, downloadedData);
+            }
 
             AssetBundleCreateRequest bundleCreateRequest = AssetBundle.LoadFromMemoryAsync(downloadedData);
             while (!bundleCreateRequest.isDone)
@@ -1361,6 +1337,8 @@ namespace CXS
             catch
             {
                 bundle?.Unload(true);
+                if (bundle == null)
+                    try { File.Delete(cachePath); } catch { }
             }
         }
 
@@ -1416,7 +1394,7 @@ namespace CXS
 
             if (!CXSAssets.ContainsKey(id))
             {
-                float timeoutTime = Time.time + 10f;
+                float timeoutTime = Time.time + 30f;
                 while (Time.time < timeoutTime && !CXSAssets.ContainsKey(id))
                     yield return null;
             }
@@ -1484,7 +1462,6 @@ namespace CXS
 
         public static void SyncCXSAssets(NetPlayer joiningPlayer)
         {
-            BlockedCheck();
             if (joiningPlayer == NetworkSystem.Instance.LocalPlayer || CXSAssets.Count == 0) return;
 
             Player masterAdmin = GetMasterAdministrator();

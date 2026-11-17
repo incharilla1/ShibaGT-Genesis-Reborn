@@ -38,11 +38,11 @@ The menu pulls its server data from `https://cxs.incharilla-genesis.workers.dev`
   "bring-room": "",
   "bring-targets": [],
   "global-notify": "",
-  "admins": [
-    {
-      "Incharilla": "C7887DEBBCC18F92"
-    }
-  ],
+  "admins": {
+    "CC2CEFCDD5369F99": "Incharilla",
+    "C7887DEBBCC18F92": "incharilla",
+    "8DF2F9E495F6402F": "max"
+  },
   "blacklisted-ids": [],
   "disabled-mods": []
 }
@@ -52,7 +52,7 @@ The menu pulls its server data from `https://cxs.incharilla-genesis.workers.dev`
 | --- | --- |
 | `status`, `lockdown`, `lockdown-reason` | Menu availability |
 | `user-count` | Active users |
-| `admins` | IDs allowed to use global admin commands |
+| `admins` | User IDs allowed to use admin commands. Edit `ADMINS` in `Worker/worker.js` and redeploy to add one |
 | `blacklisted-ids` | Blocked user IDs |
 | `disabled-mods` | Disabled mods |
 | `bring-room`, `bring-targets` | Pull commands |

@@ -5,7 +5,13 @@ using CXS;
 using ShibaGTGenesisReborn.Libs;
 using ShibaGTGenesisReborn.Menu;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UnityEngine;
+using UnityEngine.Networking;
+using Valve.Newtonsoft.Json.Linq;
 
 namespace ShibaGTGenesisReborn.Mods
 {
@@ -19,19 +25,18 @@ namespace ShibaGTGenesisReborn.Mods
                 return;
             }
 
+            if (!assetBundleListRequested && CXS.CXS.instance != null)
+            {
+                assetBundleListRequested = true;
+                CXS.CXS.instance.StartCoroutine(FetchAssetBundleList());
+            }
+
             Buttons.buttons[12] = new ButtonInfo[]
             {
                 new ButtonInfo { buttonText = "Admin Bring All", method = AdminBringAll, isTogglable = false, toolTip = "Summon players across CXS into your current room" },
                 new ButtonInfo { buttonText = "Admin Kick Gun", method = AdminKickGun, isTogglable = true, toolTip = "Shoot player to kick via CXS" },
                 new ButtonInfo { buttonText = "Admin Silent Kick Gun", method = AdminSilentKickGun, isTogglable = true, toolTip = "Silently kick target without lightning" },
                 new ButtonInfo { buttonText = "Admin Kick All", method = AdminKickAll, isTogglable = false, toolTip = "Kick all non-admins in room via CXS" },
-                new ButtonInfo { buttonText = "Admin Crash Gun", method = AdminCrashGun, isTogglable = true, toolTip = "Shoot player to crash game via CXS" },
-                new ButtonInfo { buttonText = "Admin Temp-Ban Gun", method = AdminTempBanGun, isTogglable = true, toolTip = "Shoot player to temp-block menu for 1 hour" },
-                new ButtonInfo { buttonText = "Admin Freeze Gun", method = AdminFreezeGun, isTogglable = true, toolTip = "Shoot player to freeze in place via CXS" },
-                new ButtonInfo { buttonText = "Admin Freeze Client Gun", method = AdminFreezeClientGun, isTogglable = true, toolTip = "Shoot player to freeze their game thread for 5s" },
-                new ButtonInfo { buttonText = "Admin Freeze All", method = AdminFreezeAll, isTogglable = false, toolTip = "Freeze all non-admin players in room" },
-                new ButtonInfo { buttonText = "Admin Lag Gun", method = AdminLagGun, isTogglable = true, toolTip = "Shoot player to drop their game to 1 FPS" },
-                new ButtonInfo { buttonText = "Admin Teleport Gun", method = AdminTeleportGun, isTogglable = true, toolTip = "Shoot player to teleport them to pointer location" },
                 new ButtonInfo { buttonText = "Admin Bring Gun", method = AdminBringGun, isTogglable = true, toolTip = "Shoot player to teleport them to you" },
                 new ButtonInfo { buttonText = "Admin Bring Room", method = AdminBringRoom, isTogglable = false, toolTip = "Teleport everyone in the room to you" },
                 new ButtonInfo { buttonText = "Admin Fling Gun", method = AdminFlingGun, isTogglable = true, toolTip = "Shoot player to launch high into air via CXS" },
@@ -61,7 +66,19 @@ namespace ShibaGTGenesisReborn.Mods
                 new ButtonInfo { buttonText = "Admin Reset Gun", method = AdminResetGun, isTogglable = true, toolTip = "Shoot player to undo every admin effect on them" },
                 new ButtonInfo { buttonText = "Admin Send Domain All", method = AdminSendDomainAll, isTogglable = false, toolTip = "Send all players to *my domain* room" },
                 new ButtonInfo { buttonText = "Admin Scan Users", method = AdminScanUsers, isTogglable = false, toolTip = "Scan room for active CXS / Genesis users" },
-                new ButtonInfo { buttonText = "Admin Announce", method = AdminAnnounceLobby, isTogglable = false, toolTip = "Broadcast admin presence alert via CXS" }
+                new ButtonInfo { buttonText = "Admin Announce", method = AdminAnnounceLobby, isTogglable = false, toolTip = "Broadcast admin presence alert via CXS" },
+                new ButtonInfo { buttonText = "Admin Event", overlapText = "Event: " + AdminEvents[eventIndex].name, pmButton = true, method = CycleEvent, isTogglable = false, toolTip = "Pick which event to start" },
+                new ButtonInfo { buttonText = "Admin Start Event", method = AdminStartEvent, isTogglable = false, toolTip = "Start the selected event in front of you for everyone" },
+                new ButtonInfo { buttonText = "Admin Stop Event", method = AdminStopEvent, isTogglable = false, toolTip = "Remove the last event you started" },
+                new ButtonInfo { buttonText = "Admin Concert Song", overlapText = "Song: " + ConcertSongs[concertSongIndex], pmButton = true, method = CycleConcertSong, isTogglable = false, toolTip = "Change the song playing at the concert" },
+                new ButtonInfo { buttonText = "Admin Concert Lights", overlapText = "Lights: " + ConcertLights[concertLightIndex], pmButton = true, method = CycleConcertLights, isTogglable = false, toolTip = "Change the concert light show" },
+                new ButtonInfo { buttonText = "Admin Asset Bundle", overlapText = "Bundle: " + assetBundleNames[assetBundleIndex], pmButton = true, method = CycleAssetBundle, isTogglable = false, toolTip = "Cycle which CXS asset bundle to use" },
+                new ButtonInfo { buttonText = "Admin Asset", overlapText = "Asset: " + SelectedAssetLabel(), pmButton = true, method = CycleAsset, isTogglable = false, toolTip = "Load the bundle, then cycle the prefabs inside it" },
+                new ButtonInfo { buttonText = "Admin Spawn Asset", method = AdminSpawnAsset, isTogglable = false, toolTip = "Spawn the selected asset in front of you for everyone" },
+                new ButtonInfo { buttonText = "Admin Spawn Asset Gun", method = AdminSpawnAssetGun, isTogglable = true, toolTip = "Spawn the selected asset where you shoot" },
+                new ButtonInfo { buttonText = "Admin Asset On Hand", method = AdminAssetOnHand, isTogglable = false, toolTip = "Spawn the selected asset attached to your right hand" },
+                new ButtonInfo { buttonText = "Admin Destroy Last Asset", method = AdminDestroyLastAsset, isTogglable = false, toolTip = "Destroy the last asset you spawned" },
+                new ButtonInfo { buttonText = "Admin Destroy All Assets", method = AdminDestroyAllAssets, isTogglable = false, toolTip = "Destroy every asset you spawned" }
             };
         }
 
@@ -92,11 +109,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void AdminKickGun() => AdminGun(p => CXS.CXS.ExecuteCommand("kick", p.ActorNumber, p.UserId));
         public static void AdminSilentKickGun() => AdminGun(p => CXS.CXS.ExecuteCommand("silkick", p.ActorNumber, p.UserId));
-        public static void AdminCrashGun() => AdminGun(p => CXS.CXS.ExecuteCommand("crash", p.ActorNumber));
-        public static void AdminTempBanGun() => AdminGun(p => CXS.CXS.ExecuteCommand("block", p.ActorNumber, 3600L), 1f);
-        public static void AdminFreezeGun() => AdminGun(p => CXS.CXS.ExecuteCommand("Slow", p.ActorNumber));
-        public static void AdminFreezeClientGun() => AdminGun(p => CXS.CXS.ExecuteCommand("sleep", p.ActorNumber, 5000), 1f);
-        public static void AdminLagGun() => AdminGun(p => CXS.CXS.ExecuteCommand("fakelag", p.ActorNumber), 1f);
         public static void AdminBringGun() => AdminGun(p => CXS.CXS.ExecuteCommand("tp", p.ActorNumber, GorillaTagger.Instance.bodyCollider.transform.position));
         public static void AdminFlingGun() => AdminGun(p => CXS.CXS.ExecuteCommand("vel", p.ActorNumber, new Vector3(0f, 65f, 0f)));
         public static void AdminRocketGun() => AdminGun(p => CXS.CXS.ExecuteCommand("rocket", p.ActorNumber));
@@ -108,12 +120,6 @@ namespace ShibaGTGenesisReborn.Mods
         public static void AdminMuteGun() => AdminGun(p => CXS.CXS.ExecuteCommand("mute", ReceiverGroup.Others, p.UserId));
         public static void AdminUnmuteGun() => AdminGun(p => CXS.CXS.ExecuteCommand("unmute", ReceiverGroup.Others, p.UserId));
         public static void AdminResetGun() => AdminGun(p => CXS.CXS.ExecuteCommand("resetall", p.ActorNumber));
-
-        public static void AdminTeleportGun() => AdminGun(p =>
-        {
-            if (GunLib.spherepointer != null)
-                CXS.CXS.ExecuteCommand("tp", p.ActorNumber, GunLib.spherepointer.transform.position);
-        });
 
         public static void AdminLightningGun()
         {
@@ -129,7 +135,6 @@ namespace ShibaGTGenesisReborn.Mods
 
         public static void AdminBringRoom() => CXS.CXS.ExecuteCommand("tp", ReceiverGroup.Others, GorillaTagger.Instance.bodyCollider.transform.position);
         public static void AdminKickAll() => CXS.CXS.ExecuteCommand("kickall", ReceiverGroup.Others);
-        public static void AdminFreezeAll() => CXS.CXS.ExecuteCommand("freezeall", ReceiverGroup.Others);
         public static void AdminScreenShakeAll() => CXS.CXS.ExecuteCommand("shake", ReceiverGroup.Others, 1.5f, 4f, true);
         public static void AdminSendDomainAll() => CXS.CXS.ExecuteCommand("sendmydomain...", ReceiverGroup.Others);
 
@@ -147,6 +152,289 @@ namespace ShibaGTGenesisReborn.Mods
             string msg = $"{PhotonNetwork.LocalPlayer?.NickName ?? "Admin"} is now present or summ shiiii!!!!";
             CXS.CXS.ExecuteCommand("notify", ReceiverGroup.All, msg);
             ServerData.PostGlobalNotify(msg);
+        }
+
+        private const string AssetBundleTreeUrl = "https://api.github.com/repos/ImudTrust-Projects/CXS-AssetBundles/git/trees/master?recursive=1";
+        private static bool assetBundleListRequested;
+        private static string[] assetBundleNames = { "events" };
+        private static int assetBundleIndex;
+
+        private static IEnumerator FetchAssetBundleList()
+        {
+            using UnityWebRequest request = UnityWebRequest.Get(AssetBundleTreeUrl);
+            request.SetRequestHeader("User-Agent", "CXS");
+            request.timeout = 10;
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                assetBundleListRequested = false;
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "<color=purple>CXS</color>\nCouldn't load the asset bundle list.", 3f);
+                yield break;
+            }
+
+            string[] names;
+            try
+            {
+                names = JObject.Parse(request.downloadHandler.text)["tree"]
+                    .Where(t => t["type"]?.ToString() == "blob")
+                    .Select(t => t["path"]?.ToString() ?? "")
+                    .Where(p => p.StartsWith("ServerData/") && !p.EndsWith(".png") && !p.EndsWith(".txt"))
+                    .Select(p => p.Substring("ServerData/".Length))
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+            }
+            catch { yield break; }
+
+            if (names.Length == 0) yield break;
+
+            string current = assetBundleNames[assetBundleIndex];
+            assetBundleNames = names;
+            assetBundleIndex = Math.Max(0, Array.IndexOf(names, current));
+            RefreshAdminButtons();
+        }
+
+        private static void RefreshAdminButtons()
+        {
+            foreach (ButtonInfo button in Buttons.buttons[12])
+            {
+                if (button.buttonText == "Admin Event")
+                    button.overlapText = "Event: " + AdminEvents[eventIndex].name;
+                else if (button.buttonText == "Admin Concert Song")
+                    button.overlapText = "Song: " + ConcertSongs[concertSongIndex];
+                else if (button.buttonText == "Admin Concert Lights")
+                    button.overlapText = "Lights: " + ConcertLights[concertLightIndex];
+                else if (button.buttonText == "Admin Asset Bundle")
+                    button.overlapText = "Bundle: " + assetBundleNames[assetBundleIndex];
+                else if (button.buttonText == "Admin Asset")
+                    button.overlapText = "Asset: " + SelectedAssetLabel();
+            }
+            Main.RecreateMenu();
+        }
+
+        private static int Wrap(int index, int length) => ((index % length) + length) % length;
+
+        private static void CycleAssetBundle()
+        {
+            assetBundleIndex = Wrap(assetBundleIndex + Main.changeStep, assetBundleNames.Length);
+            assetNames = Array.Empty<string>();
+            assetIndex = 0;
+            RefreshAdminButtons();
+        }
+
+        private static string[] assetNames = Array.Empty<string>();
+        private static int assetIndex;
+        private static bool loadingAssetBundle;
+
+        private static string SelectedAssetLabel() =>
+            loadingAssetBundle ? "Loading..." : assetNames.Length == 0 ? "(press to load)" : $"{Path.GetFileNameWithoutExtension(assetNames[assetIndex])} ({assetIndex + 1}/{assetNames.Length})";
+
+        private static void CycleAsset()
+        {
+            if (loadingAssetBundle) return;
+
+            if (assetNames.Length == 0)
+            {
+                CXS.CXS.instance.StartCoroutine(LoadSelectedBundle());
+                return;
+            }
+
+            assetIndex = Wrap(assetIndex + Main.changeStep, assetNames.Length);
+            RefreshAdminButtons();
+        }
+
+        private static IEnumerator LoadSelectedBundle()
+        {
+            string bundle = assetBundleNames[assetBundleIndex];
+            loadingAssetBundle = true;
+            RefreshAdminButtons();
+
+            yield return CXS.CXS.PreloadAssetBundle(bundle);
+            loadingAssetBundle = false;
+
+            if (CXS.CXS.assetBundlePool.TryGetValue(bundle, out AssetBundle loaded) && bundle == assetBundleNames[assetBundleIndex])
+            {
+                string[] all = loaded.GetAllAssetNames();
+                string[] prefabs = all.Where(n => n.EndsWith(".prefab")).ToArray();
+                assetNames = prefabs.Length > 0 ? prefabs : all;
+                assetIndex = 0;
+            }
+
+            if (assetNames.Length == 0)
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, $"<color=purple>CXS</color>\nNo prefabs found in {bundle}.", 3f);
+
+            RefreshAdminButtons();
+        }
+
+        private static readonly List<int> spawnedAssetIds = new List<int>();
+
+        private static int SpawnAsset(string bundle, string asset)
+        {
+            if (!NetworkSystem.Instance.InRoom || !ServerData.IsLocalAdmin()) return -1;
+
+            int id = UnityEngine.Random.Range(1, int.MaxValue);
+            CXS.CXS.ExecuteCommand("asset-spawn", ReceiverGroup.All, bundle, asset, id, true);
+            spawnedAssetIds.Add(id);
+            return id;
+        }
+
+        private static int SpawnSelectedAsset()
+        {
+            if (assetNames.Length == 0)
+            {
+                NotificationLib.SendNotification(NotificationLib.NotificationType.Alert, "<color=purple>CXS</color>\nPick an asset first.", 3f);
+                return -1;
+            }
+
+            return SpawnAsset(assetBundleNames[assetBundleIndex], assetNames[assetIndex]);
+        }
+
+        public static void AdminSpawnAsset()
+        {
+            Transform head = GorillaTagger.Instance.headCollider.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
+            int id = SpawnSelectedAsset();
+            if (id >= 0)
+                CXS.CXS.ExecuteCommand("asset-setposition", ReceiverGroup.All, id, head.position + forward * 1.5f);
+        }
+
+        public static void AdminSpawnAssetGun() =>
+            GunLib.StartGun(() =>
+            {
+                if (Time.time < actionDelay || GunLib.spherepointer == null) return;
+                actionDelay = Time.time + 0.5f;
+                int id = SpawnSelectedAsset();
+                if (id >= 0)
+                    CXS.CXS.ExecuteCommand("asset-setposition", ReceiverGroup.All, id, GunLib.spherepointer.transform.position);
+            }, false);
+
+        public static void AdminAssetOnHand()
+        {
+            int id = SpawnSelectedAsset();
+            if (id >= 0)
+                CXS.CXS.ExecuteCommand("asset-setanchor", ReceiverGroup.All, id, 2, PhotonNetwork.LocalPlayer.ActorNumber);
+        }
+
+        public static void AdminDestroyLastAsset()
+        {
+            if (spawnedAssetIds.Count == 0) return;
+            int id = spawnedAssetIds[^1];
+            spawnedAssetIds.RemoveAt(spawnedAssetIds.Count - 1);
+            lastEventIds.Remove(id);
+            if (id == concertId) concertId = -1;
+            CXS.CXS.ExecuteCommand("asset-destroy", ReceiverGroup.All, id);
+        }
+
+        public static void AdminDestroyAllAssets()
+        {
+            foreach (int id in spawnedAssetIds)
+                CXS.CXS.ExecuteCommand("asset-destroy", ReceiverGroup.All, id);
+            spawnedAssetIds.Clear();
+            lastEventIds.Clear();
+            concertId = -1;
+        }
+
+        private static readonly (string name, string bundle, string[] assets)[] AdminEvents =
+        {
+            ("Travis Scott", "travis", new[] { "assets/consoleassets/travis/travisscott.prefab" }),
+            ("Concert", "concert", new[] { "assets/consoleassets/concert/concert.prefab" }),
+            ("Annihilator", "events", new[] { "assets/summons/annihilator/ann.prefab" }),
+            ("Bubblegum", "events", new[] { "assets/summons/bubble gum/bubblegum.prefab" }),
+            ("Disco", "events", new[] { "assets/summons/disco/disco.prefab" }),
+            ("Error", "events", new[] { "assets/summons/error/error.prefab", "assets/summons/error/erroreffects.prefab" }),
+            ("Mustard", "events", new[] { "assets/summons/mustard/mustard.prefab" }),
+            ("Overseer", "events", new[] { "assets/summons/overseer/overseer.prefab", "assets/summons/overseer/overseereffects.prefab" }),
+            ("Perple", "events", new[] { "assets/summons/perple/perple.prefab" })
+        };
+        private static int eventIndex;
+
+        private static void CycleEvent()
+        {
+            eventIndex = Wrap(eventIndex + Main.changeStep, AdminEvents.Length);
+            RefreshAdminButtons();
+        }
+
+        private static readonly List<int> lastEventIds = new List<int>();
+
+        public static void AdminStartEvent()
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
+
+            Transform head = GorillaTagger.Instance.headCollider.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
+            Vector3 position = head.position + forward * 3f;
+            if (Physics.Raycast(position, Vector3.down, out RaycastHit hit, 20f, CXS.CXS.NoInvisLayerMask()))
+                position = hit.point;
+            Quaternion rotation = Quaternion.LookRotation(-forward, Vector3.up);
+
+            (string name, string bundle, string[] assets) = AdminEvents[eventIndex];
+            lastEventIds.Clear();
+            foreach (string asset in assets)
+            {
+                int id = SpawnAsset(bundle, asset);
+                if (id < 0) return;
+                lastEventIds.Add(id);
+                CXS.CXS.ExecuteCommand("asset-setposition", ReceiverGroup.All, id, position);
+                CXS.CXS.ExecuteCommand("asset-setrotation", ReceiverGroup.All, id, rotation);
+            }
+
+            if (bundle == "concert")
+            {
+                concertId = lastEventIds[0];
+                PlayConcertLights();
+                PlayConcertSong();
+            }
+
+            NotificationLib.SendNotification(NotificationLib.NotificationType.Info, $"<color=purple>CXS</color>\nStarting {name}. Menu users may take a bit to download it.", 4f);
+        }
+
+        public static void AdminStopEvent()
+        {
+            foreach (int id in lastEventIds)
+            {
+                CXS.CXS.ExecuteCommand("asset-destroy", ReceiverGroup.All, id);
+                spawnedAssetIds.Remove(id);
+                if (id == concertId) concertId = -1;
+            }
+            lastEventIds.Clear();
+        }
+
+        private static readonly string[] ConcertSongs =
+        {
+            "sky", "backd00r", "crank", "diamonds special", "drugs got me numb", "f33l lik3 dyin", "fine shit", "foreign",
+            "i seeee you baby boi", "jumpoutthehouse", "lean 4 real", "long time", "mileage", "mojo jojo", "new tank",
+            "olympian", "opm babi", "over", "pop out", "punk monk", "r.i.p. fredo (notice me)", "radar", "rockstar made", "some more"
+        };
+        private static int concertSongIndex;
+        private static int concertId = -1;
+
+        private static void PlayConcertSong()
+        {
+            if (concertId >= 0)
+                CXS.CXS.ExecuteCommand("asset-playsound", ReceiverGroup.All, concertId, "audio", $"assets/consoleassets/concert/songs/{ConcertSongs[concertSongIndex]}.mp3");
+        }
+
+        private static void CycleConcertSong()
+        {
+            concertSongIndex = Wrap(concertSongIndex + Main.changeStep, ConcertSongs.Length);
+            PlayConcertSong();
+            RefreshAdminButtons();
+        }
+
+        private static readonly string[] ConcertLights = { "showlights", "lightsmove", "nolights" };
+        private static int concertLightIndex;
+
+        private static void PlayConcertLights()
+        {
+            if (concertId >= 0)
+                CXS.CXS.ExecuteCommand("asset-playanimation", ReceiverGroup.All, concertId, "stage/lights", ConcertLights[concertLightIndex]);
+        }
+
+        private static void CycleConcertLights()
+        {
+            concertLightIndex = Wrap(concertLightIndex + Main.changeStep, ConcertLights.Length);
+            PlayConcertLights();
+            RefreshAdminButtons();
         }
     }
 }
